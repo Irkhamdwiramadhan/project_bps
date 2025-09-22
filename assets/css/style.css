@@ -1,0 +1,269 @@
+/* Custom CSS untuk mengatur layout utama */
+body {
+    background-color: #f4f7f9;
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Mengatur tata letak utama konten dengan mengimbangi sidebar */
+.main-content {
+    margin-left: 250px; /* Sesuaikan dengan lebar sidebar Anda */
+    padding: 20px;
+    background-color: #f4f7f9;
+    min-height: calc(100vh - 80px); /* Menyesuaikan tinggi dengan header dan footer */
+    box-sizing: border-box; /* Tambahkan ini agar padding tidak membuat elemen melebar */
+}
+
+/* Mengatur header konten dengan tombol Kembali */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0 20px 0;
+    border-bottom: 3px solid #007bff;
+    flex-wrap: wrap; /* Tambahkan ini untuk wrapping di layar kecil */
+}
+
+/* Mengatur judul halaman */
+.header-content h2 {
+    font-size: 1.8rem;
+    color: #333;
+    margin: 0;
+    font-weight: 600;
+    padding-bottom: 5px;
+}
+
+/* Mengatur gaya tombol utama */
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+.btn-primary {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+}
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+.btn-secondary {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #ced4da;
+}
+.btn-secondary:hover {
+    background-color: #e2e6ea;
+    color: #5a6268;
+}
+
+/* Mengatur card utama */
+.card {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    margin-bottom: 25px;
+    transition: transform 0.3s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-5px);
+}
+.card-description {
+    background-color: #e3f2fd;
+    border-left: 5px solid #2196f3;
+    box-shadow: none;
+    transition: none;
+}
+
+/* Mengatur tata letak grid untuk form */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+    align-items: flex-start;
+}
+
+/* Mengatur grup form */
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Mengatur label */
+label {
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+/* Mengatur input dan select */
+input[type="text"],
+input[type="date"],
+input[type="number"],
+input[type="email"],
+input[type="file"],
+select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 1rem;
+    transition: all 0.3s ease-in-out;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Mengatur grup tombol aksi */
+.btn-action-group {
+    margin-top: 30px;
+}
+
+/* Description card styles */
+.card-description h3 {
+    color: #1976d2;
+    display: flex;
+    align-items: center;
+    margin-top: 0;
+}
+.card-description h3 i {
+    margin-right: 10px;
+}
+.description-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+.desc-item {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+.desc-item strong {
+    display: block;
+    margin-bottom: 10px;
+    color: #333;
+}
+.desc-item ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+.desc-item li {
+    margin-bottom: 5px;
+}
+
+/* Table styles */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    display: block; /* Tambahkan ini */
+    overflow-x: auto; /* Tambahkan ini untuk scroll horizontal */
+    white-space: nowrap; /* Tambahkan ini */
+}
+
+/* Buat sel tabel responsif */
+.data-table th, .data-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+    min-width: 120px; /* Tambahkan min-width agar tidak terlalu kecil */
+}
+
+.data-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+}
+.data-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Action button styles */
+.btn-action {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease;
+    margin-right: 5px;
+}
+.btn-action.detail {
+    background-color: #17a2b8;
+    color: #fff;
+}
+.btn-action.delete {
+    background-color: #dc3545;
+    color: #fff;
+}
+.btn-action:hover {
+    opacity: 0.8;
+}
+
+/* Status badges */
+.status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-right: 5px;
+    color: #fff;
+}
+.status.hadir-awal, .status.hadir { background-color: #28a745; } /* Green */
+.status.telat-1, .status.telat-2, .status.telat-3 { background-color: #ffc107; } /* Yellow */
+.status.izin, .status.cuti { background-color: #17a2b8; } /* Cyan */
+.status.absen, .status.sakit { background-color: #dc3545; } /* Red */
+.status.dinas-luar, .status.tugas { background-color: #007bff; } /* Blue */
+
+/* Chart container styling */
+#kehadiran-charts-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 40px;
+}
+.chart-wrapper {
+    width: 450px;
+    height: 450px;
+}
+
+/* Media query untuk tampilan mobile */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0; /* Hapus margin di layar kecil */
+    }
+    .form-grid {
+        grid-template-columns: 1fr; /* Mengubah menjadi satu kolom */
+    }
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .header-content h2 {
+        margin-bottom: 15px;
+    }
+    .chart-wrapper {
+        width: 100%;
+        height: auto;
+    }
+    .data-table {
+        font-size: 0.8rem; /* Ukuran font lebih kecil untuk tabel */
+    }
+}

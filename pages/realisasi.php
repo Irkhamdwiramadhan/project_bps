@@ -14,19 +14,13 @@ $tahun_filter = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date("Y");
 // Ambil daftar tahun
 $daftar_tahun = [];
 if ($role_user === 'super_admin' || $role_user === 'admin_TU') {
-    // gunakan alias agar konsisten
-    $tahun_query = "
-        SELECT tahun FROM master_item
-        UNION ALL
-        SELECT tahun FROM rpd
-        ORDER BY tahun DESC
-    ";
+    $tahun_query = "SELECT DISTINCT tahun FROM master_item UNION SELECT DISTINCT tahun FROM rpd ORDER BY tahun DESC";
     $stmt_tahun  = $koneksi->prepare($tahun_query);
 } else {
     $tahun_query = "SELECT DISTINCT mi.tahun 
                     FROM master_item mi
                     INNER JOIN akun_pengelola_tahun apt 
-                           ON mi.id_akun = apt.akun_id AND apt.tahun = mi.tahun
+                            ON mi.id_akun = apt.akun_id AND apt.tahun = mi.tahun
                     WHERE apt.id_pengelola = ? 
                     ORDER BY mi.tahun DESC";
     $stmt_tahun  = $koneksi->prepare($tahun_query);
@@ -54,9 +48,11 @@ if ($tahun_filter !== null) {
                     mi.id AS id_item,
                     mi.nama_item,
                     mi.pagu,
+                    mu.nama AS unit_nama,
+                    mp.nama AS program_nama,
+                    mo.nama AS output_nama,
                     ma.nama AS akun_nama,
                     mk.nama AS komponen_nama,
-                    mo.nama AS output_nama,
                     COALESCE(SUM(rpd.jumlah),0) AS total_rpd,
                     COALESCE(SUM(realisasi.jumlah),0) AS total_realisasi
                 FROM master_item mi
@@ -64,11 +60,12 @@ if ($tahun_filter !== null) {
                 LEFT JOIN master_komponen mk ON ma.id_komponen = mk.id
                 LEFT JOIN master_output mo   ON mk.id_output = mo.id
                 LEFT JOIN master_program mp  ON mo.id_program = mp.id
+                LEFT JOIN master_unit mu   ON mp.id_unit = mu.id
                 LEFT JOIN rpd ON mi.id = rpd.id_item AND rpd.tahun = mi.tahun
                 LEFT JOIN realisasi ON rpd.id = realisasi.id_rpd
                 WHERE mi.tahun = ?
-                GROUP BY mi.id
-                ORDER BY mk.nama, ma.nama, mi.nama_item ASC";
+                GROUP BY mi.id, mu.nama, mp.nama, mo.nama, mk.nama, ma.nama
+                ORDER BY mu.nama, mp.nama, mo.nama, mk.nama, ma.nama, mi.nama_item ASC";
         $stmt = $koneksi->prepare($sql);
         $stmt->bind_param("i", $tahun_filter);
     } else {
@@ -76,9 +73,11 @@ if ($tahun_filter !== null) {
                     mi.id AS id_item,
                     mi.nama_item,
                     mi.pagu,
+                    mu.nama AS unit_nama,
+                    mp.nama AS program_nama,
+                    mo.nama AS output_nama,
                     ma.nama AS akun_nama,
                     mk.nama AS komponen_nama,
-                    mo.nama AS output_nama,
                     COALESCE(SUM(rpd.jumlah),0) AS total_rpd,
                     COALESCE(SUM(realisasi.jumlah),0) AS total_realisasi
                 FROM master_item mi
@@ -86,13 +85,14 @@ if ($tahun_filter !== null) {
                 LEFT JOIN master_komponen mk ON ma.id_komponen = mk.id
                 LEFT JOIN master_output mo   ON mk.id_output = mo.id
                 LEFT JOIN master_program mp  ON mo.id_program = mp.id
+                LEFT JOIN master_unit mu   ON mp.id_unit = mu.id
                 LEFT JOIN rpd ON mi.id = rpd.id_item AND rpd.tahun = mi.tahun
                 LEFT JOIN realisasi ON rpd.id = realisasi.id_rpd
                 INNER JOIN akun_pengelola_tahun apt 
                         ON mi.id_akun = apt.akun_id AND apt.tahun = mi.tahun
                 WHERE mi.tahun = ? AND apt.id_pengelola = ?
-                GROUP BY mi.id
-                ORDER BY mk.nama, ma.nama, mi.nama_item ASC";
+                GROUP BY mi.id, mu.nama, mp.nama, mo.nama, mk.nama, ma.nama
+                ORDER BY mu.nama, mp.nama, mo.nama, mk.nama, ma.nama, mi.nama_item ASC";
         $stmt = $koneksi->prepare($sql);
         $stmt->bind_param("ii", $tahun_filter, $id_user);
     }
@@ -102,7 +102,6 @@ if ($tahun_filter !== null) {
     $stmt->close();
 }
 ?>
-
 
 <style>
 .main-content { padding:30px; background:#f7f9fc; }
@@ -118,11 +117,20 @@ if ($tahun_filter !== null) {
 .data-table thead tr:nth-child(3) th { top:80px; }
 .data-table td.col-left { text-align:left; }
 .data-table .total-cell, .data-table .pagu-cell, .data-table .sisa-cell { font-weight:bold; }
-.text-muted { color:#6c7d7d; }
+.text-muted { color:#6c757d; }
 .year-buttons { display:flex; gap:5px; align-items:center; margin-bottom:15px; }
 .year-buttons .btn { border:1px solid #e0e0e0; color:#333; background:#f8f9fa; border-radius:5px; padding:8px 15px; text-decoration:none; font-size:0.9rem; }
 .year-buttons .btn.active { background:#007bff; color:#fff; border-color:#007bff; }
 .add-rpd-button-container { text-align:right; margin-bottom:20px; }
+
+/* Tambahan CSS untuk Hierarki */
+.hierarchy-row td { font-weight: bold; border-bottom: none; }
+.level-unit { color:#004d99; }
+.level-program { color:#196f3d; padding-left:20px !important; }
+.level-output { color:#d68910; padding-left:40px !important; }
+.level-komponen { color:#5b2c6f; padding-left:60px !important; }
+.level-akun { color:#515a5a; padding-left:80px !important; }
+.level-item { font-weight:normal; padding-left:100px !important; }
 </style>
 
 <main class="main-content">
@@ -150,12 +158,12 @@ if ($tahun_filter !== null) {
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th rowspan="2">Uraian Anggaran</th>
+                            <th rowspan="3">Uraian Anggaran</th>
                             <th colspan="24">Rencana Per Bulan</th>
-                            <th rowspan="2">Total RPD</th>
-                            <th rowspan="2">Total Realisasi</th>
-                            <th rowspan="2">Total Anggaran</th>
-                            <th rowspan="2">Sisa Anggaran</th>
+                            <th rowspan="3">Total RPD</th>
+                            <th rowspan="3">Total Realisasi</th>
+                            <th rowspan="3">Pagu Anggaran</th>
+                            <th rowspan="3">Sisa Anggaran</th>
                         </tr>
                         <tr>
                             <?php for ($i=1;$i<=12;$i++): ?>
@@ -163,37 +171,58 @@ if ($tahun_filter !== null) {
                             <?php endfor; ?>
                         </tr>
                         <tr>
-                            <th></th>
                             <?php for ($i=1;$i<=12;$i++): ?>
                                 <th>RPD</th><th>Real</th>
                             <?php endfor; ?>
-                            <th></th><th></th><th></th><th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (!empty($data_anggaran)): ?>
-                            <?php 
-                            $prev_komponen = null; $prev_akun = null;
+                        <?php if (!empty($data_anggaran)):
+                            $prev_unit = $prev_program = $prev_output = $prev_komponen = $prev_akun = null;
                             foreach ($data_anggaran as $row):
+                                // Cek dan cetak baris hierarki untuk Unit
+                                if ($row['unit_nama'] !== $prev_unit): ?>
+                                    <tr class="hierarchy-row"><td colspan="29" class="col-left level-unit"><?= htmlspecialchars($row['unit_nama']) ?></td></tr>
+                                    <?php $prev_unit = $row['unit_nama'];
+                                    $prev_program = $prev_output = $prev_komponen = $prev_akun = null;
+                                endif;
+
+                                // Cek dan cetak baris hierarki untuk Program
+                                if ($row['program_nama'] !== $prev_program): ?>
+                                    <tr class="hierarchy-row"><td colspan="29" class="col-left level-program"><?= htmlspecialchars($row['program_nama']) ?></td></tr>
+                                    <?php $prev_program = $row['program_nama'];
+                                    $prev_output = $prev_komponen = $prev_akun = null;
+                                endif;
+
+                                // Cek dan cetak baris hierarki untuk Output
+                                if ($row['output_nama'] !== $prev_output): ?>
+                                    <tr class="hierarchy-row"><td colspan="29" class="col-left level-output"><?= htmlspecialchars($row['output_nama']) ?></td></tr>
+                                    <?php $prev_output = $row['output_nama'];
+                                    $prev_komponen = $prev_akun = null;
+                                endif;
+
+                                // Cek dan cetak baris hierarki untuk Komponen
                                 if ($row['komponen_nama'] !== $prev_komponen): ?>
-                                    <tr class="hierarchy-row"><td colspan="27" class="col-left text-muted" style="padding-left:10px;font-style:italic;">Komponen: <?= htmlspecialchars($row['komponen_nama']) ?></td></tr>
+                                    <tr class="hierarchy-row"><td colspan="29" class="col-left level-komponen">Komponen: <?= htmlspecialchars($row['komponen_nama']) ?></td></tr>
                                     <?php $prev_komponen = $row['komponen_nama'];
                                 endif;
+
+                                // Cek dan cetak baris hierarki untuk Akun
                                 if ($row['akun_nama'] !== $prev_akun): ?>
-                                    <tr class="hierarchy-row"><td colspan="27" class="col-left text-muted" style="padding-left:30px;">Akun: <?= htmlspecialchars($row['akun_nama']) ?></td></tr>
+                                    <tr class="hierarchy-row"><td colspan="29" class="col-left level-akun">Akun: <?= htmlspecialchars($row['akun_nama']) ?></td></tr>
                                     <?php $prev_akun = $row['akun_nama'];
                                 endif;
                             ?>
                             <tr>
-                                <td class="col-left" style="padding-left:50px;"><?= htmlspecialchars($row['nama_item']) ?></td>
+                                <td class="col-left level-item"><?= htmlspecialchars($row['nama_item']) ?></td>
                                 <?php
                                 $sql_detail = "SELECT rpd.bulan,
-                                                  COALESCE(SUM(rpd.jumlah),0) AS jumlah_rpd,
-                                                  COALESCE(SUM(realisasi.jumlah),0) AS jumlah_realisasi
-                                               FROM rpd
-                                               LEFT JOIN realisasi ON rpd.id = realisasi.id_rpd
-                                               WHERE rpd.id_item = ? AND rpd.tahun = ?
-                                               GROUP BY rpd.bulan ORDER BY rpd.bulan";
+                                                    COALESCE(SUM(rpd.jumlah),0) AS jumlah_rpd,
+                                                    COALESCE(SUM(realisasi.jumlah),0) AS jumlah_realisasi
+                                                FROM rpd
+                                                LEFT JOIN realisasi ON rpd.id = realisasi.id_rpd
+                                                WHERE rpd.id_item = ? AND rpd.tahun = ?
+                                                GROUP BY rpd.bulan ORDER BY rpd.bulan";
                                 $stmt_detail = $koneksi->prepare($sql_detail);
                                 $stmt_detail->bind_param("ii", $row['id_item'], $tahun_filter);
                                 $stmt_detail->execute();
@@ -216,9 +245,9 @@ if ($tahun_filter !== null) {
                                 <td class="pagu-cell"><?= number_format($row['pagu'],0,',','.') ?></td>
                                 <td class="sisa-cell"><?= number_format($row['pagu'] - $row['total_realisasi'],0,',','.') ?></td>
                             </tr>
-                            <?php endforeach; ?>
+                        <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="27" class="text-center text-muted">Tidak ada data anggaran untuk tahun ini.</td></tr>
+                            <tr><td colspan="29" class="text-center text-muted">Tidak ada data anggaran untuk tahun ini.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>

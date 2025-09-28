@@ -1,187 +1,204 @@
 <?php
-// jangan ada spasi / output di atas PHP tag
+// Jangan ada spasi atau output apa pun sebelum tag PHP ini
 session_start();
 include '../includes/koneksi.php';
 
-// validasi role (lakukan sebelum ada output HTML supaya redirect aman)
-if (!isset($_SESSION['user_role']) || !in_array('super_admin', $_SESSION['user_role'])) {
-    // jika ingin redirect ke login, gunakan header() lalu exit; kita tampilkan pesan saja
-    die("Akses ditolak. Anda tidak memiliki izin.");
+// =========================================================================
+// BAGIAN 1: LOGIKA & PEMROSESAN DATA (SEMUA PHP DI ATAS)
+// =========================================================================
+
+// Validasi hak akses pengguna
+$user_roles = $_SESSION['user_role'] ?? [];
+$allowed_roles = ['super_admin', 'admin_dipaku'];
+if (empty(array_intersect($user_roles, $allowed_roles))) {
+    // Anda bisa redirect ke halaman login atau menampilkan pesan error
+    die("Akses ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.");
 }
 
-// ambil id_akun dan tahun (tahun optional dari GET; default current year)
-$id_akun = isset($_GET['id_akun']) ? (int) $_GET['id_akun'] : 0;
-$tahun  = isset($_GET['tahun']) ? (int) $_GET['tahun'] : (int) date('Y');
+// Ambil dan validasi parameter dari URL (GET)
+$id_akun = filter_input(INPUT_GET, 'id_akun', FILTER_VALIDATE_INT);
+$tahun   = filter_input(INPUT_GET, 'tahun', FILTER_VALIDATE_INT) ?: (int) date('Y'); // Default tahun sekarang jika tidak ada
 
-if ($id_akun <= 0) {
-    die("Parameter id_akun tidak valid.");
+if (!$id_akun) {
+    die("Parameter ID Akun tidak valid atau tidak ditemukan.");
 }
 
-// ambil info akun (jangan keluarkan header/footer sebelum proses insert)
+// Ambil informasi akun dari database
 $akun = null;
-if ($stmtA = $koneksi->prepare("SELECT id, nama FROM master_akun WHERE id = ? LIMIT 1")) {
-    $stmtA->bind_param("i", $id_akun);
-    $stmtA->execute();
-    $resA = $stmtA->get_result();
-    if ($resA && $resA->num_rows > 0) {
-        $akun = $resA->fetch_assoc();
-    }
-    $stmtA->close();
+$stmt_akun = $koneksi->prepare("SELECT nama FROM master_akun WHERE id = ? LIMIT 1");
+$stmt_akun->bind_param("i", $id_akun);
+$stmt_akun->execute();
+$result_akun = $stmt_akun->get_result();
+if ($result_akun->num_rows > 0) {
+    $akun = $result_akun->fetch_assoc();
 }
+$stmt_akun->close();
+
 if (!$akun) {
-    die("Data akun tidak ditemukan.");
+    die("Data Akun dengan ID {$id_akun} tidak ditemukan.");
 }
 
-// proses simpan (POST) — lakukan sebelum include header.php agar header() aman
-$error = '';
+// Inisialisasi variabel untuk form
+$error_message = '';
+$nama_item = $satuan = $volume = $harga = '';
+
+// Proses form jika metode adalah POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // ambil input
-    $nama_item_raw = $_POST['nama_item'] ?? '';
-    $satuan_raw    = $_POST['satuan'] ?? '';
-    $volume_raw    = $_POST['volume'] ?? '0';
-    $harga_raw     = $_POST['harga'] ?? '0';
+    // Ambil dan bersihkan input dari form
+    $nama_item = trim(filter_input(INPUT_POST, 'nama_item', FILTER_SANITIZE_STRING));
+    $satuan    = trim(filter_input(INPUT_POST, 'satuan', FILTER_SANITIZE_STRING));
+    $volume    = filter_input(INPUT_POST, 'volume', FILTER_VALIDATE_INT);
+    $harga_raw = $_POST['harga'] ?? '0';
 
-    $nama_item = trim($nama_item_raw);
-    $satuan    = trim($satuan_raw);
-    $volume    = (int) $volume_raw;
-
-    // normalisasi harga: terima format 150000, 150.000, 150,000
-    $harga_clean = str_replace(['.', ' '], '', $harga_raw); // hapus titik & spasi
-    // jika ada koma dan tidak ada titik, kemungkinan "150,50" -> ganti koma dengan titik
-    if (strpos($harga_clean, ',') !== false && strpos($harga_clean, '.') === false) {
-        $harga_clean = str_replace(',', '.', $harga_clean);
-    } else {
-        // jika masih ada koma setelah penghapusan titik, ganti dengan titik
-        $harga_clean = str_replace(',', '.', $harga_clean);
-    }
-    // pastikan numeric
-    $harga = (float) $harga_clean;
-
-    // hitung pagu (server-side)
+    // Normalisasi harga: hapus semua karakter kecuali angka dan koma
+    $harga_clean = preg_replace('/[^0-9,]/', '', $harga_raw);
+    // Ganti koma dengan titik untuk desimal
+    $harga = (float) str_replace(',', '.', $harga_clean);
+    
+    // Kalkulasi pagu di sisi server untuk memastikan keakuratan
     $pagu = $volume * $harga;
 
-    // validasi
-    if ($nama_item === '') {
-        $error = "Nama item wajib diisi.";
-    } elseif ($volume < 0) {
-        $error = "Volume tidak valid.";
+    // Validasi input
+    if (empty($nama_item)) {
+        $error_message = "Nama item wajib diisi.";
+    } elseif ($volume === false || $volume < 0) {
+        $error_message = "Volume harus berupa angka yang valid dan tidak boleh negatif.";
     } elseif ($harga < 0) {
-        $error = "Harga tidak valid.";
+        $error_message = "Harga harus berupa angka yang valid dan tidak boleh negatif.";
     } else {
-        // simpan ke DB (prepared statement)
-        $sql = "INSERT INTO master_item (id_akun, tahun, nama_item, satuan, volume, harga, pagu) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        if ($stmt = $koneksi->prepare($sql)) {
-            // bind: id_akun (i), tahun (i), nama_item (s), satuan (s), volume (i), harga (d), pagu (d)
-            $stmt->bind_param("iissidd", $id_akun, $tahun, $nama_item, $satuan, $volume, $harga, $pagu);
-            if ($stmt->execute()) {
-                $stmt->close();
-                // redirect kembali ke halaman master_data (lokasi relatif; sesuaikan jika perlu)
-                header("Location: master_data.php?tahun=" . $tahun);
-                exit;
-            } else {
-                $error = "Gagal menyimpan: " . $koneksi->error;
-                $stmt->close();
-            }
+        // Jika validasi lolos, simpan ke database
+        $sql_insert = "INSERT INTO master_item (akun_id, tahun, nama_item, satuan, volume, harga, pagu) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $stmt_insert = $koneksi->prepare($sql_insert);
+        // Tipe data: i (integer), i, s (string), s, i, d (double), d
+        $stmt_insert->bind_param("iissidd", $id_akun, $tahun, $nama_item, $satuan, $volume, $harga, $pagu);
+
+        if ($stmt_insert->execute()) {
+            // Jika berhasil, siapkan pesan sukses dan redirect
+            $_SESSION['flash_message'] = "Item '{$nama_item}' berhasil ditambahkan.";
+            $_SESSION['flash_message_type'] = 'success';
+            header("Location: manajemen_anggaran.php?tahun=" . $tahun);
+            exit;
         } else {
-            $error = "Gagal menyiapkan query: " . $koneksi->error;
+            // Jika gagal, tampilkan error
+            $error_message = "Gagal menyimpan data ke database: " . $stmt_insert->error;
         }
+        $stmt_insert->close();
     }
 }
 
-// setelah proses POST selesai / jika GET, sekarang boleh include header dan render form
+// =========================================================================
+// BAGIAN 2: TAMPILAN HTML (SETELAH SEMUA LOGIKA PHP SELESAI)
+// =========================================================================
 include '../includes/header.php';
 include '../includes/sidebar.php';
 ?>
+
 <style>
-.form-container { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.05); margin-top:20px; }
-.form-group { margin-bottom:12px; }
+:root {
+    --primary-blue: #0A2E5D;
+}
+.main-content { padding: 30px; background:#f7f9fc; }
+.form-card { background:#fff; padding:30px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.05); }
+.form-title { font-size:1.5rem; font-weight:700; margin-bottom:5px; color: var(--primary-blue); }
+.form-subtitle { margin-bottom: 20px; color: #6c757d; }
+.form-group label { font-weight: 600; }
+.btn-primary { background-color: var(--primary-blue); border-color: var(--primary-blue); }
 </style>
 
 <main class="main-content">
   <div class="container">
-    <div class="form-container">
-      <h3>Tambah Item untuk Akun: <?= htmlspecialchars($akun['nama']) ?></h3>
+    <div class="form-card">
+      <h2 class="form-title">Tambah Item Anggaran</h2>
+      <p class="form-subtitle">Untuk Akun: <strong><?= htmlspecialchars($akun['nama']) ?></strong> (Tahun Anggaran <?= htmlspecialchars($tahun) ?>)</p>
 
-      <?php if ($error): ?>
-        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+      <?php if ($error_message): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($error_message) ?></div>
       <?php endif; ?>
 
-      <form method="post" novalidate>
-        <!-- tahun tidak ditampilkan sebagai input, server akan gunakan $tahun (GET atau current year) -->
+      <form method="post" id="addItemForm" novalidate>
         <div class="form-group">
-          <label>Tahun</label>
-          <div><strong><?= htmlspecialchars($tahun) ?></strong></div>
+          <label for="nama_item">Nama Item / Uraian <span class="text-danger">*</span></label>
+          <input type="text" name="nama_item" id="nama_item" class="form-control" required value="<?= htmlspecialchars($nama_item) ?>">
         </div>
-
-        <div class="form-group">
-          <label for="nama_item">Nama Item <span style="color:#d00">*</span></label>
-          <input type="text" name="nama_item" id="nama_item" class="form-control" required value="<?= isset($_POST['nama_item']) ? htmlspecialchars($_POST['nama_item']) : '' ?>">
-        </div>
-
-        <div class="form-group">
-          <label for="satuan">Satuan</label>
-          <input type="text" name="satuan" id="satuan" class="form-control" value="<?= isset($_POST['satuan']) ? htmlspecialchars($_POST['satuan']) : '' ?>">
-        </div>
-
-        <div class="form-group">
-          <label for="volume">Volume</label>
-          <input type="number" name="volume" id="volume" class="form-control" required min="0" step="1" value="<?= isset($_POST['volume']) ? (int)$_POST['volume'] : '0' ?>">
+        
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="volume">Volume</label>
+                <input type="number" name="volume" id="volume" class="form-control" min="0" step="1" value="<?= htmlspecialchars($volume) ?>">
+            </div>
+            <div class="form-group col-md-6">
+                <label for="satuan">Satuan</label>
+                <input type="text" name="satuan" id="satuan" class="form-control" value="<?= htmlspecialchars($satuan) ?>">
+            </div>
         </div>
 
         <div class="form-group">
           <label for="harga">Harga Satuan (Rp)</label>
-          <input type="text" name="harga" id="harga" class="form-control" required value="<?= isset($_POST['harga']) ? htmlspecialchars($_POST['harga']) : '' ?>">
-          <small class="form-text text-muted">Contoh: 150000 atau 150.000 atau 150,000</small>
+          <input type="text" name="harga" id="harga" class="form-control" value="<?= htmlspecialchars($harga) ?>">
+          <small class="form-text text-muted">Contoh: 150000 atau 150.000</small>
         </div>
 
         <div class="form-group">
-          <label for="pagu">Total Pagu</label>
-          <input type="text" id="pagu" class="form-control" readonly value="Rp 0">
+          <label for="pagu">Total Pagu (Otomatis)</label>
+          <input type="text" id="pagu" class="form-control" readonly style="background-color: #e9ecef; cursor: not-allowed;">
         </div>
-
-        <button type="submit" class="btn btn-primary">Simpan</button>
-        <a href="master_data.php?tahun=<?= $tahun ?>" class="btn btn-secondary">Batal</a>
+        
+        <hr>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Item</button>
+        <a href="../pages/master_data.php?tahun=<?= $tahun ?>" class="btn btn-secondary">Batal</a>
       </form>
     </div>
   </div>
 </main>
 
 <script>
-// Auto-hitung pagu (client-side) — hanya untuk preview UX
 document.addEventListener('DOMContentLoaded', function() {
     const volumeEl = document.getElementById('volume');
     const hargaEl  = document.getElementById('harga');
     const paguEl   = document.getElementById('pagu');
+    const form     = document.getElementById('addItemForm');
 
+    // Fungsi untuk membersihkan nilai input harga
     function parseHargaInput(val) {
         if (!val) return 0;
-        // hapus titik/spasi ribuan, ganti koma ke titik
-        let cleaned = val.replace(/\s/g, '').replace(/\./g, '');
-        if (cleaned.indexOf(',') !== -1 && cleaned.indexOf('.') === -1) {
-            cleaned = cleaned.replace(',', '.');
-        } else {
-            cleaned = cleaned.replace(',', '.');
-        }
-        let num = parseFloat(cleaned);
-        return isNaN(num) ? 0 : num;
+        // Hapus semua karakter kecuali angka dan koma
+        const cleaned = val.toString().replace(/[^0-9,]/g, '');
+        // Ganti koma dengan titik untuk kalkulasi
+        const numericString = cleaned.replace(',', '.');
+        return parseFloat(numericString) || 0;
     }
 
+    // Fungsi untuk memformat angka ke format Rupiah
     function formatIDR(n) {
-        return new Intl.NumberFormat('id-ID').format(n);
+        return new Intl.NumberFormat('id-ID', { 
+            style: 'currency', 
+            currency: 'IDR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(n);
     }
 
-    function hitung() {
-        const v = parseInt(volumeEl.value) || 0;
-        const h = parseHargaInput(hargaEl.value) || 0;
-        const total = v * h;
-        paguEl.value = 'Rp ' + formatIDR(total);
+    // Fungsi utama untuk menghitung pagu
+    function calculatePagu() {
+        const volume = parseInt(volumeEl.value, 10) || 0;
+        const harga = parseHargaInput(hargaEl.value);
+        const total = volume * harga;
+        paguEl.value = formatIDR(total);
     }
 
-    volumeEl.addEventListener('input', hitung);
-    hargaEl.addEventListener('input', hitung);
+    // Jalankan kalkulasi setiap kali ada input di volume atau harga
+    volumeEl.addEventListener('input', calculatePagu);
+    hargaEl.addEventListener('input', calculatePagu);
 
-    // hitung awal jika ada nilai
-    hitung();
+    // Hitung pagu saat halaman pertama kali dimuat
+    calculatePagu();
+
+    // Mencegah submit ganda
+    form.addEventListener('submit', function() {
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+    });
 });
 </script>
 

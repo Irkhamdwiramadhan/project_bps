@@ -1,273 +1,188 @@
 <?php
-// Pastikan sesi sudah dimulai dan pengguna adalah admin
-session_start();
-include '../includes/koneksi.php';
+// proses/proses_tambah_data_master.php
 
-// Validasi hak akses
-if (!isset($_SESSION['user_role']) || !in_array('super_admin', $_SESSION['user_role'])) {
-    die("Akses Ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.");
-}
-
-// Sertakan autoloader Composer
 require '../vendor/autoload.php';
+include '../includes/koneksi.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-/**
- * Clean numeric values from Excel:
- * - Jika value sudah numeric -> pakai langsung
- * - Jika berisi pemisah (',' atau '.') -> deteksi apakah pemisah adalah thousand separator atau decimal separator
- * - Return float
- */
-function cleanNumber($value) {
-    if ($value === null || $value === '') {
-        return 0.0;
+// Fungsi create_or_update tidak perlu diubah, sudah cukup fleksibel.
+function create_or_update($koneksi, $tableName, $conditions, $dataToModify) {
+    // ... (kode fungsi ini tetap sama seperti sebelumnya)
+    $sqlSelect = "SELECT id FROM $tableName WHERE ";
+    $whereClauses = [];
+    $bindTypes = '';
+    $bindValues = [];
+    foreach ($conditions as $column => $value) {
+        $whereClauses[] = "$column = ?";
+        $bindTypes .= is_int($value) ? 'i' : 's';
+        $bindValues[] = $value;
     }
-
-    // Jika PhpSpreadsheet sudah mengembalikan numeric type, langsung kembalikan
-    if (is_int($value) || is_float($value) || is_numeric($value)) {
-        return (float)$value;
-    }
-
-    $v = (string)$value;
-    $v = trim($v);
-
-    // Hapus currency, spasi, dan karakter selain digit, titik, koma, minus
-    $v = preg_replace('/[^\d\-\.,]/u', '', $v);
-
-    $hasComma = strpos($v, ',') !== false;
-    $hasDot   = strpos($v, '.') !== false;
-
-    // Jika ada keduanya, tentukan mana decimal:
-    if ($hasComma && $hasDot) {
-        // contoh: "1.234,56" -> dot thousand, comma decimal
-        // atau       "1,234.56" -> comma thousand, dot decimal
-        if (strpos($v, '.') < strrpos($v, ',')) {
-            // dot sebelum comma => dot adalah thousand, comma decimal
-            $v = str_replace('.', '', $v);
-            $v = str_replace(',', '.', $v);
-        } else {
-            // comma sebelum dot => comma thousand, dot decimal
-            $v = str_replace(',', '', $v);
-            // dot tetap sebagai decimal
+    $sqlSelect .= implode(' AND ', $whereClauses);
+    $stmtSelect = $koneksi->prepare($sqlSelect);
+    if ($stmtSelect === false) throw new Exception("Prepare failed (SELECT) on $tableName: " . $koneksi->error);
+    $stmtSelect->bind_param($bindTypes, ...$bindValues);
+    $stmtSelect->execute();
+    $result = $stmtSelect->get_result();
+    if ($row = $result->fetch_assoc()) {
+        $existing_id = $row['id'];
+        if (!empty($dataToModify)) {
+            $updateClauses = [];
+            $updateTypes = '';
+            $updateValues = [];
+            foreach ($dataToModify as $column => $value) {
+                $updateClauses[] = "$column = ?";
+                $updateTypes .= is_int($value) ? 'i' : (is_float($value) ? 'd' : 's');
+                $updateValues[] = $value;
+            }
+            $sqlUpdate = "UPDATE $tableName SET " . implode(', ', $updateClauses) . " WHERE id = ?";
+            $updateTypes .= 'i';
+            $updateValues[] = $existing_id;
+            $stmtUpdate = $koneksi->prepare($sqlUpdate);
+            if ($stmtUpdate === false) throw new Exception("Prepare failed (UPDATE) on $tableName: " . $koneksi->error);
+            $stmtUpdate->bind_param($updateTypes, ...$updateValues);
+            $stmtUpdate->execute();
+            if ($stmtUpdate->error) throw new Exception("Update failed on $tableName: " . $stmtUpdate->error);
         }
-        return (float)$v;
-    }
-
-    // Hanya comma
-    if ($hasComma && !$hasDot) {
-        $parts = explode(',', $v);
-        $last = end($parts);
-        // jika bagian terakhir panjang 3 dan ada lebih dari 1 bagian => kemungkinan comma sebagai thousand separator
-        if (strlen($last) === 3 && count($parts) > 1) {
-            $v = str_replace(',', '', $v); // hapus semua comma (thousand separators)
-            return (float)$v;
-        } else {
-            // anggap comma sebagai decimal separator (contoh "150,50" => 150.50)
-            $v = str_replace(',', '.', $v);
-            return (float)$v;
+        return $existing_id;
+    } else {
+        $allData = array_merge($conditions, $dataToModify);
+        $columns = implode(', ', array_keys($allData));
+        $placeholders = implode(', ', array_fill(0, count($allData), '?'));
+        $sqlInsert = "INSERT INTO $tableName ($columns) VALUES ($placeholders)";
+        $stmtInsert = $koneksi->prepare($sqlInsert);
+        if ($stmtInsert === false) throw new Exception("Prepare failed (INSERT) on $tableName: " . $koneksi->error);
+        $insertTypes = '';
+        $insertValues = [];
+        foreach ($allData as $value) {
+            $insertTypes .= is_int($value) ? 'i' : (is_float($value) ? 'd' : 's');
+            $insertValues[] = $value;
         }
+        $stmtInsert->bind_param($insertTypes, ...$insertValues);
+        $stmtInsert->execute();
+        if ($stmtInsert->error) throw new Exception("Insert failed on $tableName: " . $stmtInsert->error);
+        return $koneksi->insert_id;
     }
-
-    // Hanya dot
-    if ($hasDot && !$hasComma) {
-        $parts = explode('.', $v);
-        $last = end($parts);
-        if (strlen($last) === 3 && count($parts) > 1) {
-            // dot digunakan sebagai thousand separator -> hapus semua dot
-            $v = str_replace('.', '', $v);
-            return (float)$v;
-        } else {
-            // dot sebagai decimal separator
-            return (float)$v;
-        }
-    }
-
-    // Tidak ada separator -> just cast
-    return (float)$v;
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file_excel"])) {
-    $tahun = isset($_POST['tahun']) ? (int) $_POST['tahun'] : (int)date('Y');
-    
-    // Validasi file yang diunggah
-    $allowed_file_types = [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel',
-        'text/csv'
-    ];
-    $file_info = pathinfo($_FILES['file_excel']['name']);
-    $file_ext = strtolower($file_info['extension']);
-    
-    if (!in_array($_FILES['file_excel']['type'], $allowed_file_types) && !in_array($file_ext, ['xls', 'xlsx', 'csv'])) {
-        die("Tipe file tidak valid. Hanya izinkan .xlsx, .xls atau .csv.");
-    }
 
-    $inputFileName = $_FILES['file_excel']['tmp_name'];
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $tahun_anggaran = (int)$_POST['tahun'];
 
-    try {
-        $spreadsheet = IOFactory::load($inputFileName);
-        $worksheet = $spreadsheet->getActiveSheet();
-        $rows = $worksheet->toArray(null, true, true, true);
-        
-        $koneksi->begin_transaction();
+    if (isset($_FILES['file_excel']) && $_FILES['file_excel']['error'] == 0) {
+        $file_tmp_path = $_FILES['file_excel']['tmp_name'];
 
-        // Lewati baris header (asumsi baris pertama adalah header)
-        $header = array_shift($rows);
+        try {
+            $koneksi->begin_transaction();
+            $spreadsheet = IOFactory::load($file_tmp_path);
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestRow();
+            
+            // REVISI: Variabel untuk menyimpan ID dan KODE hierarki saat ini
+            $current_ids = [];
+            $current_codes = [];
+            
+            echo "Memulai proses impor...<br>";
 
-        foreach ($rows as $row) {
-            // Mapping kolom dari Excel ke variabel (sesuaikan kolom A..L sesuai file)
-            $unit_nama     = isset($row['A']) ? trim($row['A']) : '';
-            $program_nama  = isset($row['B']) ? trim($row['B']) : '';
-            $output_nama   = isset($row['C']) ? trim($row['C']) : '';
-            $komponen_nama = isset($row['D']) ? trim($row['D']) : '';
-            $akun_nama     = isset($row['E']) ? trim($row['E']) : '';
-            $item_nama     = isset($row['F']) ? trim($row['F']) : '';
-            $satuan        = isset($row['G']) ? trim($row['G']) : '';
-            $volume_raw    = $row['H'] ?? null;
-            $harga_raw     = $row['I'] ?? null;
-            $pagu_raw      = $row['J'] ?? null;
-
-            // Bersihkan angka dengan fungsi yang lebih cerdas
-            $volume        = cleanNumber($volume_raw);
-            $harga         = cleanNumber($harga_raw);
-            $pagu          = cleanNumber($pagu_raw);
-
-            // Validasi data dasar untuk item
-            if (empty($item_nama) || empty($akun_nama)) {
-                continue; // Lewati baris jika data utama kosong
-            }
-
-            // 1. UNIT
-            $unit_id = null;
-            if (!empty($unit_nama)) {
-                $sql = "SELECT id FROM master_unit WHERE nama = ?";
-                $stmt = $koneksi->prepare($sql);
-                $stmt->bind_param("s", $unit_nama);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result && $result->num_rows > 0) {
-                    $unit_id = $result->fetch_assoc()['id'];
-                } else {
-                    $sql = "INSERT INTO master_unit (nama) VALUES (?)";
-                    $stmt = $koneksi->prepare($sql);
-                    $stmt->bind_param("s", $unit_nama);
-                    $stmt->execute();
-                    $unit_id = $koneksi->insert_id;
+            for ($row = 1; $row <= $highestRow; $row++) {
+                $kode = trim((string)$sheet->getCell('B' . $row)->getValue());
+                $nama = trim((string)$sheet->getCell('C' . $row)->getValue());
+                
+                if (empty($kode) && empty($nama)) continue;
+                
+                // Mengabaikan baris total
+                if (stripos($nama, 'JUMLAH') !== false || stripos($nama, 'TOTAL') !== false) {
+                    echo "Melewati baris total: {$nama}<br>";
+                    continue;
                 }
-                if ($result) $result->free();
-            }
+                
+                echo "Memproses baris $row: Kode='{$kode}', Nama='{$nama}'<br>";
 
-            // 2. PROGRAM
-            $program_id = null;
-            if (!empty($program_nama) && $unit_id !== null) {
-                $sql = "SELECT id FROM master_program WHERE id_unit = ? AND nama = ?";
-                $stmt = $koneksi->prepare($sql);
-                $stmt->bind_param("is", $unit_id, $program_nama);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result && $result->num_rows > 0) {
-                    $program_id = $result->fetch_assoc()['id'];
-                } else {
-                    $sql = "INSERT INTO master_program (id_unit, nama) VALUES (?, ?)";
-                    $stmt = $koneksi->prepare($sql);
-                    $stmt->bind_param("is", $unit_id, $program_nama);
-                    $stmt->execute();
-                    $program_id = $koneksi->insert_id;
+                if (preg_match('/^\d{3}\.\d{2}\.[A-Z]{2}$/', $kode)) {
+                    $current_codes = ['program' => $kode]; // Reset & set kode program
+                    $current_ids = ['program' => create_or_update($koneksi, 'master_program', ['kode' => $kode, 'tahun' => $tahun_anggaran], ['nama' => $nama])];
+                } elseif (preg_match('/^\d{4}$/', $kode) && isset($current_ids['program'])) {
+                    $current_codes['kegiatan'] = $kode;
+                    $current_ids['kegiatan'] = create_or_update($koneksi, 'master_kegiatan', ['kode' => $kode, 'program_id' => $current_ids['program'], 'tahun' => $tahun_anggaran], ['nama' => $nama]);
+                } elseif (preg_match('/^\d{4}\.[A-Z]{3}$/', $kode) && isset($current_ids['kegiatan'])) {
+                    $current_codes['output'] = $kode;
+                    $current_ids['output'] = create_or_update($koneksi, 'master_output', ['kode' => $kode, 'kegiatan_id' => $current_ids['kegiatan'], 'tahun' => $tahun_anggaran], ['nama' => $nama]);
+                } elseif (preg_match('/^[A-Z]{3}\.\d{3}$/', $kode) && isset($current_ids['output'])) {
+                    $current_codes['sub_output'] = $kode;
+                    $current_ids['sub_output'] = create_or_update($koneksi, 'master_sub_output', ['kode' => $kode, 'output_id' => $current_ids['output'], 'tahun' => $tahun_anggaran], ['nama' => $nama]);
+                } elseif (preg_match('/^\d{3}$/', $kode) && isset($current_ids['sub_output'])) {
+                    $current_codes['komponen'] = $kode;
+                    $current_ids['komponen'] = create_or_update($koneksi, 'master_komponen', ['kode' => $kode, 'sub_output_id' => $current_ids['sub_output'], 'tahun' => $tahun_anggaran], ['nama' => $nama]);
+                } elseif (preg_match('/^[A-Z]$/', $kode) && isset($current_ids['komponen'])) {
+                    $current_codes['sub_komponen'] = $kode;
+                    $current_ids['sub_komponen'] = create_or_update($koneksi, 'master_sub_komponen', ['kode' => $kode, 'komponen_id' => $current_ids['komponen'], 'tahun' => $tahun_anggaran], ['nama' => $nama]);
+                } elseif (preg_match('/^\d{6}$/', $kode) && isset($current_ids['sub_komponen'])) {
+                    $current_codes['akun'] = $kode;
+                    $current_ids['akun'] = create_or_update($koneksi, 'master_akun', ['kode' => $kode, 'sub_komponen_id' => $current_ids['sub_komponen'], 'tahun' => $tahun_anggaran], ['nama' => $nama]);
+                } 
+                elseif (empty($kode) && !empty($nama) && isset($current_ids['akun'])) {
+                    // =========================================================================
+                    // REVISI: Membuat dan Menyimpan Kode Unik untuk Item
+                    // =========================================================================
+                    
+                    // 1. Bangun Kode Unik Gabungan
+                    $kode_unik_parts = [
+                        $tahun_anggaran,
+                        $current_codes['program'] ?? '', $current_codes['kegiatan'] ?? '',
+                        $current_codes['output'] ?? '', $current_codes['sub_output'] ?? '',
+                        $current_codes['komponen'] ?? '', $current_codes['sub_komponen'] ?? '',
+                        $current_codes['akun'] ?? '',
+                        $nama // Nama item adalah bagian terakhir dari keunikan
+                    ];
+                    $kode_unik = implode('-', $kode_unik_parts);
+
+                    // Ambil detail item dari kolom J, K, L
+                    $raw_volume_satuan = trim((string)$sheet->getCell('J' . $row)->getValue());
+                    $raw_harga = $sheet->getCell('K' . $row)->getValue();
+                    $raw_pagu = $sheet->getCell('L' . $row)->getValue();
+                    
+                    $volume = 0; $satuan = ''; $harga = 0; $pagu = 0;
+
+                    if (preg_match('/^(\d+[\.,\d]*)\s*(.*)$/', $raw_volume_satuan, $matches)) {
+                        $volume = (int)str_replace(['.', ','], '', $matches[1]);
+                        $satuan = trim($matches[2]);
+                    }
+                    $harga_bersih = (int)filter_var($raw_harga, FILTER_SANITIZE_NUMBER_INT);
+                    $harga = $harga_bersih * 1000;
+                    $pagu_bersih = (int)filter_var($raw_pagu, FILTER_SANITIZE_NUMBER_INT);
+                    $pagu = $pagu_bersih * 1000;
+
+                    // Data untuk di-insert atau di-update
+                    $item_data_to_modify = [
+                        'akun_id' => $current_ids['akun'],
+                        'tahun' => $tahun_anggaran,
+                        'nama_item' => $nama,
+                        'satuan' => $satuan,
+                        'volume' => $volume,
+                        'harga' => $harga,
+                        'pagu' => $pagu
+                    ];
+                    
+                    // Gunakan kode_unik sebagai KUNCI PENCARIAN
+                    create_or_update(
+                        $koneksi, 'master_item',
+                        ['kode_unik' => $kode_unik],
+                        $item_data_to_modify
+                    );
+                    
+                    echo "-> Menyimpan Item: $nama | Kode Unik: $kode_unik<br>";
                 }
-                if ($result) $result->free();
             }
 
-            // 3. OUTPUT
-            $output_id = null;
-            if (!empty($output_nama) && $program_id !== null) {
-                $sql = "SELECT id FROM master_output WHERE id_program = ? AND nama = ?";
-                $stmt = $koneksi->prepare($sql);
-                $stmt->bind_param("is", $program_id, $output_nama);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result && $result->num_rows > 0) {
-                    $output_id = $result->fetch_assoc()['id'];
-                } else {
-                    $sql = "INSERT INTO master_output (id_program, nama) VALUES (?, ?)";
-                    $stmt = $koneksi->prepare($sql);
-                    $stmt->bind_param("is", $program_id, $output_nama);
-                    $stmt->execute();
-                    $output_id = $koneksi->insert_id;
-                }
-                if ($result) $result->free();
-            }
+            $koneksi->commit();
+            echo "Proses impor selesai!<br>Data berhasil diimpor dengan Kode Unik!";
 
-            // 4. KOMPONEN
-            $komponen_id = null;
-            if (!empty($komponen_nama) && $output_id !== null) {
-                $sql = "SELECT id FROM master_komponen WHERE id_output = ? AND nama = ?";
-                $stmt = $koneksi->prepare($sql);
-                $stmt->bind_param("is", $output_id, $komponen_nama);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result && $result->num_rows > 0) {
-                    $komponen_id = $result->fetch_assoc()['id'];
-                } else {
-                    $sql = "INSERT INTO master_komponen (id_output, nama) VALUES (?, ?)";
-                    $stmt = $koneksi->prepare($sql);
-                    $stmt->bind_param("is", $output_id, $komponen_nama);
-                    $stmt->execute();
-                    $komponen_id = $koneksi->insert_id;
-                }
-                if ($result) $result->free();
-            }
-
-            // 5. AKUN
-            $akun_id = null;
-            if (!empty($akun_nama) && $komponen_id !== null) {
-                $sql = "SELECT id FROM master_akun WHERE id_komponen = ? AND nama = ?";
-                $stmt = $koneksi->prepare($sql);
-                $stmt->bind_param("is", $komponen_id, $akun_nama);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result && $result->num_rows > 0) {
-                    $akun_id = $result->fetch_assoc()['id'];
-                } else {
-                    $sql = "INSERT INTO master_akun (id_komponen, nama) VALUES (?, ?)";
-                    $stmt = $koneksi->prepare($sql);
-                    $stmt->bind_param("is", $komponen_id, $akun_nama);
-                    $stmt->execute();
-                    $akun_id = $koneksi->insert_id;
-                }
-                if ($result) $result->free();
-            }
-
-            // 6. ITEM (simpan)
-            if ($akun_id !== null) {
-                $sql = "INSERT INTO master_item 
-                        (id_akun, tahun, nama_item, satuan, volume, harga, pagu) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)";
-                $stmt = $koneksi->prepare($sql);
-                $stmt->bind_param(
-                    "iissddd",
-                    $akun_id,
-                    $tahun,
-                    $item_nama,
-                    $satuan,
-                    $volume,
-                    $harga,
-                    $pagu
-                );
-                $stmt->execute();
-            }
+        } catch (\Exception $e) {
+            $koneksi->rollback();
+            echo "Error: Terjadi kesalahan fatal. Proses impor dibatalkan. Pesan: " . $e->getMessage();
         }
-        
-        $koneksi->commit();
-        header("Location: ../pages/master_data.php?status=upload_success");
-        exit();
-
-    } catch (Exception $e) {
-        $koneksi->rollback();
-        die("Error saat memproses file: " . $e->getMessage());
+    } else {
+        echo "Error: Tidak ada file yang diunggah.";
     }
-
-} else {
-    header("Location: ../pages/tambah_master_data.php?status=no_file");
-    exit();
 }
+?>

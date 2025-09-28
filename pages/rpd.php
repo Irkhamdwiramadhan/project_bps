@@ -4,219 +4,433 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Mendefinisikan peran super_admin
-$is_super_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'super_admin';
+// Cek hak akses
+$user_roles = $_SESSION['user_role'] ?? [];
+$allowed_roles_for_action = ['super_admin', 'admin_dipaku'];
+$has_access_for_action = !empty(array_intersect($user_roles, $allowed_roles_for_action));
 
-$id_pengelola = $_SESSION['user_id'];
+// Ambil tahun dari filter
 $tahun_filter = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date("Y");
 
-// Ambil daftar tahun unik, disesuaikan untuk super_admin
-$tahun_query_parts = ["SELECT DISTINCT mi.tahun FROM master_item mi"];
-if (!$is_super_admin) {
-    $tahun_query_parts[] = "LEFT JOIN akun_pengelola_tahun apt ON mi.id_akun = apt.akun_id AND apt.tahun = mi.tahun WHERE apt.id_pengelola = ?";
-}
-$tahun_query_parts[] = "ORDER BY mi.tahun DESC";
-$tahun_query = implode(" ", $tahun_query_parts);
-
-$stmt_tahun = $koneksi->prepare($tahun_query);
-if (!$is_super_admin) {
-    $stmt_tahun->bind_param("i", $id_pengelola);
-}
-$stmt_tahun->execute();
-$tahun_result = $stmt_tahun->get_result();
+// Ambil daftar tahun unik
+$tahun_result = $koneksi->query("SELECT DISTINCT tahun FROM master_item ORDER BY tahun DESC");
 $daftar_tahun = [];
-while ($row = $tahun_result->fetch_assoc()) {
-    $daftar_tahun[] = $row['tahun'];
+if ($tahun_result) {
+    while ($row = $tahun_result->fetch_assoc()) {
+        $daftar_tahun[] = $row['tahun'];
+    }
 }
-$stmt_tahun->close();
-
-// Perbaikan: Query untuk menghitung sisa anggaran secara real-time, disesuaikan untuk super_admin
-$sql_parts = [
-    "SELECT
-        mi.id AS id_item,
-        mi.nama_item,
-        mi.pagu,
-        ma.nama AS akun_nama,
-        mo.nama AS output_nama,
-        mk.nama AS komponen_nama,
-        COALESCE(SUM(rpd.jumlah), 0) AS total_rpd,
-        (mi.pagu - COALESCE(SUM(rpd.jumlah), 0)) AS sisa_anggaran"
-];
-
-if ($is_super_admin) {
-    $sql_parts[] = ", (SELECT u.nama FROM users u JOIN akun_pengelola_tahun apt_sub ON apt_sub.id_pengelola = u.id WHERE apt_sub.akun_id = ma.id LIMIT 1) as nama_pengelola";
+if (empty($daftar_tahun)) {
+    $daftar_tahun[] = $tahun_filter;
+} else if (!in_array($tahun_filter, $daftar_tahun)) {
+    $tahun_filter = $daftar_tahun[0];
 }
 
-$sql_parts[] = "FROM master_item mi
-LEFT JOIN master_akun ma ON mi.id_akun = ma.id
-LEFT JOIN master_komponen mk ON ma.id_komponen = mk.id
-LEFT JOIN master_output mo ON mk.id_output = mo.id
-LEFT JOIN master_program mp ON mo.id_program = mp.id
-LEFT JOIN akun_pengelola_tahun apt ON ma.id = apt.akun_id AND apt.tahun = mi.tahun
-LEFT JOIN rpd ON mi.id = rpd.id_item AND rpd.tahun = mi.tahun";
+// LOGIKA PAGINATION
+$items_per_page = 50;
+$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($current_page < 1) $current_page = 1;
 
-$where_clauses = [];
-$bind_types = "";
-$bind_params = [];
+$sql_count = "SELECT COUNT(id) AS total FROM master_item WHERE tahun = ?";
+$stmt_count = $koneksi->prepare($sql_count);
+$stmt_count->bind_param("i", $tahun_filter);
+$stmt_count->execute();
+$total_items = (int)$stmt_count->get_result()->fetch_assoc()['total'];
+$total_pages = ceil($total_items / $items_per_page);
+if ($current_page > $total_pages && $total_pages > 0) $current_page = $total_pages;
+$offset = ($current_page - 1) * $items_per_page;
+$stmt_count->close();
 
-if (!$is_super_admin) {
-    $where_clauses[] = "apt.id_pengelola = ?";
-    $bind_types .= "i";
-    $bind_params[] = $id_pengelola;
+// Query utama untuk mengambil data hierarki per halaman
+$sql_hierarchy = "SELECT
+    mp.kode AS program_kode, mp.nama AS program_nama,
+    mk.kode AS kegiatan_kode, mk.nama AS kegiatan_nama,
+    mo.kode AS output_kode, mo.nama AS output_nama,
+    mso.kode AS sub_output_kode, mso.nama AS sub_output_nama,
+    mkom.kode AS komponen_kode, mkom.nama AS komponen_nama,
+    msk.kode AS sub_komponen_kode, msk.nama AS sub_komponen_nama,
+    ma.kode AS akun_kode, ma.nama AS akun_nama,
+    mi.nama_item AS item_nama, mi.pagu, mi.kode_unik
+FROM master_item mi
+LEFT JOIN master_akun ma ON mi.akun_id = ma.id
+LEFT JOIN master_sub_komponen msk ON ma.sub_komponen_id = msk.id
+LEFT JOIN master_komponen mkom ON msk.komponen_id = mkom.id
+LEFT JOIN master_sub_output mso ON mkom.sub_output_id = mso.id
+LEFT JOIN master_output mo ON mso.output_id = mo.id
+LEFT JOIN master_kegiatan mk ON mo.kegiatan_id = mk.id
+LEFT JOIN master_program mp ON mk.program_id = mp.id
+WHERE mi.tahun = ?
+ORDER BY mp.kode, mk.kode, mo.kode, mso.kode, mkom.kode, msk.kode, ma.kode, mi.nama_item ASC
+LIMIT ? OFFSET ?";
+
+$stmt_hierarchy = $koneksi->prepare($sql_hierarchy);
+$stmt_hierarchy->bind_param("iii", $tahun_filter, $items_per_page, $offset);
+$stmt_hierarchy->execute();
+$result_hierarchy = $stmt_hierarchy->get_result();
+$data_anggaran_page = [];
+$item_kode_uniks_on_page = [];
+while ($row = $result_hierarchy->fetch_assoc()) {
+    $data_anggaran_page[] = $row;
+    if (!empty($row['kode_unik'])) {
+        $item_kode_uniks_on_page[] = $row['kode_unik'];
+    }
 }
-$where_clauses[] = "mi.tahun = ?";
-$bind_types .= "i";
-$bind_params[] = $tahun_filter;
+$stmt_hierarchy->close();
 
-if (!empty($where_clauses)) {
-    $sql_parts[] = "WHERE " . implode(" AND ", $where_clauses);
+// Query untuk mengambil data RPD hanya untuk item di halaman ini
+$rpd_data = [];
+if (!empty($item_kode_uniks_on_page)) {
+    $placeholders = implode(',', array_fill(0, count($item_kode_uniks_on_page), '?'));
+    $sql_rpd = "SELECT kode_unik_item, bulan, jumlah FROM rpd WHERE tahun = ? AND kode_unik_item IN ($placeholders)";
+    $stmt_rpd = $koneksi->prepare($sql_rpd);
+    $types = 'i' . str_repeat('s', count($item_kode_uniks_on_page));
+    $params = array_merge([$tahun_filter], $item_kode_uniks_on_page);
+    $stmt_rpd->bind_param($types, ...$params);
+    $stmt_rpd->execute();
+    $result_rpd = $stmt_rpd->get_result();
+    while ($row = $result_rpd->fetch_assoc()) {
+        $rpd_data[$row['kode_unik_item']][$row['bulan']] = $row['jumlah'];
+    }
+    $stmt_rpd->close();
 }
-
-$sql_parts[] = "GROUP BY mi.id";
-if ($is_super_admin) {
-    $sql_parts[] = ", nama_pengelola";
-}
-$sql_parts[] = "ORDER BY mk.nama, ma.nama, mi.nama_item ASC";
-
-$sql = implode(" ", $sql_parts);
-$stmt = $koneksi->prepare($sql);
-$stmt->bind_param($bind_types, ...$bind_params);
-$stmt->execute();
-$data_master = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
 ?>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
-.main-content { padding: 30px; background:#f7f9fc; }
-.header-container { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 15px; }
-.section-title { font-size:1.5rem; font-weight:700; margin:0; }
-.card { background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.05); }
-.data-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-.data-table th, .data-table td { padding:10px; border-bottom:1px solid #dee2e6; text-align:center; }
-.data-table th { background:#f7f9fc; font-weight:600; }
-.data-table td.col-left { text-align:left; }
-.data-table .total-cell, .data-table .pagu-cell, .data-table .sisa-cell { font-weight:bold; }
-.text-muted { color: #6c757d; }
-.year-buttons { display: flex; gap: 5px; align-items: center; margin-bottom: 15px; }
-.year-buttons .btn {
-    border: 1px solid #e0e0e0;
-    color: #333;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-    padding: 8px 15px;
+/*
+================================================
+REVISI CSS TOTAL UNTUK TAMPILAN MODERN
+================================================
+*/
+:root {
+    --primary-blue: #0A2E5D;
+    --primary-blue-light: #E6EEF7;
+    --border-color: #DEE2E6;
+    --text-dark: #212529;
+    --text-light: #6C757D;
+    --background-light: #F8F9FA;
+    --background-page: #F7F9FC;
+    --warning-bg: #FFFBE6;
+    --warning-border: #FFC107;
+    --font-family-sans-serif: 'Inter', sans-serif;
+    --border-radius: 0.5rem; /* 8px */
+}
+
+body {
+    font-family: var(--font-family-sans-serif);
+    background-color: var(--background-page);
+}
+
+.main-content { 
+    padding: 30px; 
+}
+
+/* Header Halaman */
+.page-header {
+    background: #fff;
+    padding: 20px 25px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    margin-bottom: 25px;
+}
+
+.header-container { 
+    display:flex; 
+    justify-content:space-between; 
+    align-items:center; 
+    flex-wrap: wrap; 
+    gap: 15px; 
+    margin-bottom: 20px;
+}
+.section-title { 
+    font-size:1.75rem; 
+    font-weight:700; 
+    margin:0; 
+    color: var(--primary-blue); 
+}
+
+/* Filter Tahun */
+.filter-container { 
+    display: flex; 
+    gap: 10px; 
+    align-items: center; 
+}
+.filter-container label {
+    margin-bottom: 0;
+    font-weight: 500;
+    color: var(--text-light);
+}
+.filter-container .btn { 
+    border: 1px solid var(--border-color); 
+    color: var(--primary-blue); 
+    background-color: #fff; 
+    border-radius: 6px; 
+    padding: 6px 14px; 
+    text-decoration: none; 
+    font-size: 0.9rem; 
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.filter-container .btn:hover {
+    background-color: var(--primary-blue-light);
+    border-color: var(--primary-blue);
+}
+.filter-container .btn.active { 
+    background-color: var(--primary-blue); 
+    color: #fff; 
+    border-color: var(--primary-blue); 
+}
+
+/* Card Utama & Tabel */
+.card { 
+    background:#fff; 
+    border: none;
+    border-radius: var(--border-radius); 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04); 
+    /* overflow: hidden; <-- DIHAPUS: INI PENYEBAB MASALAH SCROLL */
+}
+.table-responsive {
+    border: none;
+    overflow-x: auto; /* DITAMBAHKAN: Memastikan scroll horizontal aktif */
+}
+/* Styling scrollbar agar lebih modern (opsional) */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background-color: #a8b0bc;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background-color: #f1f1f1;
+}
+
+.rpd-table { 
+    font-size: 0.85rem; 
+    border-collapse: collapse;
+    width: 100%;
+}
+
+/* Header Tabel */
+.rpd-table thead th { 
+    text-align: center; 
+    vertical-align: middle; 
+    background-color: var(--background-light); 
+    position: sticky; 
+    top: 0; 
+    z-index: 1;
+    border-bottom: 2px solid var(--border-color);
+    padding: 12px 10px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+/* Body Tabel */
+.rpd-table td {
+    padding: 12px 10px;
+    vertical-align: middle;
+    border: none;
+    border-bottom: 1px solid #EAECF0;
+}
+.rpd-table tr:last-child td {
+    border-bottom: none;
+}
+.rpd-table .uraian-col { text-align: left; min-width: 400px; }
+.rpd-table .pagu-col { text-align: right; min-width: 130px; }
+.rpd-table .bulan-col { text-align: right; min-width: 110px; }
+
+/* Styling Hierarki yang Diperbarui */
+.hierarchy-row td { 
+    font-weight:600; 
+    background-color: var(--background-light); 
+}
+.level-program { font-size: 1.05em; color: #000000ff; }
+.level-kegiatan { padding-left:25px !important; color: #154360;}
+.level-output { padding-left:50px !important; color: #1F618D;}
+.level-sub_output { padding-left:75px !important; color: #2980B9;} /* Diperbaiki */
+.level-komponen { padding-left:100px !important; color: #5499C7;}
+.level-sub_komponen { padding-left:125px !important; color: #7f8c8d;} /* Diperbaiki */
+.level-akun { padding-left:150px !important; font-style: italic; color: #27AE60; }
+.level-item { font-weight:normal; padding-left:175px !important; }
+.level-item:hover { background-color: #fcfcfd; }
+
+.warning-row td { 
+    background-color: var(--warning-bg) !important; 
+}
+.warning-row td:first-child { 
+    border-left: 4px solid var(--warning-border); 
+}
+
+/* Footer & Pagination */
+.card-footer {
+    border-top: 1px solid var(--border-color);
+    background-color: #fff;
+    padding: 10px 25px;
+}
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.pagination-info { font-size: 0.9rem; color: var(--text-light); }
+.pagination { margin: 0; display: flex; gap: 8px; }
+
+.pagination .page-item .page-link {
+    display: flex; justify-content: center; align-items: center;
+    width: 38px; height: 38px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px !important;
+    background-color: #fff;
+    color: var(--text-dark);
+    font-weight: 500;
     text-decoration: none;
-    font-size: 0.9rem;
+    transition: all 0.2s ease-in-out;
 }
-.year-buttons .btn.active {
-    background-color: #007bff;
+.pagination .page-item .page-link:hover {
+    border-color: var(--primary-blue);
+    background-color: var(--primary-blue-light);
+}
+.pagination .page-item.active .page-link {
+    background-color: var(--primary-blue);
     color: #fff;
-    border-color: #007bff;
+    border-color: var(--primary-blue);
 }
-.info-box { background-color: #e9f5ff; border-left: 5px solid #007bff; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
-.add-rpd-button-container { text-align: right; margin-bottom: 20px; }
+.pagination .page-item.disabled .page-link {
+    background-color: var(--background-light);
+    color: #adb5bd;
+    cursor: not-allowed;
+}
+
+/* FIX KOMPREHENSIF UNTUK MENGHILANGKAN TITIK/SIMBOL */
+.pagination .page-item {
+    list-style-type: none !important;
+    list-style: none !important;
+}
+.pagination .page-item .page-link::before,
+.pagination .page-item .page-link::after {
+    content: none !important;
+    display: none !important;
+}
 </style>
 
 <main class="main-content">
-  <div class="container">
-    <div class="header-container">
-      <h2 class="section-title">Rencana Pengambilan Dana (RPD)</h2>
-      <?php if (!$is_super_admin): ?>
-        <div class="add-rpd-button-container">
-          <a href="tambah_rpd.php" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Tambah RPD
-          </a>
+    <div class="container-fluid">
+        <div class="page-header">
+            <div class="header-container">
+                <h2 class="section-title">Laporan RPD - Tahun <?= $tahun_filter ?></h2>
+                <div>
+                    <a href="tambah_rpd.php?tahun=<?= $tahun_filter ?>" class="btn btn-primary"><i class="fas fa-plus mr-2"></i>Tambah/Edit RPD</a>
+                    <a href="../proses/cetak_rpd_pdf.php?tahun=<?= $tahun_filter ?>" class="btn btn-secondary" target="_blank"><i class="fas fa-file-pdf mr-2"></i>Download PDF</a>
+                </div>
+            </div>
+            <div class="filter-container">
+                <label>Lihat Tahun:</label>
+                <?php foreach ($daftar_tahun as $th): ?>
+                    <a href="?tahun=<?= $th ?>" class="btn <?= $th == $tahun_filter ? 'active' : '' ?>"><?= $th ?></a>
+                <?php endforeach; ?>
+            </div>
         </div>
-      <?php endif; ?>
-    </div>
+        
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table rpd-table">
+                    <thead class="thead-light">
+                        <tr>
+                            <th rowspan="2" class="uraian-col">Uraian Anggaran</th>
+                            <th rowspan="2" class="pagu-col">Total Pagu</th>
+                            <th rowspan="2" class="pagu-col">Sisa Pagu</th>
+                            <th colspan="12">Rencana Penarikan per Bulan</th>
+                        </tr>
+                        <tr>
+                            <?php for ($i = 1; $i <= 12; $i++): ?>
+                                <th><?= DateTime::createFromFormat('!m', $i)->format('M') ?></th>
+                            <?php endfor; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($data_anggaran_page)):
+                            $printed_headers = [];
+                            foreach ($data_anggaran_page as $row):
+                                $levels = ['program', 'kegiatan', 'output', 'sub_output', 'komponen', 'sub_komponen', 'akun'];
+                                foreach ($levels as $level) {
+                                    $kode = $row[$level . '_kode'];
+                                    $nama = $row[$level . '_nama'];
+                                    
+                                    if (!empty($nama) && (!isset($printed_headers[$level]) || $printed_headers[$level] !== $nama)) {
+                                        $header_text = "<b>" . htmlspecialchars($kode) . "</b> &nbsp;" . htmlspecialchars($nama);
+                                        echo '<tr class="hierarchy-row"><td colspan="15" class="level-'.$level.'">' . $header_text . '</td></tr>';
+                                        
+                                        $printed_headers[$level] = $nama;
+                                        
+                                        $child_levels_to_reset = array_slice($levels, array_search($level, $levels) + 1);
+                                        foreach ($child_levels_to_reset as $child_level) {
+                                            unset($printed_headers[$child_level]);
+                                        }
+                                    }
+                                }
+                                
+                                $kode_unik_item = $row['kode_unik'];
+                                $item_total_rpd = isset($rpd_data[$kode_unik_item]) ? array_sum($rpd_data[$kode_unik_item]) : 0;
+                                $sisa_pagu = $row['pagu'] - $item_total_rpd;
+                                $row_class = ($sisa_pagu != 0) ? 'warning-row' : '';
+                        ?>
+                                <tr class="<?= $row_class ?>">
+                                    <td class="level-item uraian-col"><?= htmlspecialchars($row['item_nama']) ?></td>
+                                    <td class="pagu-col">Rp <?= number_format($row['pagu'], 0, ',', '.') ?></td>
+                                    <td class="pagu-col">Rp <?= number_format($sisa_pagu, 0, ',', '.') ?></td>
+                                    <?php for ($bulan = 1; $bulan <= 12; $bulan++): 
+                                        $jumlah = $rpd_data[$kode_unik_item][$bulan] ?? 0;
+                                    ?>
+                                        <td class="bulan-col">Rp <?= number_format($jumlah, 0, ',', '.') ?></td>
+                                    <?php endfor; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr><td colspan="15" class="text-center text-muted p-5">Tidak ada data anggaran untuk tahun <?= $tahun_filter ?>.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
 
-    <div class="year-buttons">
-      <label class="mb-0">Tahun:</label>
-      <?php foreach ($daftar_tahun as $th): ?>
-        <a href="?tahun=<?= $th ?>" class="btn <?= $th == $tahun_filter ? 'active' : '' ?>">
-          <?= $th ?>
-        </a>
-      <?php endforeach; ?>
-    </div>
-    
-    <div class="info-box">
-      <strong>Catatan:</strong> Halaman ini hanya menampilkan rencana pengambilan dana yang telah Anda input. Untuk mengubahnya, silakan gunakan halaman tambah/edit RPD.
-    </div>
-    
-    <div class="card">
-      <div class="table-responsive">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th rowspan="2">Uraian Anggaran</th>
-              <th colspan="12">Rencana Per Bulan</th>
-              <th rowspan="2">Total RPD</th>
-              <th rowspan="2">Pagu Anggaran</th>
-              <th rowspan="2">Sisa Anggaran</th>
-            </tr>
-            <tr>
-              <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th>
-              <th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (!empty($data_master)): ?>
-              <?php
-              $prev_komponen = null;
-              $prev_akun = null;
-              foreach ($data_master as $row):
-                  if ($row['komponen_nama'] !== $prev_komponen): ?>
-                      <tr class="hierarchy-row"><td colspan="15" class="col-left text-muted" style="padding-left:10px; font-weight:normal; font-style:italic;">Komponen: <?= htmlspecialchars($row['komponen_nama']) ?></td></tr>
-                      <?php $prev_komponen = $row['komponen_nama'];
-                  endif;
-                  if ($row['akun_nama'] !== $prev_akun): ?>
-                      <tr class="hierarchy-row"><td colspan="15" class="col-left text-muted" style="padding-left:30px; font-weight:normal;">Akun: <?= htmlspecialchars($row['akun_nama']) ?></td></tr>
-                      <?php $prev_akun = $row['akun_nama'];
-                  endif;
-              ?>
-              <tr>
-                <td class="col-left" style="padding-left:50px;"><?= htmlspecialchars($row['nama_item']) ?></td>
-                <?php 
-                $sql_rpd = "SELECT bulan, jumlah FROM rpd WHERE id_item = ? AND tahun = ? ORDER BY bulan ASC";
-                if ($is_super_admin) {
-                    $sql_rpd = "SELECT bulan, jumlah FROM rpd WHERE id_item = ? AND id_pengaju IN (SELECT id_pengelola FROM akun_pengelola_tahun WHERE akun_id = (SELECT id_akun FROM master_item WHERE id = ?)) AND tahun = ? ORDER BY bulan ASC";
-                }
-                $stmt_rpd = $koneksi->prepare($sql_rpd);
-                
-                if ($is_super_admin) {
-                    $stmt_rpd->bind_param("iii", $row['id_item'], $row['id_item'], $tahun_filter);
-                } else {
-                    $stmt_rpd->bind_param("ii", $row['id_item'], $tahun_filter);
-                }
-
-                $stmt_rpd->execute();
-                $rpd_result = $stmt_rpd->get_result();
-                $rpd_by_month = [];
-                while ($rpd_row = $rpd_result->fetch_assoc()) {
-                    $rpd_by_month[$rpd_row['bulan']] = $rpd_row['jumlah'];
-                }
-                $stmt_rpd->close();
-
-                for ($bulan = 1; $bulan <= 12; $bulan++):
-                    $jumlah_rpd = $rpd_by_month[$bulan] ?? 0;
-                ?>
-                  <td>
-                    <?= number_format($jumlah_rpd, 0, ',', '.') ?>
-                  </td>
-                <?php endfor; ?>
-                <td class="total-cell"><?= number_format($row['total_rpd'], 0, ',', '.') ?></td>
-                <td class="pagu-cell"><?= number_format($row['pagu'], 0, ',', '.') ?></td>
-                <td class="sisa-cell"><?= number_format($row['sisa_anggaran'], 0, ',', '.') ?></td>
-              </tr>
-              <?php endforeach; ?>
-            <?php else: ?>
-              <tr>
-                <td colspan="15" class="text-center text-muted">Tidak ada data anggaran yang Anda kelola untuk tahun ini.</td>
-              </tr>
+            <?php if ($total_pages > 0): ?>
+            <div class="card-footer">
+                <div class="pagination-container">
+                    <div class="pagination-info">
+                        Halaman <strong><?= $current_page ?></strong> dari <strong><?= $total_pages ?></strong> (Total <?= $total_items ?> item)
+                    </div>
+                    
+                    <?php if ($total_pages > 1): ?>
+                    <nav aria-label="Navigasi Halaman">
+                        <ul class="pagination">
+                            <li class="page-item <?= ($current_page <= 1) ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?tahun=<?= $tahun_filter ?>&page=<?= $current_page - 1 ?>" aria-label="Sebelumnya">&lt;</a>
+                            </li>
+                            <?php
+                                $range = 2;
+                                for ($i = 1; $i <= $total_pages; $i++) {
+                                    if ($i == 1 || $i == $total_pages || ($i >= $current_page - $range && $i <= $current_page + $range)) {
+                                        echo '<li class="page-item ' . ($i == $current_page ? 'active' : '') . '">';
+                                        echo '<a class="page-link" href="?tahun=' . $tahun_filter . '&page=' . $i . '">' . $i . '</a></li>';
+                                    }
+                                }
+                            ?>
+                            <li class="page-item <?= ($current_page >= $total_pages) ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?tahun=<?= $tahun_filter ?>&page=<?= $current_page + 1 ?>" aria-label="Selanjutnya">&gt;</a>
+                            </li>
+                        </ul>
+                    </nav>
+                    <?php endif; ?>
+                </div>
+            </div>
             <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
+        </div>
     </div>
-  </div>
 </main>
+
 <?php include '../includes/footer.php'; ?>

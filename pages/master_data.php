@@ -4,82 +4,49 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Ambil peran pengguna dari sesi. Jika tidak ada, atur sebagai array kosong.
+// (Blok PHP di bagian atas tidak ada perubahan, sudah benar)
 $user_roles = $_SESSION['user_role'] ?? [];
-
-// Tentukan peran mana saja yang diizinkan untuk mengakses fitur ini
 $allowed_roles_for_action = ['super_admin', 'admin_dipaku'];
-
-$has_access_for_action = false;
-foreach ($user_roles as $role) {
-    if (in_array($role, $allowed_roles_for_action)) {
-        $has_access_for_action = true;
-        break;
-    }
-}
-
-// Ambil tahun dari filter (GET), default tahun sekarang
+$has_access_for_action = !empty(array_intersect($user_roles, $allowed_roles_for_action));
 $tahun_filter = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date("Y");
 
-// Ambil daftar tahun unik
 $tahun_result = $koneksi->query("SELECT DISTINCT tahun FROM master_item ORDER BY tahun DESC");
 $daftar_tahun = [];
-if ($tahun_result && $tahun_result->num_rows > 0) {
+if ($tahun_result) {
     while ($row = $tahun_result->fetch_assoc()) {
         $daftar_tahun[] = $row['tahun'];
     }
 }
-
-// Ambil daftar pegawai untuk dropdown ketua/pengelola
-$pegawai_result = $koneksi->query("SELECT id, nama FROM pegawai ORDER BY nama ASC");
-$daftar_pegawai = [];
-if ($pegawai_result && $pegawai_result->num_rows > 0) {
-    while ($row = $pegawai_result->fetch_assoc()) {
-        $daftar_pegawai[$row['id']] = $row['nama'];
-    }
+if (empty($daftar_tahun)) {
+    $daftar_tahun[] = $tahun_filter;
+} else if (!in_array($tahun_filter, $daftar_tahun)) {
+    $tahun_filter = $daftar_tahun[0];
 }
 
-// Query data
 $sql = "SELECT
-            mu.nama AS unit_nama,
-            mp.nama AS program_nama,
-            mo.nama AS output_nama,
-            mk.nama AS komponen_nama,
-            ma.id AS akun_id,
-            ma.nama AS akun_nama,
-            apt.id_ketua,
-            apt.id_pengelola,
-            mi.id AS id_item,
-            mi.nama_item AS item_nama,
-            mi.satuan,
-            mi.volume,
-            mi.harga,
-            mi.pagu,
-            ikt.realisasi,
-            ikt.sisa_anggaran,
-            mi.tahun
+            mp.nama AS program_nama, mk.nama AS kegiatan_nama, mo.nama AS output_nama,
+            mso.nama AS sub_output_nama, mkom.nama AS komponen_nama, msk.nama AS sub_komponen_nama,
+            ma.id AS akun_id, ma.nama AS akun_nama, mi.id AS id_item, mi.nama_item AS item_nama,
+            mi.satuan, mi.volume, mi.harga, mi.pagu, mi.tahun
         FROM master_item mi
-        LEFT JOIN master_akun ma ON mi.id_akun = ma.id
-        LEFT JOIN master_komponen mk ON ma.id_komponen = mk.id
-        LEFT JOIN master_output mo ON mk.id_output = mo.id
-        LEFT JOIN master_program mp ON mo.id_program = mp.id
-        LEFT JOIN master_unit mu ON mp.id_unit = mu.id
-        LEFT JOIN akun_pengelola_tahun apt ON ma.id = apt.akun_id AND apt.tahun = mi.tahun
-        LEFT JOIN item_keuangan_tahun ikt ON mi.id = ikt.id_item AND ikt.tahun = mi.tahun
-        WHERE mi.tahun = {$tahun_filter}
-        ORDER BY mu.nama, mp.nama, mo.nama, mk.nama, ma.nama, mi.nama_item ASC";
-
-$result = $koneksi->query($sql);
+        LEFT JOIN master_akun ma ON mi.akun_id = ma.id
+        LEFT JOIN master_sub_komponen msk ON ma.sub_komponen_id = msk.id
+        LEFT JOIN master_komponen mkom ON msk.komponen_id = mkom.id
+        LEFT JOIN master_sub_output mso ON mkom.sub_output_id = mso.id
+        LEFT JOIN master_output mo ON mso.output_id = mo.id
+        LEFT JOIN master_kegiatan mk ON mo.kegiatan_id = mk.id
+        LEFT JOIN master_program mp ON mk.program_id = mp.id
+        WHERE mi.tahun = ?
+        ORDER BY mp.nama, mk.nama, mo.nama, mso.nama, mkom.nama, msk.nama, ma.nama, mi.nama_item ASC";
+$stmt = $koneksi->prepare($sql);
+$stmt->bind_param("i", $tahun_filter);
+$stmt->execute();
+$result = $stmt->get_result();
 $data_master = [];
 $total_pagu = 0;
-
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
-        $row['volume'] = (float) $row['volume'];
-        $row['harga'] = (float) $row['harga'];
         $row['pagu'] = (float) $row['pagu'];
-        $row['realisasi'] = (float) $row['realisasi'];
-        $row['sisa_anggaran'] = (float) $row['sisa_anggaran'];
         $data_master[] = $row;
         $total_pagu += $row['pagu'];
     }
@@ -87,228 +54,167 @@ if ($result && $result->num_rows > 0) {
 ?>
 
 <style>
+:root {
+    --primary-blue: #0A2E5D;
+    --light-blue-bg: #E6EEF7;
+    --border-blue: #B0C4DE;
+    --text-dark: #2c3e50;
+    --text-light: #7f8c8d;
+    --warning-bg: #fff8e1;
+    --warning-text: #c09853;
+}
 .main-content { padding: 30px; background:#f7f9fc; }
 .header-container { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 15px; }
-.section-title { font-size:1.5rem; font-weight:700; margin:0; }
+.section-title { font-size:1.5rem; font-weight:700; margin:0; color: var(--primary-blue); }
 .card { background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.05); }
 .data-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-.data-table th, .data-table td { padding:10px; border-bottom:1px solid #dee2e6; }
-.data-table th { background:#f7f9fc; font-weight:600; }
+.data-table th, .data-table td { padding:12px 15px; border-bottom:1px solid #dee2e6; vertical-align: middle; }
+.data-table th { background:#f7f9fc; font-weight:600; text-align: center; color: var(--text-dark);}
 .data-table td.col-right { text-align:right; }
-.data-table td.col-center, .data-table th.col-center { text-align:center; }
-.hierarchy-row td { font-weight:bold; border-bottom:none; }
-.level-unit { color:#004d99; }
-.level-program { color:#196f3d; padding-left:20px !important; }
-.level-output { color:#d68910; padding-left:40px !important; }
-.level-komponen { color:#5b2c6f; padding-left:60px !important; }
-.level-akun { color:#515a5a; padding-left:80px !important; }
-.level-item { font-weight:normal; padding-left:100px !important; }
-.total-box { margin-top:15px; font-weight:600; font-size:1rem; color:#2c3e50; }
+.hierarchy-row td { font-weight:bold; background-color: #f8f9fa; }
+.level-program { color: var(--primary-blue); font-size: 1.1em; }
+.level-kegiatan { color: #154360; padding-left:25px !important; }
+.level-output { color: #1F618D; padding-left:50px !important; }
+.level-sub-output { color: #2980B9; padding-left:75px !important; }
+.level-komponen { color: #5499C7; padding-left:100px !important; }
+.level-sub-komponen { color: var(--text-light); padding-left:125px !important; }
+.level-akun { color: #27AE60; padding-left:150px !important; font-style: italic;}
+.level-item { font-weight:normal; padding-left:175px !important; }
+.total-box { margin-top:20px; padding-top:20px; border-top: 1px solid #dee2e6; }
+.total-box p { margin-bottom: 5px; font-size: 1.1rem; color: var(--primary-blue); }
 .year-buttons { display: flex; gap: 5px; align-items: center; margin-bottom: 15px; }
-.year-buttons .btn {
-    border: 1px solid #e0e0e0;
-    color: #333;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-    padding: 8px 15px;
-    text-decoration: none;
-    font-size: 0.9rem;
-}
-.year-buttons .btn.active {
-    background-color: #007bff;
-    color: #fff;
-    border-color: #007bff;
+.year-buttons .btn { border: 1px solid var(--border-blue); color: var(--primary-blue); background-color: #fff; border-radius: 5px; padding: 8px 15px; text-decoration: none; font-size: 0.9rem; }
+.year-buttons .btn.active { background-color: var(--primary-blue); color: #fff; border-color: var(--primary-blue); }
+.action-box { background-color: var(--light-blue-bg); border-left: 5px solid var(--primary-blue); padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+.level-placeholder {
+    color: var(--warning-text);
+    background-color: var(--warning-bg);
+    font-style: italic;
+    font-weight: bold;
 }
 </style>
 
 <main class="main-content">
   <div class="container">
+    
     <div class="header-container">
-      <h2 class="section-title">Manajemen Anggaran Tahunan </h2>
+      <h2 class="section-title">Manajemen Anggaran Tahunan</h2>
       <?php if ($has_access_for_action): ?>
-        <a href="tambah_master_data.php" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Tambah Anggaran Tahun Baru
-        </a>
+        <a href="tambah_master_data.php" class="btn btn-primary" style="background-color: var(--primary-blue); border-color: var(--primary-blue);"><i class="fas fa-plus"></i> Tambah Anggaran Baru</a>
       <?php endif; ?>
     </div>
+    
+    <?php if ($has_access_for_action): ?>
+    <div class="action-box">
+        <strong>Tindakan Lanjutan</strong>
+        <p class="mb-2">Gunakan fitur ini untuk menghapus seluruh data anggaran pada tahun tertentu sebagai persiapan revisi.</p>
+        <form action="../proses/proses_hapus_anggaran.php" method="POST" onsubmit="return confirm('PERINGATAN: Anda akan menghapus SELURUH data anggaran untuk tahun yang dipilih. Yakin ingin melanjutkan?');">
+            <div class="form-row align-items-end">
+                <div class="col-auto">
+                    <label for="tahun_hapus">Pilih Tahun Anggaran:</label>
+                    <select class="form-control" id="tahun_hapus" name="tahun" required>
+                        <?php foreach ($daftar_tahun as $th): ?>
+                            <option value="<?= $th ?>"><?= $th ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Hapus Anggaran</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <?php endif; ?>
 
     <div class="year-buttons">
-      <label class="mb-0">Tahun:</label>
+      <label class="mb-0 mr-2">Lihat Tahun:</label>
       <?php foreach ($daftar_tahun as $th): ?>
-        <a href="?tahun=<?= $th ?>" class="btn <?= $th == $tahun_filter ? 'active' : '' ?>">
-          <?= $th ?>
-        </a>
+        <a href="?tahun=<?= $th ?>" class="btn <?= $th == $tahun_filter ? 'active' : '' ?>"><?= $th ?></a>
       <?php endforeach; ?>
     </div>
-    
     <div class="card">
       <div class="table-responsive">
         <table class="data-table">
-          <colgroup>
-            <col style="width:25%">
-            <col style="width:8%">
-            <col style="width:10%">
-            <col style="width:12%">
-            <col style="width:12%">
-            <col style="width:12%">
-            <col style="width:12%">
-            <col style="width:9%">
-          </colgroup>
           <thead>
             <tr>
-              <th>Uraian Anggaran</th>
-              <th class="col-center">Satuan</th>
-              <th class="col-right">Volume</th>
-              <th class="col-right">Harga</th>
-              <th class="col-right">Pagu</th>
-              <th class="col-center">Ketua Tim</th>
-              <th class="col-center">Pengelola</th>
-              <th class="col-center">Aksi</th>
+              <th style="width: 60%;">Uraian Anggaran</th>
+              <th style="width: 10%;">Satuan</th>
+              <th style="width: 10%;">Volume</th>
+              <th style="width: 10%;">Harga</th>
+              <th style="width: 10%;">Pagu</th>
+              <th style="width: 5%;">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <?php if (!empty($data_master)):
-                $prev_unit = $prev_program = $prev_output = $prev_komponen = $prev_akun = null;
+                $printed_headers = [];
                 foreach ($data_master as $row):
-                    // Logika bersarang yang benar
-                    // Jika unit berubah, tampilkan baris unit dan reset semua variabel di bawahnya
-                    if ($row['unit_nama'] !== $prev_unit): ?>
-                      <tr class="hierarchy-row"><td colspan="8" class="level-unit"><?= htmlspecialchars($row['unit_nama']) ?></td></tr>
-                      <?php $prev_unit = $row['unit_nama'];
-                      // Reset semua level di bawahnya
-                      $prev_program = $prev_output = $prev_komponen = $prev_akun = null;
-                    endif;
+                    
+                    $levels = [
+                        'program' => 'level-program', 'kegiatan' => 'level-kegiatan', 
+                        'output' => 'level-output', 'sub_output' => 'level-sub-output', 
+                        'komponen' => 'level-komponen', 'sub_komponen' => 'level-sub-komponen',
+                        'akun' => 'level-akun'
+                    ];
 
-                    // Jika program berubah, tampilkan baris program dan reset semua variabel di bawahnya
-                    if ($row['program_nama'] !== $prev_program): ?>
-                      <tr class="hierarchy-row"><td colspan="8" class="level-program"><?= htmlspecialchars($row['program_nama']) ?></td></tr>
-                      <?php $prev_program = $row['program_nama'];
-                      // Reset semua level di bawahnya
-                      $prev_output = $prev_komponen = $prev_akun = null;
-                    endif;
+                    foreach ($levels as $level => $class) {
+                        $display_name = !empty($row[$level . '_nama']) ? $row[$level . '_nama'] : '[' . ucfirst($level) . ' Tidak Ditemukan]';
+                        $is_defined = !empty($row[$level . '_nama']);
 
-                    // Jika output berubah, tampilkan baris output dan reset semua variabel di bawahnya
-                    if ($row['output_nama'] !== $prev_output): ?>
-                      <tr class="hierarchy-row"><td colspan="8" class="level-output"><?= htmlspecialchars($row['output_nama']) ?></td></tr>
-                      <?php $prev_output = $row['output_nama'];
-                      // Reset semua level di bawahnya
-                      $prev_komponen = $prev_akun = null;
-                    endif;
+                        if (!isset($printed_headers[$level]) || $printed_headers[$level] !== $display_name) {
+                            $css_class = $is_defined ? $class : 'level-placeholder ' . $class;
+                            $colspan = ($level === 'akun') ? 5 : 6;
+                            
+                            echo '<tr class="hierarchy-row">';
+                            echo "  <td colspan='{$colspan}' class='{$css_class}'>" . htmlspecialchars($display_name) . "</td>";
+                            
+                            if ($level === 'akun') {
+                                echo '<td class="text-center">';
+                                if ($is_defined && $has_access_for_action) {
+                                    echo '<a href="tambah_item.php?id_akun='.urlencode($row['akun_id']).'&tahun='.$tahun_filter.'" class="btn btn-sm btn-success"><i class="fas fa-plus"></i></a>';
+                                }
+                                echo '</td>';
+                            }
+                            echo '</tr>';
 
-                    // Jika komponen berubah, tampilkan baris komponen dan reset variabel di bawahnya
-                    if ($row['komponen_nama'] !== $prev_komponen): ?>
-                      <tr class="hierarchy-row"><td colspan="8" class="level-komponen"><?= htmlspecialchars($row['komponen_nama']) ?></td></tr>
-                      <?php $prev_komponen = $row['komponen_nama'];
-                      // Reset variabel di bawahnya
-                      $prev_akun = null;
-                    endif;
-
-                    // Jika akun berubah, tampilkan baris akun
-                    if ($row['akun_nama'] !== $prev_akun): ?>
-                      <tr class="hierarchy-row">
-                        <td colspan="5" class="level-akun"><?= htmlspecialchars($row['akun_nama']) ?></td>
-                        <td class="col-center">
-                          <select name="ketua_tim[<?= $row['akun_id'] ?>]" class="form-control form-control-sm auto-save" data-akun-id="<?= $row['akun_id'] ?>" data-role="ketua" data-tahun="<?= $tahun_filter ?>">
-                            <option value="">-- Pilih --</option>
-                            <?php foreach ($daftar_pegawai as $id_pg => $nama_pg): ?>
-                              <option value="<?= $id_pg ?>" <?= $row['id_ketua'] == $id_pg ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($nama_pg) ?>
-                              </option>
-                            <?php endforeach; ?>
-                          </select>
-                        </td>
-                        <td class="col-center">
-                          <select name="pengelola[<?= $row['akun_id'] ?>]" class="form-control form-control-sm auto-save" data-akun-id="<?= $row['akun_id'] ?>" data-role="pengelola" data-tahun="<?= $tahun_filter ?>">
-                            <option value="">-- Pilih --</option>
-                            <?php foreach ($daftar_pegawai as $id_pg => $nama_pg): ?>
-                              <option value="<?= $id_pg ?>" <?= $row['id_pengelola'] == $id_pg ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($nama_pg) ?>
-                              </option>
-                            <?php endforeach; ?>
-                          </select>
-                        </td>
-                        <td class="col-center">
-                            <?php 
-                            if ($has_access_for_action): 
-                            ?>
-                          <a href="tambah_item.php?id_akun=<?= urlencode($row['akun_id']) ?>&tahun=<?= $tahun_filter ?>" 
-                            class="btn btn-sm btn-success">
-                            <i class="fas fa-plus"></i> Item
-                          </a>
-                          <?php endif; ?>
-                        </td>
-                      </tr>
-                      <?php $prev_akun = $row['akun_nama'];
-                    endif; ?>
-
+                            $printed_headers[$level] = $display_name;
+                            $child_levels_to_reset = array_slice(array_keys($levels), array_search($level, array_keys($levels)) + 1);
+                            foreach ($child_levels_to_reset as $child_level) {
+                                unset($printed_headers[$child_level]);
+                            }
+                        }
+                    }
+            ?>
                     <tr class="item-row">
                       <td class="level-item"><?= htmlspecialchars($row['item_nama']) ?></td>
-                      <td class="col-center"><?= htmlspecialchars($row['satuan']) ?></td>
-                      <td class="col-right"><?= number_format($row['volume'], 0, ',', '.') ?></td>
-                      <td class="col-right">Rp <?= number_format($row['harga'], 0, ',', '.') ?></td>
-                      <td class="col-right">Rp <?= number_format($row['pagu'], 0, ',', '.') ?></td>
-                      <td colspan="2"></td>
-                      <td class="col-center">
-                        <?php 
-                        if ($has_access_for_action): 
-                        ?>
-                        <a href="../proses/proses_hapus_item.php?id_item=<?= urlencode($row['id_item']) ?>&tahun=<?= $tahun_filter ?>" 
-                          class="btn btn-sm btn-danger"
-                          onclick="return confirm('Yakin ingin menghapus item ini?');">
-                          <i class="fas fa-trash"></i> Hapus
-                        </a>
+                      <td class="text-center"><?= htmlspecialchars($row['satuan']) ?></td>
+                      <td class="col-right"><?= number_format((float)$row['volume'], 0, ',', '.') ?></td>
+                      <td class="col-right">Rp <?= number_format((float)$row['harga'], 0, ',', '.') ?></td>
+                      <td class="col-right">Rp <?= number_format((float)$row['pagu'], 0, ',', '.') ?></td>
+                      <td class="text-center">
+                        <?php if ($has_access_for_action): ?>
+                          <a href="edit_item.php?id=<?= urlencode($row['id_item']) ?>" class="btn btn-sm btn-warning mr-1">
+                              <i class="fas fa-edit"></i>
+                          </a>
+                          <a href="../proses/proses_hapus_item.php?id_item=<?= urlencode($row['id_item']) ?>&tahun=<?= $tahun_filter ?>" class="btn btn-sm btn-danger" onclick="return confirm('Yakin ingin menghapus item ini?');">
+                            <i class="fas fa-trash"></i>
+                          </a>
                         <?php endif; ?>
                       </td>
                     </tr>
                   <?php endforeach;
                 else: ?>
-                <tr><td colspan="8" class="text-center text-muted">Tidak ada data master ditemukan.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted">Tidak ada data master ditemukan untuk tahun <?= $tahun_filter ?>.</td></tr>
               <?php endif; ?>
           </tbody>
         </table>
       </div>
 
       <div class="total-box">
-        Total Dana (Tahun <?= $tahun_filter ?>): Rp <?= number_format($total_pagu, 0, ',', '.') ?>
+        <p><strong>Total Pagu Anggaran (Tahun <?= $tahun_filter ?>):</strong> Rp <?= number_format($total_pagu, 0, ',', '.') ?></p>
       </div>
     </div>
   </div>
 </main>
-
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-
-<script>
-$(document).ready(function() {
-    $('.auto-save').on('change', function() {
-        const selectElement = $(this);
-        const akunId = selectElement.data('akun-id');
-        const role = selectElement.data('role');
-        const pegawaiId = selectElement.val();
-        const tahun = selectElement.data('tahun');
-
-        $.ajax({
-            url: '../proses/proses_simpan_pegawai.php',
-            type: 'POST',
-            data: {
-                akun_id: akunId,
-                role: role,
-                pegawai_id: pegawaiId,
-                tahun: tahun
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    console.log('Data berhasil disimpan: ' + response.message);
-                } else {
-                    console.error('Gagal menyimpan data: ' + response.message);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Terjadi kesalahan AJAX:', error);
-            }
-        });
-    });
-});
-</script>
 
 <?php include '../includes/footer.php'; ?>

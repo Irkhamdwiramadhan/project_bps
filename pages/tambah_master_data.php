@@ -54,8 +54,6 @@ if (!isset($_SESSION['user_role']) || !in_array('super_admin', $_SESSION['user_r
     <div class="container">
         <div class="card">
             <h2 class="mb-4">Tambah Data Anggaran (Unggah Excel)</h2>
-            <p>Unduh Template Excel dibawah sebagai contoh format excel yang harus di input, Mohon untuk menyamakan nama kolom sesuai dengan tempate</p>
-            <a href="../assets/Dipaku_new.xlsx" download class="btn-custom btn-primary mb-6">Unduh Template Excel</a>
             <p>Silakan unggah file Excel yang berisi data anggaran dengan struktur yang sudah ditentukan.</p>
             <form action="../proses/proses_tambah_data_master.php" method="POST" enctype="multipart/form-data">
                 

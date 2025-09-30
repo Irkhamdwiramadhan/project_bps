@@ -438,25 +438,9 @@ $relative_path_to_css = str_repeat('../', substr_count(dirname($_SERVER['PHP_SEL
                         }
                         ?>
                         <li><a href="rpd.php"><i class="fas fa-calendar-alt"></i> Rpd</a></li>
-                        <?php 
-                        // Logika baru yang lebih solid untuk menampilkan menu "Realisasi Admin"
-                        // Menu ini akan muncul jika user memiliki peran 'super_admin' atau 'admin_pegawai'
-                        if (is_array($role_tampil) && (in_array('super_admin', $role_tampil) || in_array('admin_tu', $role_tampil)|| in_array('admin_dipaku', $role_tampil))) {
-                            echo '<li><a href="realisasi_admin.php"><i class="fas fa-chart-line"></i> Realisasi</a></li>';
-                        }
-                        ?>
-                        <?php
-                        if (is_array($role_tampil) && !(in_array('super_admin', $role_tampil) || in_array('admin_tu', $role_tampil) || in_array('admin_dipaku', $role_tampil))) {
-                            echo '<li><a href="realisasi.php"><i class="fas fa-chart-bar"></i> Realisasi</a></li>';
-                        }
-                        ?>
-                        <?php 
-                        // Logika baru yang lebih solid untuk menampilkan menu "Realisasi Admin"
-                        // Menu ini akan muncul jika user memiliki peran 'super_admin' atau 'admin_pegawai'
-                        if (is_array($role_tampil) && (in_array('super_admin', $role_tampil) || in_array('admin_tu', $role_tampil)|| in_array('admin_dipaku', $role_tampil))) {
-                        echo '<li><a href="rekap_anggaran.php"><i class="fas fa-file-invoice"></i> Rekap Anggaran</a></li>';
-                        }
-                        ?>
+                        <li><a href="realisasi.php"><i class="fas fa-chart-line"></i> Realisasi</a></li>
+                       
+            
                     </ul>
                 </details>
                 </li>

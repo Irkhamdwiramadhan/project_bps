@@ -219,18 +219,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_outputs']))
                                                     <td class="col-right">Rp <?= htmlspecialchars(number_format($item['pagu'], 0, ',', '.')) ?></td>
                                                     <td class="col-right">Rp <?= htmlspecialchars(number_format($rpd_data[$item['kode_unik']] ?? 0, 0, ',', '.')) ?></td>
                                                     <td class="text-center">
-                                                        <?php
-                                                        $total_rpd_item = $rpd_data[$item['kode_unik']] ?? 0;
-                                                        $pagu_item = (float)$item['pagu'];
-                                                        if ($pagu_item <= $total_rpd_item) {
-                                                            echo '<span class="text-success font-weight-bold"><i class="fas fa-check-circle"></i> Selesai</span>';
-                                                        } else {
-                                                            echo '<a href="isi_rpd_per_item.php?kode_unik='.urlencode($item['kode_unik']).'" class="btn btn-sm btn-info">';
-                                                            echo '  <i class="fas fa-plus"></i> Tambah RPD';
-                                                            echo '</a>';
-                                                        }
-                                                        ?>
-                                                    </td>
+                                                      <?php
+                                                      $total_rpd_item = (float)($rpd_data[$item['kode_unik']] ?? 0);
+                                                      $pagu_item = (float)$item['pagu'];
+
+                                                      // Kondisi 1: RPD sudah diisi dan JUMLAHNYA SAMA PERSIS dengan Pagu
+                                                      if ($total_rpd_item > 0 && $pagu_item == $total_rpd_item) {
+                                                          echo '<span class="text-success font-weight-bold"><i class="fas fa-check-circle"></i> Selesai</span>';
+
+                                                      // Kondisi 2: RPD sudah diisi TAPI JUMLAHNYA TIDAK SAMA dengan Pagu (perlu diedit)
+                                                      } elseif ($total_rpd_item > 0 && $pagu_item != $total_rpd_item) {
+                                                          echo '<a href="isi_rpd_per_item.php?kode_unik='.urlencode($item['kode_unik']).'" class="btn btn-sm btn-warning">'; // Tombol kuning
+                                                          echo '  <i class="fas fa-edit"></i> Edit RPD'; // Ikon dan teks edit
+                                                          echo '</a>';
+                                                          
+                                                      // Kondisi 3: RPD belum diisi sama sekali
+                                                      } else {
+                                                          echo '<a href="isi_rpd_per_item.php?kode_unik='.urlencode($item['kode_unik']).'" class="btn btn-sm btn-info">';
+                                                          echo '  <i class="fas fa-plus"></i> Tambah RPD';
+                                                          echo '</a>';
+                                                      }
+                                                      ?>
+                                                  </td>
                                                   </tr>
                                               <?php endforeach; ?>
                                           <?php endforeach; ?>

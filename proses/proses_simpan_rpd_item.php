@@ -22,7 +22,6 @@ if (empty(array_intersect($user_roles, $allowed_roles))) {
 }
 
 // 3. Validasi semua input yang diterima dari form
-// REVISI: Menggunakan kode_unik_item, bukan id_item
 $kode_unik_item = filter_input(INPUT_POST, 'kode_unik_item', FILTER_SANITIZE_STRING);
 $tahun = filter_input(INPUT_POST, 'tahun', FILTER_VALIDATE_INT);
 $bulan_rpd_raw = $_POST['bulan_rpd'] ?? [];
@@ -39,7 +38,7 @@ if (empty($kode_unik_item) || empty($tahun) || !is_array($bulan_rpd_raw)) {
 // =========================================================================
 
 try {
-    // 1. Ambil Pagu asli dari database untuk validasi menggunakan kode_unik
+    // 1. Ambil Pagu asli dari database untuk validasi
     $stmt_pagu = $koneksi->prepare("SELECT pagu FROM master_item WHERE kode_unik = ?");
     $stmt_pagu->bind_param("s", $kode_unik_item);
     $stmt_pagu->execute();
@@ -60,14 +59,14 @@ try {
     }
 
     // 3. Validasi Server-Side: Total RPD harus sama dengan Pagu
-    if (abs($total_rpd_submitted - $pagu_asli) > 0.01) { // Menggunakan toleransi kecil untuk perbandingan float
+    if (abs($total_rpd_submitted - $pagu_asli) > 0.01) { // Toleransi untuk perbandingan float
         throw new Exception("Total RPD (Rp " . number_format($total_rpd_submitted) . ") tidak sama dengan Total Pagu (Rp " . number_format($pagu_asli) . "). Data tidak disimpan.");
     }
 
     // 4. Simpan ke database menggunakan transaksi
     $koneksi->begin_transaction();
     
-    // Langkah A: Hapus semua data RPD lama berdasarkan kode_unik_item dan tahun
+    // Langkah A: Hapus semua data RPD lama
     $stmt_delete = $koneksi->prepare("DELETE FROM rpd WHERE kode_unik_item = ? AND tahun = ?");
     $stmt_delete->bind_param("si", $kode_unik_item, $tahun);
     $stmt_delete->execute();
@@ -78,7 +77,6 @@ try {
     $stmt_insert = $koneksi->prepare($sql_insert);
     
     foreach ($bulan_rpd_clean as $bulan => $jumlah) {
-        // Hanya masukkan baris yang jumlahnya lebih dari 0 untuk efisiensi
         if ($jumlah > 0) {
             $stmt_insert->bind_param("siid", $kode_unik_item, $tahun, $bulan, $jumlah);
             $stmt_insert->execute();
@@ -86,20 +84,22 @@ try {
     }
     $stmt_insert->close();
     
-    // Jika semua berhasil, commit transaksi
     $koneksi->commit();
     
     $_SESSION['flash_message'] = "Rencana Penarikan Dana berhasil disimpan.";
     $_SESSION['flash_message_type'] = "success";
 
 } catch (Exception $e) {
-    // Jika ada error di mana pun, batalkan semua perubahan
     $koneksi->rollback();
     $_SESSION['flash_message'] = "Terjadi kesalahan. Pesan: " . $e->getMessage();
     $_SESSION['flash_message_type'] = "danger";
 }
 
-// Arahkan pengguna kembali ke halaman laporan RPD
-header("Location: ../pages/rpd.php?tahun=" . $tahun);
+// =========================================================================
+// REVISI: ARAHKAN PENGGUNA KEMBALI KE LANGKAH 2
+// =========================================================================
+// Daripada ke halaman laporan, kita kembali ke halaman tambah_rpd.
+// Halaman tambah_rpd akan otomatis menampilkan Langkah 2 karena konteksnya tersimpan di session.
+header("Location: ../pages/tambah_rpd.php?tahun=" . $tahun);
 exit();
 ?>

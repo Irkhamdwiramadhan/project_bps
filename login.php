@@ -195,9 +195,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <div class="login-container">
-        <img src="assets/img/logo/logo-login.jpg" alt="Logo BPS" class="logo">
+        <img src="assets/img/logo/Sitik (6).png" alt="Logo BPS" class="logo">
         <h3>Login</h3>
-        <h4>Sistem Informasi Statistik Kabupaten Tegal</h4>
+        <h4>Secuil Aplikasi Pegawai Statistik</h4>
         <?php if ($error_message): ?>
             <div class="error"><?php echo htmlspecialchars($error_message); ?></div>
         <?php endif; ?>

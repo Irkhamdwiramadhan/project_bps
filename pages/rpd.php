@@ -190,15 +190,26 @@ body {
     border: none;
     border-radius: var(--border-radius); 
     box-shadow: 0 4px 20px rgba(0,0,0,0.04); 
-    /* overflow: hidden; <-- DIHAPUS: INI PENYEBAB MASALAH SCROLL */
 }
+
+/* ================================================
+REVISI UTAMA UNTUK SCROLLBAR
+================================================
+*/
 .table-responsive {
     border: none;
-    overflow-x: auto; /* DITAMBAHKAN: Memastikan scroll horizontal aktif */
+    overflow-x: auto; /* Sudah ada, ini benar untuk scroll horizontal */
+
+    /* --- TAMBAHAN KUNCI --- */
+    max-height: 75vh;   /* Batasi tinggi kontainer, misal 75% dari tinggi layar (viewport height) */
+    overflow-y: auto;   /* Tambahkan scroll vertikal jika konten (tabel) melebihi max-height */
+    position: relative; /* Ini penting agar 'position: sticky' pada header tabel berfungsi di dalam kontainer ini */
 }
+
 /* Styling scrollbar agar lebih modern (opsional) */
 .table-responsive::-webkit-scrollbar {
     height: 8px;
+    width: 8px; /* Tambahkan lebar untuk scrollbar vertikal */
 }
 .table-responsive::-webkit-scrollbar-thumb {
     background-color: #d1d5db;
@@ -224,7 +235,7 @@ body {
     background-color: var(--background-light); 
     position: sticky; 
     top: 0; 
-    z-index: 1;
+    z-index: 2; /* Naikkan z-index agar di atas konten */
     border-bottom: 2px solid var(--border-color);
     padding: 12px 10px;
     font-weight: 600;
@@ -324,10 +335,7 @@ body {
         <div class="page-header">
             <div class="header-container">
                 <h2 class="section-title">Laporan RPD - Tahun <?= $tahun_filter ?></h2>
-                <div>
-                    <a href="tambah_rpd.php?tahun=<?= $tahun_filter ?>" class="btn btn-primary"><i class="fas fa-plus mr-2"></i>Tambah/Edit RPD</a>
-                    <a href="../proses/cetak_rpd_pdf.php?tahun=<?= $tahun_filter ?>" class="btn btn-secondary" target="_blank"><i class="fas fa-file-pdf mr-2"></i>Download PDF</a>
-                </div>
+
             </div>
             <div class="filter-container">
                 <label>Lihat Tahun:</label>

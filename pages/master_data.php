@@ -4,7 +4,7 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// (Blok PHP di bagian atas tidak ada perubahan, sudah benar)
+// ... (logika PHP Anda tetap sama, tidak perlu diubah) ...
 $user_roles = $_SESSION['user_role'] ?? [];
 $allowed_roles_for_action = ['super_admin', 'admin_dipaku'];
 $has_access_for_action = !empty(array_intersect($user_roles, $allowed_roles_for_action));
@@ -57,7 +57,7 @@ if ($result && $result->num_rows > 0) {
 :root {
     --primary-blue: #0A2E5D;
     --light-blue-bg: #E6EEF7;
-    --border-blue: #B0C4DE;
+    --border-color: #dee2e6;
     --text-dark: #2c3e50;
     --text-light: #7f8c8d;
     --warning-bg: #fff8e1;
@@ -66,11 +66,44 @@ if ($result && $result->num_rows > 0) {
 .main-content { padding: 30px; background:#f7f9fc; }
 .header-container { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 15px; }
 .section-title { font-size:1.5rem; font-weight:700; margin:0; color: var(--primary-blue); }
-.card { background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.05); }
-.data-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-.data-table th, .data-table td { padding:12px 15px; border-bottom:1px solid #dee2e6; vertical-align: middle; }
-.data-table th { background:#f7f9fc; font-weight:600; text-align: center; color: var(--text-dark);}
-.data-table td.col-right { text-align:right; }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid var(--border-color); }
+.card-header-content { padding: 20px; }
+.total-box { padding: 15px 20px; border-top: 1px solid var(--border-color); background-color: #f8f9fa; }
+.total-box p { margin: 0; font-size: 1.1rem; color: var(--primary-blue); font-weight: 600; }
+.action-box { background-color: var(--light-blue-bg); border-left: 5px solid var(--primary-blue); padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+.year-buttons { display: flex; gap: 8px; align-items: center; }
+.year-buttons label { margin: 0; font-weight: 500; }
+
+.table-responsive { max-height: 65vh; overflow: auto; }
+.table-responsive::-webkit-scrollbar { width: 10px; height: 10px; }
+.table-responsive::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 5px; border: 2px solid #fff; }
+.table-responsive::-webkit-scrollbar-thumb:hover { background-color: #a8b0bc; }
+
+.master-data { border-collapse:collapse; font-size:0.8rem; width: 100%; }
+.master-data th, .master-data td { padding:12px 15px; border-bottom:1px solid var(--border-color); vertical-align: middle; }
+.master-data tr:last-child td { border-bottom: none; }
+.master-data th { 
+    background:#f7f9fc; font-weight:600; text-align: center; color: var(--text-dark);
+    position: sticky; top: 0; z-index: 2;
+    border-bottom: 2px solid var(--border-color);
+}
+.master-data td.col-right { text-align:right; }
+
+.uraian-col {
+    position: sticky;
+    left: 0;
+    background-color: #fff;
+    z-index: 1;
+}
+.master-data thead .uraian-col {
+    z-index: 3;
+    background-color: #f7f9fc;
+}
+.master-data tbody .uraian-col {
+    box-shadow: 5px 0 5px -5px rgba(0,0,0,0.1);
+}
+
+
 .hierarchy-row td { font-weight:bold; background-color: #f8f9fa; }
 .level-program { color: var(--primary-blue); font-size: 1.1em; }
 .level-kegiatan { color: #154360; padding-left:25px !important; }
@@ -80,139 +113,113 @@ if ($result && $result->num_rows > 0) {
 .level-sub-komponen { color: var(--text-light); padding-left:125px !important; }
 .level-akun { color: #27AE60; padding-left:150px !important; font-style: italic;}
 .level-item { font-weight:normal; padding-left:175px !important; }
-.total-box { margin-top:20px; padding-top:20px; border-top: 1px solid #dee2e6; }
-.total-box p { margin-bottom: 5px; font-size: 1.1rem; color: var(--primary-blue); }
-.year-buttons { display: flex; gap: 5px; align-items: center; margin-bottom: 15px; }
-.year-buttons .btn { border: 1px solid var(--border-blue); color: var(--primary-blue); background-color: #fff; border-radius: 5px; padding: 8px 15px; text-decoration: none; font-size: 0.9rem; }
-.year-buttons .btn.active { background-color: var(--primary-blue); color: #fff; border-color: var(--primary-blue); }
-.action-box { background-color: var(--light-blue-bg); border-left: 5px solid var(--primary-blue); padding: 15px; margin-bottom: 20px; border-radius: 8px; }
-.level-placeholder {
-    color: var(--warning-text);
-    background-color: var(--warning-bg);
-    font-style: italic;
-    font-weight: bold;
-}
+.level-placeholder { color: var(--warning-text); background-color: var(--warning-bg); font-style: italic; font-weight: bold; }
 </style>
 
 <main class="main-content">
-  <div class="container">
-    
+  <div class="container-fluid">
     <div class="header-container">
       <h2 class="section-title">Manajemen Anggaran Tahunan</h2>
-      <?php if ($has_access_for_action): ?>
-        <a href="tambah_master_data.php" class="btn btn-primary" style="background-color: var(--primary-blue); border-color: var(--primary-blue);"><i class="fas fa-plus"></i> Tambah Anggaran Baru</a>
-      <?php endif; ?>
     </div>
-    
-    <?php if ($has_access_for_action): ?>
-    <div class="action-box">
-        <strong>Tindakan Lanjutan</strong>
-        <p class="mb-2">Gunakan fitur ini untuk menghapus seluruh data anggaran pada tahun tertentu sebagai persiapan revisi.</p>
-        <form action="../proses/proses_hapus_anggaran.php" method="POST" onsubmit="return confirm('PERINGATAN: Anda akan menghapus SELURUH data anggaran untuk tahun yang dipilih. Yakin ingin melanjutkan?');">
-            <div class="form-row align-items-end">
-                <div class="col-auto">
-                    <label for="tahun_hapus">Pilih Tahun Anggaran:</label>
-                    <select class="form-control" id="tahun_hapus" name="tahun" required>
+
+    <div class="card">
+        <div class="card-header-content">
+            <?php if ($has_access_for_action): ?>
+            <div class="action-box">
+                <strong>Tindakan Lanjutan</strong>
+                <p class="mb-2">Gunakan fitur ini untuk menghapus seluruh data anggaran pada tahun tertentu.</p>
+                <form action="../proses/proses_hapus_anggaran.php" method="POST" onsubmit="return confirm('PERINGATAN: Anda akan menghapus SELURUH data anggaran untuk tahun yang dipilih. Yakin ingin melanjutkan?');" class="form-inline">
+                    <label for="tahun_hapus" class="mr-2">Pilih Tahun:</label>
+                    <select class="form-control mr-2" id="tahun_hapus" name="tahun" required>
                         <?php foreach ($daftar_tahun as $th): ?>
                             <option value="<?= $th ?>"><?= $th ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
-                <div class="col-auto">
                     <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Hapus Anggaran</button>
-                </div>
+                </form>
             </div>
-        </form>
-    </div>
-    <?php endif; ?>
+            <?php endif; ?>
 
-    <div class="year-buttons">
-      <label class="mb-0 mr-2">Lihat Tahun:</label>
-      <?php foreach ($daftar_tahun as $th): ?>
-        <a href="?tahun=<?= $th ?>" class="btn <?= $th == $tahun_filter ? 'active' : '' ?>"><?= $th ?></a>
-      <?php endforeach; ?>
-    </div>
-    <div class="card">
-      <div class="table-responsive">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 60%;">Uraian Anggaran</th>
-              <th style="width: 10%;">Satuan</th>
-              <th style="width: 10%;">Volume</th>
-              <th style="width: 10%;">Harga</th>
-              <th style="width: 10%;">Pagu</th>
-              <th style="width: 5%;">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (!empty($data_master)):
-                $printed_headers = [];
-                foreach ($data_master as $row):
-                    
-                    $levels = [
-                        'program' => 'level-program', 'kegiatan' => 'level-kegiatan', 
-                        'output' => 'level-output', 'sub_output' => 'level-sub-output', 
-                        'komponen' => 'level-komponen', 'sub_komponen' => 'level-sub-komponen',
-                        'akun' => 'level-akun'
-                    ];
-
-                    foreach ($levels as $level => $class) {
-                        $display_name = !empty($row[$level . '_nama']) ? $row[$level . '_nama'] : '[' . ucfirst($level) . ' Tidak Ditemukan]';
-                        $is_defined = !empty($row[$level . '_nama']);
-
-                        if (!isset($printed_headers[$level]) || $printed_headers[$level] !== $display_name) {
-                            $css_class = $is_defined ? $class : 'level-placeholder ' . $class;
-                            $colspan = ($level === 'akun') ? 5 : 6;
-                            
-                            echo '<tr class="hierarchy-row">';
-                            echo "  <td colspan='{$colspan}' class='{$css_class}'>" . htmlspecialchars($display_name) . "</td>";
-                            
-                            if ($level === 'akun') {
-                                echo '<td class="text-center">';
-                                if ($is_defined && $has_access_for_action) {
-                                    echo '<a href="tambah_item.php?id_akun='.urlencode($row['akun_id']).'&tahun='.$tahun_filter.'" class="btn btn-sm btn-success"><i class="fas fa-plus"></i></a>';
-                                }
-                                echo '</td>';
-                            }
-                            echo '</tr>';
-
-                            $printed_headers[$level] = $display_name;
-                            $child_levels_to_reset = array_slice(array_keys($levels), array_search($level, array_keys($levels)) + 1);
-                            foreach ($child_levels_to_reset as $child_level) {
-                                unset($printed_headers[$child_level]);
-                            }
-                        }
-                    }
-            ?>
-                    <tr class="item-row">
-                      <td class="level-item"><?= htmlspecialchars($row['item_nama']) ?></td>
-                      <td class="text-center"><?= htmlspecialchars($row['satuan']) ?></td>
-                      <td class="col-right"><?= number_format((float)$row['volume'], 0, ',', '.') ?></td>
-                      <td class="col-right">Rp <?= number_format((float)$row['harga'], 0, ',', '.') ?></td>
-                      <td class="col-right">Rp <?= number_format((float)$row['pagu'], 0, ',', '.') ?></td>
-                      <td class="text-center">
-                        <?php if ($has_access_for_action): ?>
-                          <a href="edit_item.php?id=<?= urlencode($row['id_item']) ?>" class="btn btn-sm btn-warning mr-1">
-                              <i class="fas fa-edit"></i>
-                          </a>
-                          <a href="../proses/proses_hapus_item.php?id_item=<?= urlencode($row['id_item']) ?>&tahun=<?= $tahun_filter ?>" class="btn btn-sm btn-danger" onclick="return confirm('Yakin ingin menghapus item ini?');">
-                            <i class="fas fa-trash"></i>
-                          </a>
-                        <?php endif; ?>
-                      </td>
+            <div class="year-buttons">
+              <label>Lihat Tahun:</label>
+              <?php foreach ($daftar_tahun as $th): ?>
+                <a href="?tahun=<?= $th ?>" class="btn btn-sm <?= $th == $tahun_filter ? 'btn-primary' : 'btn-outline-primary' ?>"><?= $th ?></a>
+              <?php endforeach; ?>
+            </div>
+        </div>
+      
+        <div class="table-responsive">
+            <table class="master-data">
+                <thead>
+                    <tr>
+                        <th class="uraian-col" style="min-width: 600px; text-align: left;">Uraian Anggaran</th>
+                        <th style="min-width: 100px;">Satuan</th>
+                        <th style="min-width: 120px;">Volume</th>
+                        <th style="min-width: 150px;">Harga</th>
+                        <th style="min-width: 150px;">Pagu</th>
+                        <th style="min-width: 120px;">Aksi</th>
                     </tr>
-                  <?php endforeach;
-                else: ?>
-                <tr><td colspan="6" class="text-center text-muted">Tidak ada data master ditemukan untuk tahun <?= $tahun_filter ?>.</td></tr>
-              <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
+                </thead>
+                <tbody>
+                    <?php if (!empty($data_master)):
+                        $printed_headers = [];
+                        foreach ($data_master as $row):
+                            $levels = [
+                                'program' => 'level-program', 'kegiatan' => 'level-kegiatan', 
+                                'output' => 'level-output', 'sub_output' => 'level-sub-output', 
+                                'komponen' => 'level-komponen', 'sub_komponen' => 'level-sub-komponen',
+                                'akun' => 'level-akun'
+                            ];
+                            foreach ($levels as $level => $class) {
+                                $display_name = !empty($row[$level . '_nama']) ? $row[$level . '_nama'] : '[' . ucfirst($level) . ' Tidak Ditemukan]';
+                                $is_defined = !empty($row[$level . '_nama']);
+                                if (!isset($printed_headers[$level]) || $printed_headers[$level] !== $display_name) {
+                                    $css_class = $is_defined ? $class : 'level-placeholder ' . $class;
+                                    $colspan = ($level === 'akun') ? 5 : 6;
+                                    
+                                    echo '<tr class="hierarchy-row">';
+                                    echo "<td colspan='{$colspan}' class='uraian-col {$css_class}'>" . htmlspecialchars($display_name) . "</td>";
+                                    if ($level === 'akun') {
+                                        echo '<td class="text-center">';
+                                        if ($is_defined && $has_access_for_action) {
+                                            echo '<a href="tambah_item.php?id_akun='.urlencode($row['akun_id']).'&tahun='.$tahun_filter.'" class="btn btn-sm btn-success"><i class="fas fa-plus"></i></a>';
+                                        }
+                                        echo '</td>';
+                                    }
+                                    echo '</tr>';
 
-      <div class="total-box">
-        <p><strong>Total Pagu Anggaran (Tahun <?= $tahun_filter ?>):</strong> Rp <?= number_format($total_pagu, 0, ',', '.') ?></p>
-      </div>
+                                    $printed_headers[$level] = $display_name;
+                                    $child_levels_to_reset = array_slice(array_keys($levels), array_search($level, array_keys($levels)) + 1);
+                                    foreach ($child_levels_to_reset as $child_level) {
+                                        unset($printed_headers[$child_level]);
+                                    }
+                                }
+                            }
+                    ?>
+                            <tr class="item-row">
+                                <td class="level-item uraian-col"><?= htmlspecialchars($row['item_nama']) ?></td>
+                                <td class="text-center"><?= htmlspecialchars($row['satuan']) ?></td>
+                                <td class="col-right"><?= number_format((float)$row['volume'], 0, ',', '.') ?></td>
+                                <td class="col-right">Rp <?= number_format((float)$row['harga'], 0, ',', '.') ?></td>
+                                <td class="col-right">Rp <?= number_format((float)$row['pagu'], 0, ',', '.') ?></td>
+                                <td class="text-center">
+                                    <?php if ($has_access_for_action): ?>
+                                        <a href="edit_item.php?id=<?= urlencode($row['id_item']) ?>" class="btn btn-sm btn-warning mr-1"><i class="fas fa-edit"></i></a>
+                                        <a href="../proses/proses_hapus_item.php?id_item=<?= urlencode($row['id_item']) ?>&tahun=<?= $tahun_filter ?>" class="btn btn-sm btn-danger" onclick="return confirm('Yakin ingin menghapus item ini?');"><i class="fas fa-trash"></i></a>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                          <?php endforeach;
+                        else: ?>
+                        <tr><td colspan="6" class="text-center text-muted p-5">Tidak ada data master ditemukan untuk tahun <?= $tahun_filter ?>.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="total-box">
+            <p>Total Pagu Anggaran (Tahun <?= $tahun_filter ?>): Rp <?= number_format($total_pagu, 0, ',', '.') ?></p>
+        </div>
     </div>
   </div>
 </main>

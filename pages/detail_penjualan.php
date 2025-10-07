@@ -21,7 +21,8 @@ if ($sale_id) {
     $stmt_sale->close();
 
     // Ambil semua item yang ada dalam penjualan ini
-    $sql_items = "SELECT si.qty, si.price, p.name AS product_name 
+    // Perubahan: Menambahkan p.id AS product_id untuk keperluan hapus
+    $sql_items = "SELECT si.qty, si.price, p.name AS product_name, p.id AS product_id
                   FROM sales_items si 
                   JOIN products p ON si.product_id = p.id 
                   WHERE si.sale_id = ?";
@@ -37,8 +38,9 @@ if ($sale_id) {
 ?>
 
 <main class="main-content">
-    <div class="header-content">
+    <div class="header-content" style="display: flex; justify-content: space-between; align-items: center;">
         <h2>Detail Penjualan #<?php echo htmlspecialchars($sale_id); ?></h2>
+        <a href="history_penjualan.php" class="btn btn-secondary">Kembali</a>
     </div>
 
     <?php if ($sale_details) : ?>
@@ -57,6 +59,7 @@ if ($sale_id) {
                         <th>Nama Produk</th>
                         <th>Jumlah Beli</th>
                         <th>Subtotal</th>
+                        <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,11 +69,18 @@ if ($sale_id) {
                                 <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                                 <td><?php echo htmlspecialchars($item['qty']); ?></td>
                                 <td>Rp <?php echo number_format($item['price'], 0, ',', '.'); ?></td>
+                                <td>
+                                    <form action="../proses/proses_hapus_item_penjualan.php" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus item ini?');">
+                                        <input type="hidden" name="sale_id" value="<?php echo htmlspecialchars($sale_id); ?>">
+                                        <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($item['product_id']); ?>">
+                                        <button type="submit" class="btn-delete">Hapus</button>
+                                    </form>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else : ?>
                         <tr>
-                            <td colspan="3" style="text-align:center;">Tidak ada barang yang terjual.</td>
+                            <td colspan="4" style="text-align:center;">Tidak ada barang yang terjual.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -83,4 +93,4 @@ if ($sale_id) {
     <?php endif; ?>
 </main>
 
-<?php include '../includes/footer.php'; ?>  
+<?php include '../includes/footer.php'; ?>

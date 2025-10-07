@@ -84,8 +84,13 @@ foreach ($transaksi_data as $item) {
     $total_qty += $item['qty'];
 }
 
-// Ambil nama bendahara dari parameter URL. Jika tidak ada, gunakan nama default.
-$nama_bendahara = $_GET['bendahara_name'] ?? 'Adi Prima';
+// Ambil nama bendahara dari database
+$stmt_bendahara = $koneksi->prepare("SELECT pengaturan_nilai FROM pengaturan WHERE pengaturan_nama = 'nama_bendahara'");
+$stmt_bendahara->execute();
+$result_bendahara = $stmt_bendahara->get_result();
+$data_bendahara = $result_bendahara->fetch_assoc();
+$nama_bendahara = $data_bendahara['pengaturan_nilai'] ?? 'Bendahara Belum Diatur'; // Fallback jika data tidak ada
+$stmt_bendahara->close();
 ?>
 <!DOCTYPE html>
 <html lang="id">

@@ -6,7 +6,7 @@ include '../includes/sidebar.php';
 
 // Validasi hak akses, hanya untuk admin
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_tu'];
+$allowed_roles = ['super_admin', 'admin_dipaku'];
 if (empty(array_intersect($user_roles, $allowed_roles))) {
     die("Akses ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.");
 }

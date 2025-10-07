@@ -11,7 +11,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 if ($_SERVER["REQUEST_METHOD"] !== "POST") die("Akses ditolak.");
 
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_tu'];
+$allowed_roles = ['super_admin', 'admin_dipaku'];
 if (empty(array_intersect($user_roles, $allowed_roles))) {
     $_SESSION['flash_message'] = "Anda tidak memiliki hak akses.";
     $_SESSION['flash_message_type'] = "danger";

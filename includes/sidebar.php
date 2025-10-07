@@ -301,6 +301,35 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
                     <details>
                         <summary class="nav-item">
+                            <i class="fas fa-wallet menu-icon"></i>
+                            <span class="nav-text">Dipaku</span>
+                            <i class="fas fa-chevron-right caret"></i>
+                        </summary>
+                        <ul class="sub-menu">
+                            <li><a href="master_data.php"><i class="fas fa-book"></i> Anggaran</a></li>
+                            <li><a href="rpd.php"><i class="fas fa-calendar-alt"></i> Rpd</a></li>
+                            <li><a href="realisasi.php"><i class="fas fa-chart-line"></i> Realisasi</a></li>
+                            <?php
+                            $allowed_roles = ['super_admin', 'admin_dipaku']; 
+
+                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
+                                echo '<li><a href="upload.php"><i class="fas fa-upload"></i> Upload</a></li>';
+                            }
+                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
+                                echo '<li><a href="cetak.php"><i class="fas fa-print"></i> Cetak</a></li>';
+                            }
+                            ?>
+
+                            
+                            
+                          
+                        
+                        </ul>
+                    </details>
+                </li>
+                <li class="has-sub">
+                    <details>
+                        <summary class="nav-item">
                             <i class="fas fa-store menu-icon"></i>
                             <span class="nav-text">B-S Mart</span>
                             <i class="fas fa-chevron-right caret"></i>
@@ -355,29 +384,13 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
                     <details>
                         <summary class="nav-item">
-                            <i class="fas fa-wallet menu-icon"></i>
-                            <span class="nav-text">Dipaku</span>
+                            <i class="fas fa-briefcase menu-icon"></i>
+                            <span class="nav-text">Small Simpedu</span>
                             <i class="fas fa-chevron-right caret"></i>
                         </summary>
                         <ul class="sub-menu">
-                            <li><a href="master_data.php"><i class="fas fa-book"></i> Anggaran</a></li>
-                            <li><a href="rpd.php"><i class="fas fa-calendar-alt"></i> Rpd</a></li>
-                            <li><a href="realisasi.php"><i class="fas fa-chart-line"></i> Realisasi</a></li>
-                            <?php
-                            $allowed_roles = ['super_admin', 'admin_dipaku']; 
-
-                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
-                                echo '<li><a href="upload.php"><i class="fas fa-upload"></i> Upload</a></li>';
-                            }
-                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
-                                echo '<li><a href="cetak.php"><i class="fas fa-print"></i> Cetak</a></li>';
-                            }
-                            ?>
-
-                            
-                            
-                          
-                        
+                            <li><a href="halaman_tim.php"><i class="fas fa-users"></i> Tim</a></li>
+                            <li><a href="kegiatan_tim.php"><i class="fas fa-clipboard-list"></i> Kegiatan</a></li>
                         </ul>
                     </details>
                 </li>

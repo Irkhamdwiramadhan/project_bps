@@ -335,6 +335,11 @@ REVISI UTAMA UNTUK SCROLLBAR
         <div class="page-header">
             <div class="header-container">
                 <h2 class="section-title">Laporan RPD - Tahun <?= $tahun_filter ?></h2>
+                <div class="add-rpd-button-container">
+          <a href="tambah_rpd.php" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Tambah RPD
+          </a>
+</div>
 
             </div>
             <div class="filter-container">

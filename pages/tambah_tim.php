@@ -3,7 +3,7 @@
 
 session_start();
 include '../includes/koneksi.php';
-include '../includes/header.php'; // Asumsikan header.php memuat CSS Bootstrap & Select2
+include '../includes/header.php';
 include '../includes/sidebar.php';
 
 // Pastikan pengguna sudah login
@@ -12,7 +12,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-// Logika Hak Akses (RBAC) - sama seperti halaman daftar
+// Logika Hak Akses (RBAC)
 $user_roles = $_SESSION['user_role'] ?? [];
 $allowed_roles_for_action = ['super_admin', 'admin_simpedu'];
 $has_access_for_action = false;
@@ -23,16 +23,14 @@ foreach ($user_roles as $role) {
     }
 }
 
-// Jika tidak punya hak akses, tendang kembali ke halaman daftar
 if (!$has_access_for_action) {
-    // Opsional: set pesan error
     $_SESSION['error_message'] = "Anda tidak memiliki izin untuk menambah data tim.";
     header('Location: halaman_tim.php');
     exit;
 }
 
-// Ambil data untuk dropdowns
-// 1. Pegawai Aktif (untuk Ketua dan Anggota)
+// Ambil data untuk dropdown
+// 1. Pegawai aktif
 $pegawai_list = [];
 $sql_pegawai = "SELECT id, nama FROM pegawai WHERE is_active = 1 ORDER BY nama ASC";
 $result_pegawai = $koneksi->query($sql_pegawai);
@@ -42,9 +40,8 @@ if ($result_pegawai->num_rows > 0) {
     }
 }
 
-// 2. Mitra Aktif (untuk Anggota)
+// 2. Mitra aktif
 $mitra_list = [];
-// Sesuaikan query ini dengan struktur tabel mitra Anda, misal ada kolom 'status'
 $sql_mitra = "SELECT id, nama_lengkap FROM mitra";
 $result_mitra = $koneksi->query($sql_mitra);
 if ($result_mitra->num_rows > 0) {
@@ -66,11 +63,19 @@ if ($result_mitra->num_rows > 0) {
         <div class="card-body">
             <form action="../proses/proses_tambah_tim.php" method="POST">
                 
+                <!-- Nama Tim -->
                 <div class="mb-3">
                     <label for="nama_tim" class="form-label">Nama Tim</label>
                     <input type="text" class="form-control" id="nama_tim" name="nama_tim" required>
                 </div>
 
+                <!-- Deskripsi Tim (kolom baru) -->
+                <div class="mb-3">
+                    <label for="deskripsi" class="form-label">Deskripsi Tim</label>
+                    <textarea class="form-control" id="deskripsi" name="deskripsi" rows="3" placeholder="Tuliskan deskripsi singkat tentang tujuan atau fokus tim..."></textarea>
+                </div>
+
+                <!-- Ketua Tim -->
                 <div class="mb-3">
                     <label for="ketua_tim_id" class="form-label">Ketua Tim</label>
                     <select class="form-select select2" id="ketua_tim_id" name="ketua_tim_id" required>
@@ -81,6 +86,7 @@ if ($result_mitra->num_rows > 0) {
                     </select>
                 </div>
 
+                <!-- Anggota Tim -->
                 <div class="mb-3">
                     <label for="anggota" class="form-label">Anggota Tim</label>
                     <select class="form-select select2" id="anggota" name="anggota[]" multiple="multiple">
@@ -104,16 +110,13 @@ if ($result_mitra->num_rows > 0) {
 </main>
 
 <?php
-// Pastikan footer.php memuat script untuk jQuery dan Select2
 include '../includes/footer.php'; 
 ?>
 
 <script>
-    // Tunggu sampai dokumen siap
     $(document).ready(function() {
-        // Inisialisasi Select2 pada elemen dengan class 'select2'
         $('.select2').select2({
-            theme: 'bootstrap-5', // Gunakan tema Bootstrap 5 agar tampilan konsisten
+            theme: 'bootstrap-5',
             placeholder: 'Pilih dari daftar...'
         });
     });

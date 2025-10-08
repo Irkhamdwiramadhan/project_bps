@@ -297,7 +297,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 
                 <li><a href="pegawai.php" class="nav-item"><i class="fas fa-users menu-icon"></i><span class="nav-text">Data Pegawai</span></a></li>
                 <li><a href="apel.php" class="nav-item"><i class="fas fa-calendar-check menu-icon"></i><span class="nav-text">SIAP</span></a></li>
-                
+                <li><a href="laporan_keluar_list.php" class="nav-item"><i class="fas fa-calendar-check menu-icon"></i><span class="nav-text">Memo Keluar Kantor</span></a></li>
                 <li class="has-sub">
                     <details>
                         <summary class="nav-item">
@@ -383,14 +383,16 @@ $foto_user = $_SESSION['user_foto'] ?? null;
     
                 <li class="has-sub">
                     <details>
-                        <summary class="nav-item">
-                            <i class="fas fa-briefcase menu-icon"></i>
-                            <span class="nav-text">Small Simpedu</span>
-                            <i class="fas fa-chevron-right caret"></i>
-                        </summary>
+                    <summary class="nav-item">
+                        <img src="../assets/img/logo/simpedu.png" alt="Dipaku Icon" class="menu-icon" style="width:24px; height:24px;">
+                        <span class="nav-text">Simpedu</span>
+                        <i class="fas fa-chevron-right caret"></i>
+                    </summary>
+
                         <ul class="sub-menu">
                             <li><a href="halaman_tim.php"><i class="fas fa-users"></i> Tim</a></li>
                             <li><a href="kegiatan_tim.php"><i class="fas fa-clipboard-list"></i> Kegiatan</a></li>
+                            <li><a href="dashboard_kegiatan.php"><i class="fas fa-chart-line"></i> Dashboard Tim</a></li>
                         </ul>
                     </details>
                 </li>

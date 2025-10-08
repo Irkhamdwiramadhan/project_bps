@@ -18,58 +18,93 @@ if (count(array_intersect($allowed_roles, (array)$user_roles)) === 0) {
     exit;
 }
 
-// Ambil dan bersihkan data dari form
-$id = (int)$_POST['id'];
-$nama_kegiatan = $koneksi->real_escape_string(trim($_POST['nama_kegiatan']));
+// ===================================================================
+// PENGAMBILAN & PEMBERSIHAN DATA DARI FORMULIR
+// ===================================================================
+$kegiatan_id = (int)$_POST['id'];
+$nama_kegiatan = trim($_POST['nama_kegiatan']);
 $tim_id = (int)$_POST['tim_id'];
 $target = (float)$_POST['target'];
-$realisasi = (float)$_POST['realisasi'];
-$satuan = $koneksi->real_escape_string(trim($_POST['satuan']));
+$satuan = trim($_POST['satuan']);
 $batas_waktu = $_POST['batas_waktu'];
-$tgl_realisasi = $_POST['tgl_realisasi'];
-$keterangan = $koneksi->real_escape_string(trim($_POST['keterangan']));
+$keterangan = trim($_POST['keterangan']);
 
-// Validasi Sederhana
-if (empty($id) || empty($nama_kegiatan) || empty($tim_id) || empty($satuan) || empty($batas_waktu)) {
-    $_SESSION['error_message'] = "Semua field wajib diisi.";
-    // Arahkan kembali ke halaman edit dengan ID yang sama
-    header('Location: ../pages/edit_kegiatan.php?id=' . $id);
+// Ambil data anggota (akan berbentuk array)
+$anggota_ids = $_POST['anggota_id'] ?? [];
+$target_anggotas = $_POST['target_anggota'] ?? [];
+
+
+// ===================================================================
+// VALIDASI DATA
+// ===================================================================
+if (empty($kegiatan_id) || empty($nama_kegiatan) || empty($tim_id) || empty($satuan) || empty($batas_waktu) || empty($anggota_ids)) {
+    $_SESSION['error_message'] = "Semua field wajib diisi, dan minimal harus ada satu anggota.";
+    header("Location: ../pages/edit_kegiatan_tim.php?id=" . $kegiatan_id);
     exit;
 }
 
-// Jika tanggal realisasi kosong, set ke NULL
-if (empty($tgl_realisasi)) {
-    $tgl_realisasi = NULL;
-}
+// ===================================================================
+// PROSES UPDATE KE DATABASE DENGAN TRANSAKSI
+// ===================================================================
+// Mulai Transaksi Database
+$koneksi->begin_transaction();
 
-// Proses update ke database menggunakan prepared statement
-$stmt = $koneksi->prepare(
-    "UPDATE kegiatan SET 
-        nama_kegiatan = ?, 
-        tim_id = ?, 
-        target = ?, 
-        realisasi = ?, 
-        satuan = ?, 
-        batas_waktu = ?, 
-        tgl_realisasi = ?, 
-        keterangan = ?
-     WHERE id = ?"
-);
+try {
+    // LANGKAH 1: Update data utama di tabel `kegiatan`
+    $stmt_kegiatan = $koneksi->prepare(
+        "UPDATE kegiatan SET 
+            nama_kegiatan = ?, 
+            tim_id = ?, 
+            target = ?, 
+            satuan = ?, 
+            batas_waktu = ?, 
+            keterangan = ?
+         WHERE id = ?"
+    );
+    // Tipe data: s=string, i=integer, d=double
+    $stmt_kegiatan->bind_param("sidsssi", $nama_kegiatan, $tim_id, $target, $satuan, $batas_waktu, $keterangan, $kegiatan_id);
+    
+    if (!$stmt_kegiatan->execute()) {
+        throw new Exception("Gagal mengupdate data kegiatan utama: " . $stmt_kegiatan->error);
+    }
+    $stmt_kegiatan->close();
 
-// Bind parameter sesuai urutan placeholder (?)
-// Tipe data: s=string, i=integer, d=double
-$stmt->bind_param("siddssssi", $nama_kegiatan, $tim_id, $target, $realisasi, $satuan, $batas_waktu, $tgl_realisasi, $keterangan, $id);
+    // LANGKAH 2: Hapus semua data anggota lama yang terkait dengan kegiatan ini
+    $stmt_delete = $koneksi->prepare("DELETE FROM kegiatan_anggota WHERE kegiatan_id = ?");
+    $stmt_delete->bind_param("i", $kegiatan_id);
+    if (!$stmt_delete->execute()) {
+        throw new Exception("Gagal menghapus data anggota lama: " . $stmt_delete->error);
+    }
+    $stmt_delete->close();
 
-if ($stmt->execute()) {
+    // LANGKAH 3: Masukkan kembali daftar anggota yang baru dari form
+    $stmt_insert = $koneksi->prepare(
+        "INSERT INTO kegiatan_anggota (kegiatan_id, anggota_id, target_anggota) 
+         VALUES (?, ?, ?)"
+    );
+    foreach ($anggota_ids as $key => $anggota_id) {
+        $target_individu = (float)$target_anggotas[$key];
+        $stmt_insert->bind_param("iid", $kegiatan_id, $anggota_id, $target_individu);
+        if (!$stmt_insert->execute()) {
+            throw new Exception("Gagal menyimpan data anggota baru: " . $stmt_insert->error);
+        }
+    }
+    $stmt_insert->close();
+
+    // Jika semua langkah di atas berhasil, commit transaksi untuk menyimpan perubahan secara permanen
+    $koneksi->commit();
     $_SESSION['success_message'] = "Data kegiatan berhasil diperbarui!";
-} else {
-    $_SESSION['error_message'] = "Gagal memperbarui data: " . $stmt->error;
+
+} catch (Exception $e) {
+    // Jika ada kegagalan di salah satu langkah, batalkan semua perubahan
+    $koneksi->rollback();
+    $_SESSION['error_message'] = "Terjadi kesalahan: " . $e->getMessage();
+} finally {
+    // Selalu tutup koneksi di akhir
+    $koneksi->close();
 }
 
-$stmt->close();
-$koneksi->close();
-
-// Alihkan kembali ke halaman utama kegiatan
+// Alihkan kembali ke halaman utama daftar kegiatan
 header('Location: ../pages/kegiatan_tim.php');
 exit;
 ?>

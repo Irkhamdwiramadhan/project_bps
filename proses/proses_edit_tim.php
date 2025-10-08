@@ -20,12 +20,13 @@ if (!array_intersect($allowed_roles, $user_roles)) {
 // Ambil dan bersihkan data dari form
 $tim_id = (int)$_POST['tim_id'];
 $nama_tim = $koneksi->real_escape_string(trim($_POST['nama_tim']));
+$deskripsi = $koneksi->real_escape_string(trim($_POST['deskripsi'] ?? ''));
 $ketua_tim_id = (int)$_POST['ketua_tim_id'];
 $anggota_list = $_POST['anggota'] ?? [];
 
 // Validasi
 if (empty($tim_id) || empty($nama_tim) || empty($ketua_tim_id)) {
-    $_SESSION['error_message'] = "Data tidak lengkap. Semua field wajib diisi.";
+    $_SESSION['error_message'] = "Data tidak lengkap. Nama Tim dan Ketua Tim wajib diisi.";
     header('Location: ../tim/edit_tim.php?id=' . $tim_id);
     exit;
 }
@@ -34,9 +35,9 @@ if (empty($tim_id) || empty($nama_tim) || empty($ketua_tim_id)) {
 $koneksi->begin_transaction();
 
 try {
-    // Langkah 1: Update data di tabel 'tim'
-    $stmt_update_tim = $koneksi->prepare("UPDATE tim SET nama_tim = ?, ketua_tim_id = ? WHERE id = ?");
-    $stmt_update_tim->bind_param("sii", $nama_tim, $ketua_tim_id, $tim_id);
+    // Langkah 1: Update data di tabel 'tim' (termasuk deskripsi)
+    $stmt_update_tim = $koneksi->prepare("UPDATE tim SET nama_tim = ?, deskripsi = ?, ketua_tim_id = ? WHERE id = ?");
+    $stmt_update_tim->bind_param("ssii", $nama_tim, $deskripsi, $ketua_tim_id, $tim_id);
     if (!$stmt_update_tim->execute()) {
         throw new Exception("Gagal mengupdate data tim: " . $stmt_update_tim->error);
     }
@@ -66,12 +67,12 @@ try {
         $stmt_insert_anggota->close();
     }
 
-    // Jika semua berhasil, commit
+    // Commit transaksi
     $koneksi->commit();
     $_SESSION['success_message'] = "Data tim berhasil diperbarui!";
 
 } catch (Exception $e) {
-    // Jika ada error, batalkan semua
+    // Jika ada error, rollback
     $koneksi->rollback();
     $_SESSION['error_message'] = "Terjadi kesalahan saat memperbarui data: " . $e->getMessage();
 }

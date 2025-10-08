@@ -73,10 +73,16 @@ $mitra_list = $koneksi->query("SELECT id, nama_lengkap FROM mitra");
         <div class="card-body">
             <form action="../proses/proses_edit_tim.php" method="POST">
                 <input type="hidden" name="tim_id" value="<?= $tim_id ?>">
-                
+
                 <div class="mb-3">
                     <label for="nama_tim" class="form-label">Nama Tim</label>
                     <input type="text" class="form-control" id="nama_tim" name="nama_tim" value="<?= htmlspecialchars($tim['nama_tim']) ?>" required>
+                </div>
+
+                <!-- Tambahkan kolom deskripsi -->
+                <div class="mb-3">
+                    <label for="deskripsi" class="form-label">Deskripsi Tim</label>
+                    <textarea class="form-control" id="deskripsi" name="deskripsi" rows="3"><?= htmlspecialchars($tim['deskripsi'] ?? '') ?></textarea>
                 </div>
 
                 <div class="mb-3">
@@ -112,12 +118,13 @@ $mitra_list = $koneksi->query("SELECT id, nama_lengkap FROM mitra");
                         </optgroup>
                     </select>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary">Update Tim</button>
             </form>
         </div>
     </div>
 </main>
+
 
 <?php include '../includes/footer.php'; ?>
 

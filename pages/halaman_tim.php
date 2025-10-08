@@ -135,6 +135,36 @@ foreach ((array)$user_roles as $role) {
         justify-content: center;
         border-radius: 8px;
     }
+    /* Tombol toggle status */
+.btn-toggle-status {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+/* Status aktif */
+.btn-toggle-status.active {
+    background-color: #28a745; /* hijau */
+    color: #fff;
+}
+
+/* Status nonaktif */
+.btn-toggle-status.inactive {
+    background-color: #6c757d; /* abu-abu */
+    color: #fff;
+}
+
+/* Efek hover */
+.btn-toggle-status:hover {
+    opacity: 0.8;
+}
+
 </style>
 
 <main class="main-content">
@@ -149,10 +179,17 @@ foreach ((array)$user_roles as $role) {
 
     <div class="p-4">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5>Daftar Tim</h5>
-                <div class="search-box">
-                    <input type="text" id="searchInput" class="form-control" placeholder="Cari tim atau ketua..." onkeyup="filterTabel()">
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" class="form-control" placeholder="Cari tim atau ketua..." onkeyup="filterTabel()">
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="filterStatus('all')">Semua</button>
+                        <button class="btn btn-outline-success btn-sm" onclick="filterStatus('1')">Aktif</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="filterStatus('0')">Nonaktif</button>
+                    </div>
                 </div>
             </div>
 
@@ -162,10 +199,12 @@ foreach ((array)$user_roles as $role) {
                         <tr>
                             <th>#</th>
                             <th>Nama Tim</th>
+                            <th>Deskripsi</th>
                             <th>Ketua Tim</th>
                             <th>Jumlah Anggota</th>
+                            <th>Status</th>
                             <?php if ($has_access_for_action): ?>
-                                <th style="width: 15%;">Aksi</th>
+                                <th style="width: 20%;">Aksi</th>
                             <?php endif; ?>
                         </tr>
                     </thead>
@@ -173,51 +212,59 @@ foreach ((array)$user_roles as $role) {
                         <?php
                         $sql = "SELECT 
                                     t.id, 
-                                    t.nama_tim, 
+                                    t.nama_tim,
+                                    t.deskripsi, 
+                                    t.is_active,
                                     p.nama AS nama_ketua,
                                     (SELECT COUNT(*) FROM anggota_tim WHERE tim_id = t.id) AS jumlah_anggota
-                                FROM 
-                                    tim t
-                                LEFT JOIN 
-                                    pegawai p ON t.ketua_tim_id = p.id
-                                ORDER BY 
-                                    t.nama_tim ASC";
-                        
+                                FROM tim t
+                                LEFT JOIN pegawai p ON t.ketua_tim_id = p.id
+                                ORDER BY t.nama_tim ASC";
                         $result = $koneksi->query($sql);
-                        
+
                         if ($result->num_rows > 0) {
                             $nomor = 1;
                             while($row = $result->fetch_assoc()) {
                                 $id_tim = $row['id'];
                                 $nama_tim = htmlspecialchars($row['nama_tim']);
+                                $deskripsi = htmlspecialchars($row['deskripsi'] ?? '-');
+                                $is_active = $row['is_active'];
+
                                 $nama_ketua_raw = $row['nama_ketua'];
                                 $nama_ketua = $nama_ketua_raw ? htmlspecialchars($nama_ketua_raw) : '<span class="text-muted">Belum Ditentukan</span>';
                                 $jumlah_anggota = $row['jumlah_anggota'];
                                 $search_data = strtolower($nama_tim . ' ' . $nama_ketua_raw);
 
-                                echo "<tr data-search='$search_data'>";
+                                echo "<tr data-search='$search_data' data-status='$is_active'>";
                                 echo "<td>" . $nomor++ . "</td>";
                                 echo "<td class='team-name'>$nama_tim</td>";
+                                echo "<td>$deskripsi</td>";
                                 echo "<td>$nama_ketua</td>";
                                 echo "<td>$jumlah_anggota orang</td>";
-                                
-                      // Selalu tampilkan kolom Aksi dan tombol Detail untuk semua pengguna
-                            echo '<td>
-                                    <div class="btn-action-group">
-                                        <a href="detail_tim.php?id='.$id_tim.'" class="btn btn-info btn-sm" title="Detail"><i class="fas fa-eye"></i></a>';
+                                echo "<td>" . ($is_active ? '<span class="badge bg-success">Aktif</span>' : '<span class="badge bg-secondary">Nonaktif</span>') . "</td>";
 
-                            // Jika pengguna memiliki hak akses, tampilkan juga tombol Edit dan Hapus
-                            if ($has_access_for_action) {
-                                echo '<a href="edit_tim.php?id='.$id_tim.'" class="btn btn-warning btn-sm" title="Edit"><i class="fas fa-pencil-alt"></i></a>
-                                    <a href="../proses/proses_hapus_tim.php?id='.$id_tim.'" class="btn btn-danger btn-sm" title="Hapus" onclick="return confirm(\'Yakin ingin menghapus tim ini?\')"><i class="fas fa-trash"></i></a>';
-                            }
+                                // Tombol Aksi
+                                echo '<td>
+                                        <div class="btn-action-group">';
+                                echo '<a href="detail_tim.php?id='.$id_tim.'" class="btn btn-info btn-sm" title="Detail"><i class="fas fa-eye"></i></a>';
 
-                            echo '  </div>
-                                </td>';
-                            echo "</tr>";
+                                if ($has_access_for_action) {
+                                    echo '<a href="edit_tim.php?id='.$id_tim.'" class="btn btn-warning btn-sm" title="Edit"><i class="fas fa-pencil-alt"></i></a>';
+
+                                    // Tombol toggle status
+                                    echo '<form action="../proses/proses_toggle_status_tim.php" method="POST" style="display:inline;">
+                                            <input type="hidden" name="tim_id" value="'.$id_tim.'">
+                                            <button type="submit" class="btn-toggle-status '.($is_active ? 'btn-secondary' : 'btn-success').'" title="'.($is_active ? 'Nonaktifkan' : 'Aktifkan').'">
+                                                <i class="fas fa-toggle-on"></i>
+                                            </button>
+                                        </form>';
+                                }
+
+                                echo '  </div></td>';
+                                echo "</tr>";
                             }
                         } else {
-                            $kolom_span = $has_access_for_action ? 5 : 4;
+                            $kolom_span = $has_access_for_action ? 7 : 6;
                             echo "<tr><td colspan='$kolom_span' class='text-center p-5'>Tidak ada data tim yang tersedia.</td></tr>";
                         }
                         ?>
@@ -229,19 +276,36 @@ foreach ((array)$user_roles as $role) {
 </main>
 
 <script>
-    function filterTabel() {
-        let input = document.getElementById('searchInput').value.toLowerCase();
-        let table = document.getElementById('tabelTim');
-        let rows = table.getElementsByTagName('tr');
-        
-        for (let i = 1; i < rows.length; i++) { // Mulai dari 1 untuk lewati header
-            let row = rows[i];
-            let keyword = row.getAttribute('data-search');
-            if (keyword) {
-                row.style.display = keyword.includes(input) ? '' : 'none';
-            }
+function filterTabel() {
+    let input = document.getElementById('searchInput').value.toLowerCase();
+    let table = document.getElementById('tabelTim');
+    let rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        let row = rows[i];
+        let keyword = row.getAttribute('data-search');
+        if (keyword) {
+            row.style.display = keyword.includes(input) ? '' : 'none';
         }
     }
+}
+
+// Filter berdasarkan status: 'all', '1', '0'
+function filterStatus(status) {
+    let table = document.getElementById('tabelTim');
+    let rows = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < rows.length; i++) {
+        let row = rows[i];
+        let rowStatus = row.getAttribute('data-status');
+        if (status === 'all') {
+            row.style.display = '';
+        } else {
+            row.style.display = (rowStatus === status) ? '' : 'none';
+        }
+    }
+}
 </script>
+
 
 <?php include '../includes/footer.php'; ?>

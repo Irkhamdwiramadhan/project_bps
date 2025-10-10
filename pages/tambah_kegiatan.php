@@ -14,13 +14,13 @@ if ($result_mitra && $result_mitra->num_rows > 0) {
     }
 }
 
-// Ambil daftar survei, termasuk nama satuan
-$sql_surveys = "SELECT id, nama_survei, singkatan_survei, satuan FROM surveys ORDER BY nama_survei ASC";
-$result_surveys = $koneksi->query($sql_surveys);
-$surveys_list = [];
-if ($result_surveys && $result_surveys->num_rows > 0) {
-    while ($row = $result_surveys->fetch_assoc()) {
-        $surveys_list[] = $row;
+// Ambil daftar tahun anggaran unik dari master_item
+$sql_tahun_item = "SELECT DISTINCT tahun FROM master_item ORDER BY tahun DESC";
+$result_tahun_item = $koneksi->query($sql_tahun_item);
+$tahun_list = [];
+if ($result_tahun_item && $result_tahun_item->num_rows > 0) {
+    while ($row = $result_tahun_item->fetch_assoc()) {
+        $tahun_list[] = $row['tahun'];
     }
 }
 ?>
@@ -174,12 +174,17 @@ label {
     font-weight: 500;
     color: #dc2626; /* red-600 */
 }
+.small-muted {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
 </style>
 
 <div class="main-content">
     <div class="card">
         <h3>Tambah Kegiatan Baru</h3>
-        <p class="text-sm text-gray-500">Isi formulir di bawah ini untuk menambahkan kegiatan baru.</p>
+        <p class="text-sm text-gray-500">Pilih Item anggaran (berdasarkan tahun), lalu isi mitra & jumlah.</p>
 
         <?php if (isset($_GET['status']) && $_GET['status'] == 'error') : ?>
             <div class="alert alert-danger">
@@ -188,36 +193,91 @@ label {
         <?php endif; ?>
 
         <form action="../proses/proses_tambah_kegiatan.php" method="POST" id="kegiatan-form">
-            <div class="form-group select-search-container">
-                <label for="survey-search-input">Jenis Survei</label>
-                <input type="text" id="survey-search-input" class="select-search-input" placeholder="Cari Jenis Survei..." autocomplete="off" required>
-                <input type="hidden" name="survei_id" id="survei_id">
-                <div id="survey-dropdown" class="select-search-dropdown">
-                    <?php foreach ($surveys_list as $survey) : ?>
-                        <div class="select-search-dropdown-item" data-id="<?= htmlspecialchars($survey['id']) ?>" data-name="<?= htmlspecialchars($survey['nama_survei']) ?>" data-abbr="<?= htmlspecialchars($survey['singkatan_survei']) ?>" data-satuan="<?= htmlspecialchars($survey['satuan']) ?>">
-                            <?= htmlspecialchars($survey['nama_survei']) ?> (<?= htmlspecialchars($survey['singkatan_survei']) ?>)
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
+            <!-- Pilih Tahun Anggaran (filter utama) -->
+            
+    <div class="grid">
+        <div class="form-group">
+            <label for="tahun_anggaran">Tahun Anggaran</label>
+            <select id="tahun_anggaran" name="tahun_anggaran" class="form-select" required>
+                <option value="">-- Pilih Tahun --</option>
+                <?php
+                $tahun_list = $koneksi->query("SELECT DISTINCT tahun FROM master_program ORDER BY tahun DESC");
+                while ($th = $tahun_list->fetch_assoc()) {
+                    echo "<option value='{$th['tahun']}'>{$th['tahun']}</option>";
+                }
+                ?>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="program_id">Program</label>
+            <select id="program_id" name="program_id" class="form-select" disabled required>
+                <option value="">-- Pilih Program --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="kegiatan_id">Kegiatan</label>
+            <select id="kegiatan_id" name="kegiatan_id" class="form-select" disabled required>
+                <option value="">-- Pilih Kegiatan --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="output_id">Output</label>
+            <select id="output_id" name="output_id" class="form-select" disabled required>
+                <option value="">-- Pilih Output --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="sub_output_id">Sub Output</label>
+            <select id="sub_output_id" name="sub_output_id" class="form-select" disabled required>
+                <option value="">-- Pilih Sub Output --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="komponen_id">Komponen</label>
+            <select id="komponen_id" name="komponen_id" class="form-select" disabled required>
+                <option value="">-- Pilih Komponen --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="sub_komponen_id">Sub Komponen</label>
+            <select id="sub_komponen_id" name="sub_komponen_id" class="form-select" disabled required>
+                <option value="">-- Pilih Sub Komponen --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="akun_id">Akun</label>
+            <select id="akun_id" name="akun_id" class="form-select" disabled required>
+                <option value="">-- Pilih Akun --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="item_id">Item</label>
+            <select id="item_id" name="item_id" class="form-select" disabled required>
+                <option value="">-- Pilih Item --</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="harga_per_satuan">Harga Honor (Otomatis dari Item)</label>
+        <input type="number" id="harga_per_satuan" name="harga_per_satuan" class="form-input" readonly required>
+    </div>
+
+
 
             <div class="form-group">
-                <label for="satuan_input">Nama Satuan Survei</label>
-                <input type="text" id="satuan_input" name="satuan" class="form-input" readonly>
+                <label for="satuan_item">Satuan</label>
+                <input type="text" id="satuan_item" class="form-input" readonly placeholder="Satuan dari master_item">
             </div>
 
-            <div class="form-group">
-                <label for="periode_nilai_main">Periode Survei</label>
-                <select name="periode_nilai_main" id="periode_nilai_main" class="form-select" required>
-                    <option value="">-- Pilih Periode --</option>
-                    <option value="Tahunan">Tahunan</option>
-                    <option value="4 Bulanan">Subround</option>
-                    <option value="Triwulan">Triwulan</option>
-                    <option value="Bulanan">Bulanan</option>
-                </select>
-            </div>
-
-            <div id="dynamic_periode_input" class="mb-6" style="display:none;"></div>
 
             <div class="form-group">
                 <label>Bulan dan Tahun Pembayaran</label>
@@ -244,12 +304,6 @@ label {
                     </div>
                 </div>
             </div>
-
-            <div class="form-group">
-                <label for="harga_per_satuan">Harga Honor per Satuan Survei</label>
-                <input type="number" id="harga_per_satuan" name="harga_per_satuan" class="form-input" placeholder="Misal: 500000" required>
-            </div>
-
             <div class="form-group">
                 <label class="form-label">Nama Mitra dan Jumlah Satuan yang diikuti mitra</label>
                 <div id="mitra-container">
@@ -272,10 +326,9 @@ label {
                     </div>
                 </div>
                 <button type="button" class="btn-add-mitra mt-2" onclick="addMitraInput()">+ Tambah Mitra</button>
+                <div class="small-muted">Per mitra akan divalidasi agar tidak melebihi batas honor Rp 2.500.000 / bulan.</div>
             </div>
 
-            <input type="hidden" name="periode_jenis" id="periode_jenis">
-            <input type="hidden" name="periode_nilai" id="periode_nilai">
 
             <div class="btn-group">
                 <button type="button" onclick="window.location.href='kegiatan.php'" class="btn-secondary">Batal</button>
@@ -289,7 +342,7 @@ label {
 let mitraCounter = 1;
 let honorStatus = {}; // Objek untuk menyimpan status honor setiap mitra
 
-// Helper untuk setup select-search dan validasi honor
+// === Setup select-search untuk mitra (reuse dari kode lama) ===
 function setupSelectSearch(input, dropdown, hidden, isMitra) {
     const items = dropdown.querySelectorAll('.select-search-dropdown-item');
 
@@ -300,8 +353,7 @@ function setupSelectSearch(input, dropdown, hidden, isMitra) {
         const q = this.value.toLowerCase();
         items.forEach(it => {
             const txt = (it.getAttribute('data-name') || '').toLowerCase();
-            const ab = (it.getAttribute('data-abbr') || '').toLowerCase();
-            if (txt.includes(q) || ab.includes(q)) {
+            if (txt.includes(q)) {
                 it.style.display = 'block';
             } else { it.style.display = 'none'; }
         });
@@ -312,8 +364,6 @@ function setupSelectSearch(input, dropdown, hidden, isMitra) {
             e.preventDefault();
             const selectedId = item.getAttribute('data-id');
             const selectedName = item.getAttribute('data-name');
-            const selectedAbbr = item.getAttribute('data-abbr');
-            const selectedSatuan = item.getAttribute('data-satuan');
             const parentGroup = input.closest('.mitra-input-group');
             const oldMitraId = hidden.value;
 
@@ -330,19 +380,16 @@ function setupSelectSearch(input, dropdown, hidden, isMitra) {
                 }
             }
 
-            input.value = selectedName + (selectedAbbr ? ' ('+selectedAbbr+')' : '');
+            input.value = selectedName;
             hidden.value = selectedId;
             dropdown.style.display = 'none';
-
-            if (!isMitra && selectedSatuan) {
-                document.getElementById('satuan_input').value = selectedSatuan;
-            }
 
             if (isMitra && parentGroup) {
                 // Tambahkan event listener untuk jumlah satuan di grup ini
                 const jumlahInput = parentGroup.querySelector('.jumlah-satuan-input');
                 if (jumlahInput) {
                     jumlahInput.addEventListener('input', () => validateHonor(parentGroup));
+
                 }
                 validateHonor(parentGroup);
             }
@@ -350,48 +397,59 @@ function setupSelectSearch(input, dropdown, hidden, isMitra) {
     });
 }
 
-// Fungsi untuk validasi honor via AJAX
-function validateHonor(mitraGroupElement) {
-    const mitraId = mitraGroupElement.querySelector('input[name="mitra_id[]"]').value;
+
+
+function validateHonor(parentGroup) {
+    const mitraId = parentGroup.querySelector('[name="mitra_id[]"]').value;
+    const jumlahSatuan = parentGroup.querySelector('[name="jumlah_satuan[]"]').value;
     const bulanPembayaran = document.getElementById('bulan_pembayaran').value;
     const tahunPembayaran = document.getElementById('tahun_pembayaran').value;
-    const honorPerSatuan = document.getElementById('harga_per_satuan').value;
-    const jumlahSatuan = mitraGroupElement.querySelector('.jumlah-satuan-input').value;
 
-    if (!mitraId || !bulanPembayaran || !tahunPembayaran || !honorPerSatuan || !jumlahSatuan) {
+    // Ambil harga per satuan langsung dari input utama form
+    const hargaPerSatuan = parseFloat(document.getElementById('harga_per_satuan').value) || 0;
+
+    // Pastikan semua field terisi sebelum lanjut
+    if (!mitraId || !jumlahSatuan || !bulanPembayaran || !tahunPembayaran || hargaPerSatuan === 0) {
         return;
     }
 
-    const currentTotalHonor = parseInt(honorPerSatuan) * parseInt(jumlahSatuan);
+    // Hitung total honor dari harga × jumlah
+    const totalHonor = hargaPerSatuan * parseInt(jumlahSatuan);
 
-    const xhr = new XMLHttpRequest();
-    // Path AJAX yang disesuaikan
-    xhr.open("GET", `./check_honor_limit.php?mitra_id=${mitraId}&bulan=${bulanPembayaran}&tahun=${tahunPembayaran}&current_honor=${currentTotalHonor}`, true);
-    xhr.onload = function() {
-        if (this.status === 200) {
-            try {
-                const response = JSON.parse(this.responseText);
-                let statusMessage = mitraGroupElement.querySelector('.honor-status-message');
-                if (!statusMessage) {
-                    statusMessage = document.createElement('div');
-                    statusMessage.className = 'honor-status-message';
-                    mitraGroupElement.appendChild(statusMessage);
-                }
-
-                if (!response.is_within_limit) {
-                    honorStatus[mitraId] = false;
-                    statusMessage.innerHTML = `⚠️ kurangi jumlah satuan atau ganti mitra, mitra ini akan melebihi batas (Rp ${numberWithCommas(response.total_honor)})`;
-                } else {
-                    honorStatus[mitraId] = true;
-                    statusMessage.innerHTML = ''; // Clear message if within limit
-                }
-            } catch (e) {
-                console.error("Gagal parse JSON response:", e);
-            }
+    // Kirim ke backend untuk validasi batas honor
+    fetch('check_honor_limit.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            mitraId: mitraId,
+            currentTotalHonor: totalHonor,
+            bulanPembayaran: bulanPembayaran,
+            tahunPembayaran: tahunPembayaran
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        let statusElement = parentGroup.querySelector('.honor-status');
+        if (!statusElement) {
+            statusElement = document.createElement('span');
+            statusElement.classList.add('honor-status');
+            parentGroup.appendChild(statusElement);
         }
-    };
-    xhr.send();
+
+        if (data.exceeds) {
+            alert(`Honor untuk mitra melebihi batas honor untuk bulan ini, mohon untuk ganti mitra atau kurangi jumlah satuan!`);
+            statusElement.textContent = "⚠️ Melebihi Batas";
+            statusElement.style.color = "red";
+            honorStatus[mitraId] = false;
+        } else {
+            statusElement.textContent = "✅ Honor Aman";
+            statusElement.style.color = "green";
+            honorStatus[mitraId] = true;
+        }
+    });
 }
+
+
 
 function numberWithCommas(x) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -447,133 +505,148 @@ function removeMitraInput(button) {
     container.remove();
 }
 
+// ======= CASCADE DROPDOWN (tahun -> program -> kegiatan -> ... -> item) =======
+// Utility untuk reset descendant selects
+function resetSelect(selectEl, placeholderText) {
+    selectEl.innerHTML = `<option value="">-- ${placeholderText} --</option>`;
+    selectEl.disabled = true;
+}
+
+// Fetch helper (returns JSON)
+function fetchJson(url) {
+    return fetch(url).then(r => {
+        if (!r.ok) throw new Error('Network response not ok');
+        return r.json();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    setupSelectSearch(document.getElementById('survey-search-input'), document.getElementById('survey-dropdown'), document.getElementById('survei_id'), false);
+        const tahunSelect = document.getElementById('tahun_anggaran');
+        const programSelect = document.getElementById('program_id');
+        const kegiatanSelect = document.getElementById('kegiatan_id');
+        const outputSelect = document.getElementById('output_id');
+        const subOutputSelect = document.getElementById('sub_output_id');
+        const komponenSelect = document.getElementById('komponen_id');
+        const subKomponenSelect = document.getElementById('sub_komponen_id');
+        const akunSelect = document.getElementById('akun_id');
+        const itemSelect = document.getElementById('item_id');
+        const hargaInput = document.getElementById('harga_per_satuan');
+        const firstInput = document.getElementById('mitra-search-input-0');
+    const firstDropdown = document.getElementById('mitra-dropdown-0');
+    const firstHidden = document.getElementById('mitra_id-0');
+    setupSelectSearch(firstInput, firstDropdown, firstHidden, true);
 
-    const initialMitraGroup = document.getElementById('mitra-container').querySelector('.mitra-input-group');
-    const initialMitraSearchInput = initialMitraGroup.querySelector('.select-search-input');
-    const initialMitraDropdown = initialMitraGroup.querySelector('.select-search-dropdown');
-    const initialMitraHidden = initialMitraGroup.querySelector('input[type="hidden"]');
-    setupSelectSearch(initialMitraSearchInput, initialMitraDropdown, initialMitraHidden, true);
-
-    // Event listener untuk memicu validasi saat bulan, tahun, atau harga honor berubah
-    const paymentFields = document.querySelectorAll('#bulan_pembayaran, #tahun_pembayaran, #harga_per_satuan');
-    paymentFields.forEach(field => {
-        field.addEventListener('change', () => {
-            document.querySelectorAll('.mitra-input-group').forEach(group => {
-                validateHonor(group);
-            });
+        tahunSelect.addEventListener('change', () => {
+            if (tahunSelect.value) {
+                fetch(`get_data.php?type=program&tahun=${tahunSelect.value}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        programSelect.innerHTML = '<option value="">-- Pilih Program --</option>';
+                        data.forEach(p => {
+                            programSelect.innerHTML += `<option value="${p.id}">${p.kode} - ${p.nama}</option>`;
+                        });
+                        programSelect.disabled = false;
+                    });
+            }
         });
-    });
 
-    // Event listener untuk input jumlah satuan yang sudah ada sejak awal
-    initialMitraGroup.querySelector('.jumlah-satuan-input').addEventListener('input', function() {
-        validateHonor(this.closest('.mitra-input-group'));
-    });
+        programSelect.addEventListener('change', () => {
+            fetch(`get_data.php?type=kegiatan&program_id=${programSelect.value}`)
+                .then(res => res.json())
+                .then(data => {
+                    kegiatanSelect.innerHTML = '<option value="">-- Pilih Kegiatan --</option>';
+                    data.forEach(d => {
+                        kegiatanSelect.innerHTML += `<option value="${d.id}">${d.kode} - ${d.nama}</option>`;
+                    });
+                    kegiatanSelect.disabled = false;
+                });
+        });
 
-    // Dinamis periode
-    const periodeSelect = document.getElementById('periode_nilai_main');
-    const dynamicInputDiv = document.getElementById('dynamic_periode_input');
+        kegiatanSelect.addEventListener('change', () => {
+            fetch(`get_data.php?type=output&kegiatan_id=${kegiatanSelect.value}`)
+                .then(res => res.json())
+                .then(data => {
+                    outputSelect.innerHTML = '<option value="">-- Pilih Output --</option>';
+                    data.forEach(d => {
+                        outputSelect.innerHTML += `<option value="${d.id}">${d.kode} - ${d.nama}</option>`;
+                    });
+                    outputSelect.disabled = false;
+                });
+        });
 
-    function renderDynamic(selected) {
-        dynamicInputDiv.innerHTML = '';
-        dynamicInputDiv.style.display = selected ? 'block' : 'none';
-        if (!selected) return;
+        outputSelect.addEventListener('change', () => {
+            fetch(`get_data.php?type=sub_output&output_id=${outputSelect.value}`)
+                .then(res => res.json())
+                .then(data => {
+                    subOutputSelect.innerHTML = '<option value="">-- Pilih Sub Output --</option>';
+                    data.forEach(d => {
+                        subOutputSelect.innerHTML += `<option value="${d.id}">${d.kode} - ${d.nama}</option>`;
+                    });
+                    subOutputSelect.disabled = false;
+                });
+        });
 
-        let dynamicHtml = '';
-        if (selected === 'Tahunan') {
-            dynamicHtml = `<div class="form-group"><label for="tahun">Tahun</label><input type="number" id="tahun" name="tahun" class="form-input" placeholder="2025" required></div>`;
-        } else if (selected === '4 Bulanan') {
-            dynamicHtml = `<div class="form-group"><label for="four_month">4-Bulanan (pilih group)</label><select id="four_month" name="four_month" class="form-select" required><option value="">-- Pilih --</option><option value="1">Subround I </option><option value="2">Subround II</option><option value="3">Subround III</option></select></div><div class="form-group"><label for="tahun_4b">Tahun</label><input type="number" id="tahun_4b" name="tahun_4b" class="form-input" placeholder="2025" required></div>`;
-        } else if (selected === 'Triwulan') {
-            dynamicHtml = `<div class="form-group"><label for="triwulan">Triwulan</label><select id="triwulan" name="triwulan" class="form-select" required><option value="">-- Pilih Triwulan --</option><option value="1">Triwulan I</option><option value="2">Triwulan II</option><option value="3">Triwulan III</option><option value="4">Triwulan IV</option></select></div><div class="form-group"><label for="tahun_trw">Tahun</label><input type="number" id="tahun_trw" name="tahun_trw" class="form-input" placeholder="2025" required></div>`;
-        } else if (selected === 'Bulanan') {
-            dynamicHtml = `<div class="form-group"><label for="bulan_bulanan">Bulan</label><select id="bulan_bulanan" name="bulan_bulanan" class="form-select" required><option value="">-- Pilih Bulan --</option><option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option><option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option><option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option><option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option></select></div><div class="form-group"><label for="tahun_bln">Tahun</label><input type="number" id="tahun_bln" name="tahun_bln" class="form-input" placeholder="2025" required></div>`;
-        }
-        dynamicInputDiv.innerHTML = dynamicHtml;
-    }
+        subOutputSelect.addEventListener('change', () => {
+            fetch(`get_data.php?type=komponen&sub_output_id=${subOutputSelect.value}`)
+                .then(res => res.json())
+                .then(data => {
+                    komponenSelect.innerHTML = '<option value="">-- Pilih Komponen --</option>';
+                    data.forEach(d => {
+                        komponenSelect.innerHTML += `<option value="${d.id}">${d.kode} - ${d.nama}</option>`;
+                    });
+                    komponenSelect.disabled = false;
+                });
+        });
 
-    periodeSelect.addEventListener('change', function() {
-        renderDynamic(this.value);
-    });
+        komponenSelect.addEventListener('change', () => {
+            fetch(`get_data.php?type=sub_komponen&komponen_id=${komponenSelect.value}`)
+                .then(res => res.json())
+                .then(data => {
+                    subKomponenSelect.innerHTML = '<option value="">-- Pilih Sub Komponen --</option>';
+                    data.forEach(d => {
+                        subKomponenSelect.innerHTML += `<option value="${d.id}">${d.kode} - ${d.nama}</option>`;
+                    });
+                    subKomponenSelect.disabled = false;
+                });
+        });
 
-    document.getElementById('kegiatan-form').addEventListener('submit', function(e) {
-        // Cek apakah ada honor yang melebihi batas sebelum submit
-        const hasOverLimit = Object.values(honorStatus).some(status => status === false);
-        if (hasOverLimit) {
-            e.preventDefault();
-            alert('Ada honor mitra yang melebihi batas. Silakan periksa kembali data Anda.');
-            return;
-        }
+        subKomponenSelect.addEventListener('change', () => {
+            fetch(`get_data.php?type=akun&sub_komponen_id=${subKomponenSelect.value}`)
+                .then(res => res.json())
+                .then(data => {
+                    akunSelect.innerHTML = '<option value="">-- Pilih Akun --</option>';
+                    data.forEach(d => {
+                        akunSelect.innerHTML += `<option value="${d.id}">${d.kode} - ${d.nama}</option>`;
+                    });
+                    akunSelect.disabled = false;
+                });
+        });
 
-        const surveiId = document.getElementById('survei_id').value;
-        const hargaPerSatuan = document.getElementById('harga_per_satuan').value;
-        const bulanPembayaran = document.getElementById('bulan_pembayaran').value;
-        const tahunPembayaran = document.getElementById('tahun_pembayaran').value;
-        const periodeMain = document.getElementById('periode_nilai_main').value;
-        
-        const mitraInputs = document.querySelectorAll('input[name="mitra_id[]"]');
-        const jumlahSatuanInputs = document.querySelectorAll('input[name="jumlah_satuan[]"]');
-        
-        let isFormValid = true;
-
-        if (!surveiId || !hargaPerSatuan || !bulanPembayaran || !tahunPembayaran || !periodeMain) {
-            isFormValid = false;
-        }
-
-        if (mitraInputs.length === 0) {
-            isFormValid = false;
-        } else {
-            mitraInputs.forEach((input, index) => {
-                if (!input.value || !jumlahSatuanInputs[index].value || jumlahSatuanInputs[index].value <= 0) {
-                    isFormValid = false;
-                }
+akunSelect.addEventListener('change', () => {
+    fetch(`get_data.php?type=item&akun_id=${akunSelect.value}`)
+        .then(res => res.json())
+        .then(data => {
+            itemSelect.innerHTML = '<option value="">-- Pilih Item --</option>';
+            data.forEach(d => {
+                itemSelect.innerHTML += `<option value="${d.kode_unik}" data-harga="${d.harga}" data-satuan="${d.satuan}">${d.nama_item} (${d.satuan})</option>`;
             });
-        }
-        
-        if (!isFormValid) {
-            e.preventDefault();
-            alert('Harap lengkapi semua data wajib pada formulir.');
-            return;
-        }
-
-        // build periode_jenis & periode_nilai
-        document.getElementById('periode_jenis').value = periodeMain;
-        let nilai = '';
-        switch (periodeMain) {
-            case 'Tahunan':
-                nilai = document.getElementById('tahun') ? document.getElementById('tahun').value : '';
-                break;
-            case '4 Bulanan':
-                const four = document.getElementById('four_month') ? document.getElementById('four_month').value : '';
-                const tahun4 = document.getElementById('tahun_4b') ? document.getElementById('tahun_4b').value : '';
-                if (four && tahun4) nilai = `4B-${four} / ${tahun4}`;
-                break;
-            case 'Triwulan':
-                const tr = document.getElementById('triwulan') ? document.getElementById('triwulan').value : '';
-                const tahun_tr = document.getElementById('tahun_trw') ? document.getElementById('tahun_trw').value : '';
-                if (tr && tahun_tr) nilai = `Q${tr} / ${tahun_tr}`;
-                break;
-            case 'Bulanan':
-                const bl = document.getElementById('bulan_bulanan') ? document.getElementById('bulan_bulanan').value : '';
-                const tahun_b = document.getElementById('tahun_bln') ? document.getElementById('tahun_bln').value : '';
-                if (bl && tahun_b) nilai = `${bl} / ${tahun_b}`;
-                break;
-        }
-
-        if (!nilai) {
-            e.preventDefault();
-            alert('Harap lengkapi detail Periode yang dipilih.');
-            return;
-        }
-        document.getElementById('periode_nilai').value = nilai;
-    });
+            itemSelect.disabled = false;
+        });
 });
+
+
+                itemSelect.addEventListener('change', () => {
+            const selected = itemSelect.options[itemSelect.selectedIndex];
+            hargaInput.value = selected.getAttribute('data-harga') || '';
+            document.getElementById('satuan_item').value = selected.getAttribute('data-satuan') || '';
+        });
+
+    });
 </script>
 
 <?php
 if ($result_mitra instanceof mysqli_result) { $result_mitra->free(); }
-if ($result_surveys instanceof mysqli_result) { $result_surveys->free(); }
+if ($result_tahun_item instanceof mysqli_result) { $result_tahun_item->free(); }
 
 include '../includes/footer.php';
 ?>

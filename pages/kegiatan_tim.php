@@ -4,7 +4,7 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-$user_roles = $_SESSION['user_role'] ?? []; $allowed_roles_for_action = ['super_admin', 'admin_simpedu']; $has_access_for_action = false; foreach ($user_roles as $role) { if (in_array($role, $allowed_roles_for_action)) { $has_access_for_action = true; break; } }
+$user_roles = $_SESSION['user_role'] ?? []; $allowed_roles_for_action = ['super_admin', 'ketua_tim']; $has_access_for_action = false; foreach ($user_roles as $role) { if (in_array($role, $allowed_roles_for_action)) { $has_access_for_action = true; break; } }
 $filter_bulan = $_GET['bulan'] ?? date('m'); $filter_tahun = $_GET['tahun'] ?? date('Y'); $where_clause = "";
 if (!empty($filter_bulan) && !empty($filter_tahun)) { $filter_bulan = intval($filter_bulan); $filter_tahun = intval($filter_tahun); $where_clause = "WHERE MONTH(k.batas_waktu) = $filter_bulan AND YEAR(k.batas_waktu) = $filter_tahun"; }
 ?>

@@ -10,7 +10,7 @@ include '../includes/koneksi.php';
 
 // Cek hak akses (RBAC), hanya role tertentu yang bisa menghapus
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_simpedu'];
+$allowed_roles = ['super_admin', 'ketua_tim'];
 if (count(array_intersect($allowed_roles, (array)$user_roles)) === 0) {
     // Jika tidak punya akses, set pesan error dan redirect
     $_SESSION['error_message'] = "Anda tidak memiliki izin untuk melakukan aksi ini.";

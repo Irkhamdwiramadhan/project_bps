@@ -7,7 +7,7 @@ include '../includes/koneksi.php';
 // ===================================================================
 // Cek hak akses...
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) { header('Location: ../login.php'); exit; }
-$user_roles = $_SESSION['user_role'] ?? []; $allowed_roles_for_action = ['super_admin', 'admin_simpedu']; $has_access_for_action = false; foreach ($user_roles as $role) { if (in_array($role, $allowed_roles_for_action)) { $has_access_for_action = true; break; } }
+$user_roles = $_SESSION['user_role'] ?? []; $allowed_roles_for_action = ['super_admin', 'ketua_tim']; $has_access_for_action = false; foreach ($user_roles as $role) { if (in_array($role, $allowed_roles_for_action)) { $has_access_for_action = true; break; } }
 if (!$has_access_for_action) { $_SESSION['error_message'] = "Anda tidak memiliki izin."; header('Location: kegiatan_tim.php'); exit; }
 
 // Ambil ID dari URL dan validasi

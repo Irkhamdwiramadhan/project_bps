@@ -16,7 +16,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 $user_roles = $_SESSION['user_role'] ?? [];
 
 // Tentukan peran yang diizinkan untuk melakukan aksi (tambah, edit, hapus)
-$allowed_roles_for_action = ['super_admin', 'admin_simpedu']; 
+$allowed_roles_for_action = ['super_admin', 'ketua_tim']; 
 
 // Periksa apakah pengguna memiliki hak akses
 $has_access_for_action = false;

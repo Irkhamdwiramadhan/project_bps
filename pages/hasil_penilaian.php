@@ -314,6 +314,70 @@ $result_filter = mysqli_query($koneksi, $sql_filter);
     .btn-unrelease:hover {
         background-color: #c82333;
     }
+    /* Responsif untuk tablet dan HP */
+@media (max-width: 992px) {
+    .content-wrapper {
+        margin-left: 0;
+        padding: 20px;
+    }
+
+    .filter-form-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-form-container .form-group {
+        width: 100%;
+    }
+
+    .list-status {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .list-item {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .calon-container {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .calon-card {
+        padding: 20px 10px;
+    }
+
+    .calon-foto {
+        width: 90px;
+        height: 90px;
+    }
+
+    .card-info h3 {
+        font-size: 1.2rem;
+    }
+
+    .score-info .total-score {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .content-wrapper {
+        padding: 15px;
+    }
+
+    .calon-container {
+        grid-template-columns: 1fr;
+    }
+
+    .btn-release {
+        width: 100%;
+        border-radius: 12px;
+    }
+}
+
 </style>
 
 <div class="content-wrapper">

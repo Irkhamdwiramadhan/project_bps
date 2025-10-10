@@ -65,13 +65,13 @@ $jam_sekarang = date('H:i');
                         </div>
                     </div>
                      <div class="mb-3">
-                        <label for="tujuan_keluar" class="form-label">Tujuan Keluar Kantor</label>
-                        <input type="text" class="form-control" id="tujuan_keluar" name="tujuan_keluar" rows="3" placeholder="Contoh: Mengantar dokumen ke Dinas, bertemu klien..." required></input text="text">
+                        <label for="tujuan_keluar" class="form-label">Tujuan Keluar Kantor (opsional)</label>
+                        <input type="text" class="form-control" id="tujuan_keluar" name="tujuan_keluar" rows="3" placeholder="Contoh: Mengantar dokumen ke Dinas, bertemu klien..."></input text="text">
                     </div>
                     
                     <div class="mb-3">
                         <label for="foto" class="form-label">Upload Foto Dokumentasi</label>
-                        <input class="form-control" type="file" id="foto" name="foto" accept="image/*" required>
+                        <input class="form-control" type="file" id="foto" name="foto" accept="image/*">
                     </div>
 
                     <div class="mb-4">

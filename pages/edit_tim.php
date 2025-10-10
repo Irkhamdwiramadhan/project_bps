@@ -30,7 +30,8 @@ if ($tim_id === 0) {
 }
 
 // Ambil data tim yang akan diedit
-$stmt = $koneksi->prepare("SELECT nama_tim, ketua_tim_id FROM tim WHERE id = ?");
+$stmt = $koneksi->prepare("SELECT nama_tim, ketua_tim_id, deskripsi FROM tim WHERE id = ?");
+
 $stmt->bind_param("i", $tim_id);
 $stmt->execute();
 $result = $stmt->get_result();

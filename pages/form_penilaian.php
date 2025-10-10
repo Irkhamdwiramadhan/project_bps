@@ -27,6 +27,36 @@ $filter_jenis = isset($_GET['jenis']) ? htmlspecialchars($_GET['jenis']) : 'pega
 $filter_triwulan = isset($_GET['triwulan']) ? intval($_GET['triwulan']) : $current_triwulan;
 $filter_tahun = isset($_GET['tahun']) ? intval($_GET['tahun']) : $current_year;
 
+
+
+// 🚫 Tambahkan pengecekan di sini
+if ($filter_jenis === 'pegawai_prestasi') {
+    $stmt_check_calon = $koneksi->prepare("
+        SELECT COUNT(*) AS count 
+        FROM calon_triwulan 
+        WHERE id_pegawai = ? 
+          AND jenis_penilaian = 'pegawai_prestasi' 
+          AND triwulan = ? 
+          AND tahun = ?
+    ");
+    $stmt_check_calon->bind_param("iii", $user_id, $filter_triwulan, $filter_tahun);
+    $stmt_check_calon->execute();
+    $result_calon = $stmt_check_calon->get_result()->fetch_assoc();
+    $stmt_check_calon->close();
+
+    if ($result_calon['count'] > 0) {
+        echo "<main class='main-content'>
+                <div class='card card-access-denied'>
+                    <h2 class='text-center text-danger'>Akses Ditolak</h2>
+                    <p class='text-center'>Anda adalah calon pegawai berprestasi pada periode ini, sehingga tidak dapat melakukan penilaian pegawai prestasi.</p>
+                </div>
+              </main>";
+        include '../includes/footer.php';
+        exit;
+    }
+}
+
+
 // Cek apakah user sudah mengisi penilaian untuk triwulan dan tahun ini
 $has_rated = false;
 $sql_check_rating = "SELECT COUNT(*) AS count FROM penilaian_triwulan WHERE id_penilai = ? AND triwulan = ? AND tahun = ? AND jenis_penilaian = ?";

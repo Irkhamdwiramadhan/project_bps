@@ -68,14 +68,14 @@ foreach ($user_roles as $role) {
 <main class="main-content">
     <div class="header-content">
         <h2>Data Apel Harian</h2>
-        <?php 
+        <!-- <?php 
         // Periksa variabel yang kita buat di atas untuk menampilkan tombol "Tambah Apel"
         if ($has_access_for_action): 
         ?>
             <a href="tambah_apel.php" class="btn btn-primary">Tambah Apel</a>
-        <?php endif; ?>
+        <?php endif; ?> -->
     </div>
-    <!-- <?php 
+    <?php 
         // Periksa variabel yang kita buat di atas untuk menampilkan tombol "Tambah Apel"
         if ($has_access_for_action): 
         ?>
@@ -109,10 +109,10 @@ foreach ($user_roles as $role) {
             <button type="submit">Unduh Rekap Kehadiran</button>
         </form>
     </div>
-<?php endif; ?> -->
+<?php endif; ?>
     <hr>
 
-    <div class="card card-description">
+    <!-- <div class="card card-description">
         <h3><i class="fas fa-info-circle"></i> Kondisi Apel dan Kehadiran</h3>
         <p>Berikut adalah penjelasan untuk setiap kondisi yang digunakan pada data apel:</p>
         <div class="description-grid">
@@ -141,97 +141,21 @@ foreach ($user_roles as $role) {
                 </ul>
             </div>
         </div>
-    </div>
+    </div> -->
 
-    <!-- <div class="card">
+    <div class="card">
         <h3>Tren Kehadiran Hadir Awal Harian</h3> <p>Lihat tren harian dari kehadiran "Hadir Awal" untuk menganalisis peningkatan atau penurunan.</p>
         <div style="width: 100%; height: 500px;"> 
             <canvas id="rekapApelChart"></canvas>
         </div>
-    </div> -->
+    </div>
 
     <div class="card">
-        <!-- <h3>Rekapitulasi Status Kehadiran Bermasalah</h3>
+        <h3>Rekapitulasi Status Kehadiran Bermasalah</h3>
         <p>Diagram ini menampilkan kondisi kehadiran yang bermasalah seperti Telat, Izin, dan Absen.</p>
         <div id="kehadiran-charts-container">
-        </div> -->
-        <div class="card">
-            <h3>Data Apel</h3>
-            <div class="filter-container">
-                <label for="start-date">Dari Tanggal:</label>
-                <input type="date" id="start-date">
-                <label for="end-date">Sampai Tanggal:</label>
-                <input type="date" id="end-date">
-                <button onclick="filterByDate()">Filter</button>
-            </div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Tanggal</th>
-                        <th>Kondisi Apel</th>
-                        <th>Pembina Apel</th>
-                        <th>Kehadiran</th>
-                        <?php if ($has_access_for_action): ?>
-                            <th>Aksi</th>
-                        <?php endif; ?>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    // Mengambil data apel dari database, termasuk kolom kehadiran
-                    $sql = "SELECT id, tanggal, kondisi_apel, pembina_apel, kehadiran FROM apel ORDER BY tanggal DESC";
-                    $result = $koneksi->query($sql);
-
-                    if ($result->num_rows > 0) {
-                        while($row = $result->fetch_assoc()) {
-                            echo "<tr>";
-                            echo "<td>" . htmlspecialchars($row['tanggal']) . "</td>";
-                            echo "<td>" . htmlspecialchars($row['kondisi_apel']) . "</td>";
-                            echo "<td>" . htmlspecialchars($row['pembina_apel']) . "</td>";
-                            
-                            echo "<td>";
-                            // Menampilkan data kehadiran hanya jika kondisi apel adalah 'ada' atau 'lupa_didokumentasikan'
-                            if ($row['kondisi_apel'] === 'ada' || $row['kondisi_apel'] === 'lupa_didokumentasikan') {
-                                $kehadiran_data = json_decode($row['kehadiran'], true);
-                                
-                                $status_counts = [];
-                                if (is_array($kehadiran_data)) {
-                                    foreach ($kehadiran_data as $status) {
-                                        $status_counts[$status['status']] = ($status_counts[$status['status']] ?? 0) + 1;
-                                    }
-                                }
-
-                                foreach ($status_counts as $status => $count) {
-                                    $class_name = str_replace('_', '-', $status);
-                                    $display_status = ucwords(str_replace('_', ' ', $status));
-                                    echo "<span class='status " . $class_name . "'>" . $display_status . ": " . $count . "</span> ";
-                                }
-                            }
-                            echo "</td>";
-
-                            // Kontrol Aksi berdasarkan role
-                            if ($has_access_for_action) {
-                                echo "<td>
-                                    <a href='detail_apel.php?id={$row['id']}' class='btn-action detail'>Detail</a>
-                                    <a href='../proses/proses_hapus_apel.php?id={$row['id']}'
-                                    class='btn-action delete'
-                                    onclick=\"return confirm('Apakah Anda yakin ingin menghapus data ini?');\">
-                                    Hapus
-                                    </a>
-                                </td>";
-                            } else {
-                                echo "<td><a href='detail_apel.php?id={$row['id']}' class='btn-action detail'>Detail</a></td>";
-                            }
-                            
-                            echo "</tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='" . ($has_access_for_action ? "5" : "4") . "' style='text-align:center;'>Tidak ada data apel.</td></tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
         </div>
+        
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

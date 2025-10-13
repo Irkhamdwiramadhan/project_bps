@@ -1,173 +1,200 @@
 <?php
 session_start();
 include '../includes/koneksi.php';
-
-// Keamanan: Hanya admin yang boleh melihat daftar laporan ini
-$user_roles = $_SESSION['user_role'] ?? [];
-
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Logika untuk tombol tambah: Semua user yang login bisa menambah laporan mereka sendiri
-$can_add_report = isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true;
+// Ambil filter tanggal dari form
+$tgl_mulai = $_GET['tgl_mulai'] ?? '';
+$tgl_selesai = $_GET['tgl_selesai'] ?? '';
 
-// Ambil semua data laporan dari database, gabungkan dengan nama pegawai
-$sql = "SELECT lk.id, lk.tanggal_laporan, lk.jam_laporan, p.nama AS nama_pegawai
+// Query dasar
+$sql = "SELECT lk.id, lk.tanggal_laporan, lk.jam_laporan, p.nama AS nama_pegawai, lk.foto 
         FROM laporan_keluar lk
-        LEFT JOIN pegawai p ON lk.pegawai_id = p.id
-        ORDER BY lk.tanggal_laporan DESC, lk.jam_laporan DESC";
+        LEFT JOIN pegawai p ON lk.pegawai_id = p.id";
+
+// Jika ada filter tanggal
+if (!empty($tgl_mulai) && !empty($tgl_selesai)) {
+    $sql .= " WHERE DATE(lk.tanggal_laporan) BETWEEN '$tgl_mulai' AND '$tgl_selesai'";
+}
+
+$sql .= " ORDER BY lk.tanggal_laporan DESC, lk.jam_laporan DESC";
 $result = $koneksi->query($sql);
 ?>
 
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-    :root { 
-        --primary-color: #324057ff; 
-        --background-color: #f9fafb; 
-        --card-bg: #ffffff; 
-        --border-color: #e5e7eb; 
-        --text-dark: #1f2937;
-        --text-medium: #6b7280;
-    } 
-    body { 
-        font-family: 'Poppins', sans-serif; 
-        background-color: var(--background-color); 
-    }
-    .header-content {
-        background-color: var(--card-bg);
-        padding: 1.5rem 2rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-    .header-content h2 {
-        font-weight: 600;
-        font-size: 1.5rem;
-        margin: 0;
-    }
-    .card { 
-        border: none; 
-        border-radius: 12px; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
-        overflow: hidden;
-    }
-    .table-header {
-        padding: 1.5rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-    .table-header h5 {
-        margin: 0;
-        font-weight: 600;
-    }
-    .table thead th { 
-        font-weight: 600; 
-        color: var(--text-medium);
-        background-color: #f9fafb;
-        border-bottom-width: 1px;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 14px 20px !important; /* Tambah jarak antar kolom header */
-    }
-    .table td { 
-        vertical-align: middle; 
-        color: var(--text-dark);
-        padding: 14px 20px !important; /* Tambah jarak antar kolom isi tabel */
-    }
-    .table tbody tr:hover { 
-        background-color: #f9fafb; 
-    }
-    .btn-action-group .btn { 
-        width: 38px; height: 38px; 
-        display: inline-flex; 
-        align-items: center; 
-        justify-content: center;
-        border-radius: 8px;
-    }
-    .empty-state {
-        padding: 4rem;
-        text-align: center;
-        color: var(--text-medium);
-    }
-    .empty-state i {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-    }
-
-    /* Tambahan opsional agar kolom tidak terlalu rapat */
-    .table th, .table td {
-        white-space: nowrap; /* Biar teks tidak turun ke bawah */
-    }
-    .table td:nth-child(1) { width: 5%; }
-    .table td:nth-child(2) { width: 35%; }
-    .table td:nth-child(3) { width: 20%; }
-    .table td:nth-child(4) { width: 20%; }
-    .table td:nth-child(5) { width: 20%; text-align: center; }
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+:root {
+    --primary: #324057;
+    --light: #f5f6fa;
+    --text-dark: #1f2937;
+    --text-muted: #6b7280;
+    --card-bg: #fff;
+    --border: #e5e7eb;
+}
+body {
+    font-family: 'Poppins', sans-serif;
+    background: var(--light);
+    color: var(--text-dark);
+}
+.content-wrapper {
+    margin-left: 250px;
+    padding: 30px;
+}
+h2 {
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--primary);
+}
+.filter-form {
+    background: var(--card-bg);
+    padding: 18px 22px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+    margin-bottom: 25px;
+}
+.filter-form .form-label {
+    font-weight: 500;
+    color: var(--text-dark);
+}
+.filter-form input[type="date"] {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+.filter-form button {
+    background-color: var(--primary);
+    border: none;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: 0.3s;
+}
+.filter-form button:hover {
+    background-color: #243042;
+}
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+}
+.card-item {
+    background: var(--card-bg);
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+.card-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+.card-img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    background: #f0f0f0;
+}
+.card-body {
+    padding: 16px 18px;
+}
+.card-body h5 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.card-body p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    background: #fafafa;
+}
+.btn-detail {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+.btn-detail:hover {
+    background: #243042;
+}
+.no-data {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px;
+}
 </style>
 
-<main class="main-content">
-<div class="header-content">
-        <div class="d-flex justify-content-between align-items-center">
-            <h2>Daftar Laporan Keluar</h2>
-            <div class="d-flex gap-2">
- 
-                <a href="laporan_keluar.php" class="btn btn-primary">
-                    <i class="bi bi-plus-circle me-2"></i>Tambah Laporan
-                </a>
-    
-                <a href="../proses/proses_download_laporan_keluar.php" class="btn btn-success">
-                    <i class="bi bi-file-earmark-excel me-2"></i>Download Excel
-                </a>
-            </div>
+<div class="content-wrapper">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-clipboard-data me-2"></i> Daftar Laporan Keluar</h2>
+        <div>
+            <a href="laporan_keluar.php" class="btn btn-primary me-2"><i class="bi bi-plus-circle me-1"></i>Tambah Laporan</a>
+            <a href="../proses/proses_download_laporan_keluar.php" class="btn btn-success"><i class="bi bi-file-earmark-excel me-1"></i>Download Excel</a>
         </div>
     </div>
 
-    <div class="p-4">
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th class="ps-4">No.</th>
-                                <th>Nama Pegawai</th>
-                                <th>Tanggal</th>
-                                <th>Jam</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if ($result && $result->num_rows > 0): ?>
-                                <?php $nomor = 1; ?>
-                                <?php while($row = $result->fetch_assoc()): ?>
-                                    <tr>
-                                        <td class="ps-4"><?= $nomor++ ?></td>
-                                        <td><?= htmlspecialchars($row['nama_pegawai'] ?? 'N/A') ?></td>
-                                        <td><?= date('d M Y', strtotime($row['tanggal_laporan'])) ?></td>
-                                        <td><?= date('H:i', strtotime($row['jam_laporan'])) ?> WIB</td>
-                                        <td>
-                                            <div class="btn-action-group">
-                                                <a href="laporan_keluar_detail.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-info" title="Lihat Detail">
-                                                    <i class="bi bi-eye-fill"></i>
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endwhile; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5">
-                                        <div class="empty-state">
-                                            <i class="bi bi-cloud-drizzle"></i>
-                                            <p class="mb-0">Belum ada data laporan yang masuk.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <!-- Filter tanggal -->
+    <form method="GET" class="filter-form row g-3 align-items-end">
+        <div class="col-md-4">
+            <label for="tgl_mulai" class="form-label">Dari Tanggal</label>
+            <input type="date" name="tgl_mulai" id="tgl_mulai" class="form-control" value="<?= htmlspecialchars($tgl_mulai) ?>">
         </div>
-    </div>
-</main>
+        <div class="col-md-4">
+            <label for="tgl_selesai" class="form-label">Sampai Tanggal</label>
+            <input type="date" name="tgl_selesai" id="tgl_selesai" class="form-control" value="<?= htmlspecialchars($tgl_selesai) ?>">
+        </div>
+        <div class="col-md-4">
+            <button type="submit"><i class="bi bi-filter-circle me-1"></i> Filter</button>
+            <a href="laporan_keluar_list.php" class="btn btn-outline-secondary ms-2"><i class="bi bi-arrow-repeat me-1"></i> Reset</a>
+        </div>
+    </form>
+
+    <?php if ($result && $result->num_rows > 0): ?>
+        <div class="card-container">
+            <?php while ($row = $result->fetch_assoc()): ?>
+                <div class="card-item">
+                    <?php if (!empty($row['foto']) && file_exists("../" . $row['foto'])): ?>
+                        <img src="../<?= htmlspecialchars($row['foto']) ?>" class="card-img" alt="Foto Laporan">
+                    <?php else: ?>
+                        <img src="../assets/img/no-image.png" class="card-img" alt="No Image">
+                    <?php endif; ?>
+                    
+                    <div class="card-body">
+                        <h5><?= htmlspecialchars($row['nama_pegawai'] ?? 'N/A') ?></h5>
+                        <p><i class="bi bi-calendar-check me-1"></i> <?= date('d M Y', strtotime($row['tanggal_laporan'])) ?></p>
+                        <p><i class="bi bi-clock me-1"></i> <?= date('H:i', strtotime($row['jam_laporan'])) ?> WIB</p>
+                    </div>
+                    
+                    <div class="card-footer">
+                        <small class="text-muted">ID Laporan: <?= $row['id'] ?></small>
+                        <a href="laporan_keluar_detail.php?id=<?= $row['id'] ?>" class="btn-detail">
+                            <i class="bi bi-eye-fill me-1"></i> Detail
+                        </a>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        </div>
+    <?php else: ?>
+        <div class="no-data">
+            <i class="bi bi-inbox display-6 mb-2"></i>
+            <p>Belum ada laporan untuk rentang tanggal ini.</p>
+        </div>
+    <?php endif; ?>
+</div>
 
 <?php include '../includes/footer.php'; ?>

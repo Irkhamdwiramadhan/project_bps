@@ -311,7 +311,33 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                     </details>
                 </li>
                 
-                <li><a href="laporan_keluar_list.php" class="nav-item"><i class="fas fa-calendar-check menu-icon"></i><span class="nav-text">Memo Keluar Kantor</span></a></li>
+                <li class="has-sub">
+    <details>
+        <summary class="nav-item">
+            <i class="fas fa-handshake menu-icon"></i>
+            <span class="nav-text">SAPA</span>
+            <i class="fas fa-chevron-right caret"></i>
+        </summary>
+        <ul class="sub-menu">
+            <li>
+                <a href="laporan_keluar_list.php">
+                    <i class="fas fa-door-open menu-icon"></i> Keluar Kantor (Pegawai)
+                </a>
+            </li>
+            <li>
+                <a href="Tamu.php">
+                    <i class="fas fa-user-friends menu-icon"></i> Tamu
+                </a>
+            </li>
+            <li>
+                <a href="memo_keluar_kantor.php">
+                    <i class="fas fa-envelope-open-text menu-icon"></i> Memo Keluar Kantor
+                </a>
+            </li>
+        </ul>
+    </details>
+</li>
+
                 <li class="has-sub">
                     <details>
                         <summary class="nav-item">

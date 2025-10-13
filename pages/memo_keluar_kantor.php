@@ -24,15 +24,17 @@ $query = "
         ms.keperluan,
         ms.jam_pergi,
         ms.jam_pulang,
-        ms.petugas,
+        p2.nama AS nama_petugas,
         ms.foto,
         GROUP_CONCAT(p.nama ORDER BY p.nama SEPARATOR ', ') AS nama_pegawai
     FROM memo_satpam ms
     LEFT JOIN pegawai p ON FIND_IN_SET(p.id, ms.pegawai_id)
+    LEFT JOIN pegawai p2 ON ms.petugas = p2.id
     $where
-    GROUP BY ms.tanggal, ms.keperluan, ms.petugas, ms.foto
+    GROUP BY ms.tanggal, ms.keperluan, p2.nama, ms.foto
     ORDER BY ms.tanggal DESC
 ";
+
 
 $result = mysqli_query($koneksi, $query);
 ?>
@@ -169,7 +171,8 @@ body.sidebar-collapse .content-wrapper { margin-left: 80px; }
                                     : '../assets/img/no-image.png' ?>" 
                                     alt="Foto Memo" class="memo-photo mb-3">
                                 <p class="mb-1"><strong>Keperluan:</strong> <?= htmlspecialchars($row['keperluan']) ?></p>
-                                <p class="mb-1"><strong>Petugas:</strong> <?= htmlspecialchars($row['petugas']) ?></p>
+                                <p class="mb-1"><strong>Petugas:</strong> <?= htmlspecialchars($row['nama_petugas'] ?? '-') ?></p>
+
                             </div>
                             <div class="card-footer d-flex justify-content-between align-items-center">
                                 <span class="badge bg-success"><i class="far fa-clock me-1"></i> Pergi: <?= htmlspecialchars($row['jam_pergi']) ?></span>

@@ -76,7 +76,7 @@ $jam_sekarang = date('H:i');
 
                     <div class="mb-4">
                         <label for="link_gps" class="form-label">Link Lokasi GPS</label>
-                        <input type="text" class="form-control" id="link_gps" name="link_gps" placeholder="Contoh: https://maps.google.com/..." required>
+                        <input type="text" class="form-control" id="link_gps" name="link_gps" placeholder="Contoh: https://maps.google.com/...">
                     </div>
 
                     <div class="d-flex justify-content-end">

@@ -12,18 +12,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['loggedin'])) {
 $pegawai_id       = isset($_POST['pegawai_id']) ? (int)$_POST['pegawai_id'] : 0;
 $tanggal_laporan  = $_POST['tanggal_laporan'] ?? '';
 $jam_laporan      = $_POST['jam_laporan'] ?? '';
-$tujuan_keluar    = trim($_POST['tujuan_keluar'] ?? ''); // Opsional
+$tujuan_keluar    = trim($_POST['tujuan_keluar'] ?? '');
 $link_gps         = trim($_POST['link_gps'] ?? '');
 $foto_path_db     = null;
 
-// 2. Validasi minimal data wajib
-if (empty($pegawai_id) || empty($tanggal_laporan) || empty($jam_laporan) || empty($link_gps)) {
-    $_SESSION['error_message'] = "Kolom wajib (tanggal, jam, link GPS, foto) belum lengkap.";
+// 2. Validasi minimal data wajib (GPS tidak wajib)
+if (empty($pegawai_id) || empty($tanggal_laporan) || empty($jam_laporan)) {
+    $_SESSION['error_message'] = "Kolom wajib (tanggal, jam, dan foto) belum lengkap.";
     header('Location: ../pages/laporan_keluar.php');
     exit;
 }
 
-// 3. Proses Upload Foto
+// 3. Proses Upload Foto (wajib)
 if (isset($_FILES['foto']) && $_FILES['foto']['error'] == 0) {
     $upload_dir = '../uploads/laporan_keluar/';
     if (!is_dir($upload_dir)) {
@@ -56,12 +56,14 @@ if (isset($_FILES['foto']) && $_FILES['foto']['error'] == 0) {
     exit;
 }
 
-// 4. Simpan ke database (tujuan_keluar bisa NULL)
+// 4. Simpan ke database (link_gps bisa kosong/null)
 $stmt = $koneksi->prepare("
     INSERT INTO laporan_keluar (pegawai_id, tanggal_laporan, jam_laporan, tujuan_keluar, foto, link_gps)
     VALUES (?, ?, ?, ?, ?, ?)
 ");
-$stmt->bind_param("isssss", $pegawai_id, $tanggal_laporan, $jam_laporan, $tujuan_keluar, $foto_path_db, $link_gps);
+
+$link_gps_value = !empty($link_gps) ? $link_gps : null; // jika kosong, simpan NULL
+$stmt->bind_param("isssss", $pegawai_id, $tanggal_laporan, $jam_laporan, $tujuan_keluar, $foto_path_db, $link_gps_value);
 
 // 5. Eksekusi query dan feedback ke user
 if ($stmt->execute()) {

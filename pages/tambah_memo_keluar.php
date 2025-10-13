@@ -4,8 +4,11 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Ambil daftar pegawai
+// Ambil daftar semua pegawai untuk multiple select
 $pegawai = mysqli_query($koneksi, "SELECT id, nama FROM pegawai ORDER BY nama ASC");
+
+// Ambil pegawai yang jabatannya PPPK untuk dropdown petugas
+$petugas_pppk = mysqli_query($koneksi, "SELECT id, nama FROM pegawai WHERE jabatan = 'PPPK' ORDER BY nama ASC");
 ?>
 
 <!-- Tambahkan CDN Select2 -->
@@ -163,8 +166,13 @@ label {
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <label>Petugas</label>
-                        <input type="text" name="petugas" class="form-control" required>
+                        <label>Petugas (Jabatan PPPK)</label>
+                        <select name="petugas" class="form-control select2" required>
+                            <option value="">-- Pilih Petugas PPPK --</option>
+                            <?php while ($p = mysqli_fetch_assoc($petugas_pppk)): ?>
+                                <option value="<?= $p['id'] ?>"><?= htmlspecialchars($p['nama']) ?></option>
+                            <?php endwhile; ?>
+                        </select>
                     </div>
                     <div class="col-md-6">
                         <label>Foto</label>

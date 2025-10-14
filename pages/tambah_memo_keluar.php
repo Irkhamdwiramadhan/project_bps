@@ -5,10 +5,11 @@ include '../includes/header.php';
 include '../includes/sidebar.php';
 
 // Ambil daftar semua pegawai untuk multiple select
-$pegawai = mysqli_query($koneksi, "SELECT id, nama FROM pegawai ORDER BY nama ASC");
+$pegawai = mysqli_query($koneksi, "SELECT id, nama FROM pegawai WHERE is_active = 1 ORDER BY nama ASC");
 
 // Ambil pegawai yang jabatannya PPPK untuk dropdown petugas
-$petugas_pppk = mysqli_query($koneksi, "SELECT id, nama FROM pegawai WHERE jabatan = 'PPPK' ORDER BY nama ASC");
+$petugas_pppk = mysqli_query($koneksi, "SELECT id, nama FROM pegawai WHERE jabatan LIKE 'PPPK%' ORDER BY nama ASC");
+
 ?>
 
 <!-- Tambahkan CDN Select2 -->

@@ -32,14 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['loggedin'] = true;
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_nama'] = $user['username'];
-                    
-                    // PERHATIKAN: Peran admin/super_admin disimpan sebagai array
-                    // Ini untuk mengatasi kesalahan 'in_array()' di halaman lain.
                     $_SESSION['user_role'] = [$user['role']]; 
-                    
                     $_SESSION['user_foto'] = null; 
 
-                    // Arahkan ke dashboard admin
                     header('Location: pages/dashboard.php');
                     exit();
                 }
@@ -53,7 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nama_pangkat = trim($_POST['nama_pangkat']);
         $nip_bps = trim($_POST['nip_bps']);
 
-        $sql_pegawai = "SELECT id, nama, nip_bps, foto FROM pegawai WHERE nama = ? AND nip_bps = ?";
+        // Tambahkan pengecekan is_active = 1
+        $sql_pegawai = "SELECT id, nama, nip_bps, foto, is_active 
+                        FROM pegawai 
+                        WHERE nama = ? AND nip_bps = ? LIMIT 1";
         $stmt_pegawai = $koneksi->prepare($sql_pegawai);
         
         if ($stmt_pegawai) {
@@ -63,36 +61,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if ($result_pegawai->num_rows === 1) {
                 $pegawai = $result_pegawai->fetch_assoc();
-                
-                // Ambil semua peran dari tabel pegawai_roles
-                $sql_roles = "SELECT r.nama FROM pegawai_roles pr JOIN roles r ON pr.role_id = r.id WHERE pr.pegawai_id = ?";
-                $stmt_roles = $koneksi->prepare($sql_roles);
-                $stmt_roles->bind_param("i", $pegawai['id']);
-                $stmt_roles->execute();
-                $result_roles = $stmt_roles->get_result();
-                
-                $user_roles = [];
-                while ($row_role = $result_roles->fetch_assoc()) {
-                    $user_roles[] = $row_role['nama'];
-                }
-                
-                // Jika tidak ada peran admin, tambahkan peran 'pegawai' sebagai default
-                if (empty($user_roles)) {
-                    $user_roles[] = 'pegawai';
-                }
 
-                $_SESSION['loggedin'] = true;
-                $_SESSION['user_id'] = $pegawai['id'];
-                $_SESSION['user_nama'] = $pegawai['nama'];
-                $_SESSION['user_role'] = $user_roles; // Simpan semua peran sebagai array
-                $_SESSION['user_foto'] = $pegawai['foto'];
-                
-                // Arahkan ke dashboard pegawai
-                header('Location: pages/dashboard.php');
-                exit();
+                // Cek apakah pegawai aktif
+                if ((int)$pegawai['is_active'] === 0) {
+                    $error_message = "Mohon maaf, akun Anda tidak aktif. Anda sudah tidak lagi pegawai BPS tegal";
+                } else {
+                    // Ambil semua peran dari tabel pegawai_roles
+                    $sql_roles = "SELECT r.nama 
+                                  FROM pegawai_roles pr 
+                                  JOIN roles r ON pr.role_id = r.id 
+                                  WHERE pr.pegawai_id = ?";
+                    $stmt_roles = $koneksi->prepare($sql_roles);
+                    $stmt_roles->bind_param("i", $pegawai['id']);
+                    $stmt_roles->execute();
+                    $result_roles = $stmt_roles->get_result();
+                    
+                    $user_roles = [];
+                    while ($row_role = $result_roles->fetch_assoc()) {
+                        $user_roles[] = $row_role['nama'];
+                    }
+                    
+                    // Jika tidak ada peran, tambahkan default
+                    if (empty($user_roles)) {
+                        $user_roles[] = 'pegawai';
+                    }
+
+                    // Simpan sesi login
+                    $_SESSION['loggedin'] = true;
+                    $_SESSION['user_id'] = $pegawai['id'];
+                    $_SESSION['user_nama'] = $pegawai['nama'];
+                    $_SESSION['user_role'] = $user_roles;
+                    $_SESSION['user_foto'] = $pegawai['foto'];
+                    
+                    header('Location: pages/dashboard.php');
+                    exit();
+                }
+            } else {
+                $error_message = "Nama atau NIP BPS tidak cocok atau tidak terdaftar.";
             }
         }
-        $error_message = "Nama atau NIP BPS tidak cocok atau tidak terdaftar.";
     }
 }
 ?>
@@ -127,10 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             max-width: 400px;
             text-align: center;
         }
-        .login-container h2 {
-            margin-bottom: 25px;
-            color: #333;
-        }
         .logo {
             width: 100px;
             height: 100px;
@@ -146,19 +149,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 8px;
             font-size: 16px;
             box-sizing: border-box;
-            transition: border-color 0.3s;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background: #fff;
         }
         .input-group select {
-            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3E%3C/svg%3E") no-repeat right 12px center;
+            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
             background-size: 12px;
-        }
-        .input-group input:focus, .input-group select:focus {
-            border-color: #007bff;
-            outline: none;
         }
         .input-group .icon {
             position: absolute;
@@ -187,9 +181,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: #e74c3c;
             margin-bottom: 15px;
             font-weight: bold;
-        }
-        .hidden {
-            display: none;
         }
     </style>
 </head>
@@ -243,37 +234,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const namaPangkatGroup = document.getElementById('namaPangkatGroup');
             const nipBpsGroup = document.getElementById('nipBpsGroup');
             
-            const usernameInput = usernameAdminGroup.querySelector('input');
-            const passwordInput = passwordGroup.querySelector('input');
-            const namaPangkatInput = namaPangkatGroup.querySelector('input');
-            const nipBpsInput = nipBpsGroup.querySelector('input');
-
             if (role === 'admin') {
                 usernameAdminGroup.style.display = 'block';
                 passwordGroup.style.display = 'block';
                 namaPangkatGroup.style.display = 'none';
                 nipBpsGroup.style.display = 'none';
-
-                usernameInput.setAttribute('required', '');
-                passwordInput.setAttribute('required', '');
-                namaPangkatInput.removeAttribute('required');
-                nipBpsInput.removeAttribute('required');
-            } else { // 'pegawai'
+            } else {
                 usernameAdminGroup.style.display = 'none';
                 passwordGroup.style.display = 'none';
-                namaPangkatInput.style.display = 'block';
-                nipBpsInput.style.display = 'block';
-
-                usernameInput.removeAttribute('required');
-                passwordInput.removeAttribute('required');
-                namaPangkatInput.setAttribute('required', '');
-                nipBpsInput.setAttribute('required', '');
+                namaPangkatGroup.style.display = 'block';
+                nipBpsGroup.style.display = 'block';
             }
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            toggleInputs();
-        });
+        document.addEventListener('DOMContentLoaded', toggleInputs);
     </script>
 </body>
 </html>

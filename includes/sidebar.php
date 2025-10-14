@@ -299,7 +299,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
                     <details>
                         <summary class="nav-item">
-                            <i class="fas fa-calendar-check menu-icon"></i>
+                            <img src="../assets/img/logo/siap.png" alt="Dipaku Icon" class="menu-icon" style="width:30px; height:30px;">
                             <span class="nav-text">SIAP</span>
                             <i class="fas fa-chevron-right caret"></i>
                         </summary>
@@ -314,7 +314,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
     <details>
         <summary class="nav-item">
-            <i class="fas fa-handshake menu-icon"></i>
+            <img src="../assets/img/logo/sapa.png" alt="sapa Icon" class="menu-icon" style="width:30px; height:30px;">
             <span class="nav-text">SAPA</span>
             <i class="fas fa-chevron-right caret"></i>
         </summary>
@@ -341,7 +341,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
                     <details>
                         <summary class="nav-item">
-                            <i class="fas fa-wallet menu-icon"></i>
+                            <img src="../assets/img/logo/dipaku.png" alt="Dipaku Icon" class="menu-icon" style="width:30px; height:30px;">
                             <span class="nav-text">Dipaku</span>
                             <i class="fas fa-chevron-right caret"></i>
                         </summary>
@@ -370,7 +370,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
                     <details>
                         <summary class="nav-item">
-                            <i class="fas fa-store menu-icon"></i>
+                            <img src="../assets/img/logo/bs_mart.png" alt="bs_mart Icon" class="menu-icon" style="width:30px; height:30px;">
                             <span class="nav-text">B-S Mart</span>
                             <i class="fas fa-chevron-right caret"></i>
                         </summary>
@@ -385,7 +385,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
                     <details class="prestasi-menu">
                         <summary class="nav-item">
-                            <i class="fas fa-trophy"></i>
+                            <img src="../assets/img/logo/prestasi.png" alt="Prestasi Icon" class="menu-icon" style="width:30px; height:30px;">
                             <span class="nav-text">Prestasi</span>
                             <i class="fas fa-chevron-right caret"></i>
                         </summary>
@@ -399,7 +399,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li class="has-sub">
                     <details class="pms-menu">
                         <summary class="nav-item">
-                            <i class="fas fa-clipboard-list"></i>
+                            <img src="../assets/img/logo/pms.png" alt="PMS Icon" class="menu-icon" style="width:30px; height:30px;">
                             <span class="nav-text">PMS</span>
                             <i class="fas fa-chevron-right caret"></i>
                         </summary>

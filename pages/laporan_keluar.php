@@ -15,6 +15,18 @@ $user_role = $_SESSION['user_role'] ?? '';
 $user_id = $_SESSION['user_id'] ?? null;
 $user_name = $_SESSION['user_name'] ?? '';
 
+
+// Daftar peran yang tidak diizinkan
+$forbidden_roles = ['super_admin'];
+
+// Cek apakah ada peran pengguna yang cocok dengan peran yang dilarang
+if (array_intersect((array)$user_role, $forbidden_roles)) {
+    echo "<main class=\"main-content\"><div class=\"card card-access-denied\"><h2 class=\"text-center text-danger\">Akses Ditolak</h2><p class=\"text-center\">Halaman ini hanya bisa diakses oleh pegawai untuk melakukan laporan keluar.</p></div></main>";
+    include '../includes/footer.php';
+    exit; // Keluar dari skrip
+}
+
+
 // Sesuaikan nama variabel agar cocok dengan sisa kode di halaman ini
 $pegawai_id = $user_id;
 $nama_pegawai = $user_name;

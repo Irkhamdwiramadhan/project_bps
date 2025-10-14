@@ -63,7 +63,7 @@ $pegawai_sudah_menilai = [];
 $pegawai_belum_menilai = [];
 
 if ($is_admin) {
-    $sql_all_pegawai = "SELECT id, nama FROM pegawai ORDER BY nama ASC";
+    $sql_all_pegawai = "SELECT id, nama FROM pegawai WHERE is_active = 1 ORDER BY nama ASC";
     $result_all_pegawai = mysqli_query($koneksi, $sql_all_pegawai);
     $all_pegawai_map = [];
     if ($result_all_pegawai) {
@@ -77,7 +77,8 @@ if ($is_admin) {
         FROM penilaian_triwulan pt
         JOIN calon_triwulan ct ON pt.id_calon = ct.id
         JOIN pegawai p ON pt.id_penilai = p.id
-        WHERE pt.jenis_penilaian = ? AND ct.tahun = ?";
+        WHERE pt.jenis_penilaian = ? AND ct.tahun = ? AND p.is_active = 1";
+
     
     $params = [$filter_jenis, $filter_tahun];
     $types = "si";
@@ -128,7 +129,7 @@ $sql = "
     FROM penilaian_triwulan pt
     JOIN calon_triwulan ct ON pt.id_calon = ct.id
     JOIN pegawai p ON ct.id_pegawai = p.id
-    WHERE pt.jenis_penilaian = ? AND ct.tahun = ?";
+    WHERE pt.jenis_penilaian = ? AND ct.tahun = ? AND p.is_active = 1";
     
 $params = [$filter_jenis, $filter_tahun];
 $types = "si";

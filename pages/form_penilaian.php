@@ -59,9 +59,31 @@ if ($filter_jenis === 'pegawai_prestasi') {
 
 // Cek apakah user sudah mengisi penilaian untuk triwulan dan tahun ini
 $has_rated = false;
-$sql_check_rating = "SELECT COUNT(*) AS count FROM penilaian_triwulan WHERE id_penilai = ? AND triwulan = ? AND tahun = ? AND jenis_penilaian = ?";
-$stmt_check = $koneksi->prepare($sql_check_rating);
-$stmt_check->bind_param("iiss", $user_id, $filter_triwulan, $filter_tahun, $filter_jenis);
+if ($filter_jenis === 'pegawai_prestasi') {
+    // Cek berdasarkan triwulan
+    $sql_check_rating = "
+        SELECT COUNT(*) AS count 
+        FROM penilaian_triwulan 
+        WHERE id_penilai = ? 
+          AND triwulan = ? 
+          AND tahun = ? 
+          AND jenis_penilaian = ?
+    ";
+    $stmt_check = $koneksi->prepare($sql_check_rating);
+    $stmt_check->bind_param("iiss", $user_id, $filter_triwulan, $filter_tahun, $filter_jenis);
+} else {
+    // Untuk CAN — tanpa filter triwulan
+    $sql_check_rating = "
+        SELECT COUNT(*) AS count 
+        FROM penilaian_triwulan 
+        WHERE id_penilai = ? 
+          AND tahun = ? 
+          AND jenis_penilaian = ?
+    ";
+    $stmt_check = $koneksi->prepare($sql_check_rating);
+    $stmt_check->bind_param("iis", $user_id, $filter_tahun, $filter_jenis);
+}
+
 $stmt_check->execute();
 $result_check = $stmt_check->get_result()->fetch_assoc();
 if ($result_check['count'] > 0) {
@@ -167,8 +189,8 @@ $stmt->close();
                 </div>
                 <div class="card-body">
                     <div class="form-group">
-                        <label for="nama_penilai">Nama Penilai:</label>
-                        <input type="text" id="nama_penilai" class="form-control" value="<?= htmlspecialchars($user_name) ?>" readonly>
+                        <!-- <label for="nama_penilai">Nama Penilai:</label> -->
+                        <!-- <input type="text" id="nama_penilai" class="form-control" value="<?= htmlspecialchars($user_name) ?>" readonly> -->
                     </div>
                     <br>
 

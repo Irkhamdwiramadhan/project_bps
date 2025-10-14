@@ -169,6 +169,22 @@ if (is_array($role_tampil) && in_array('admin', $role_tampil)) {
                                     <p class="text-sm text-gray-500">Memudahkan pengelolaan dan pelaporan kegiatan apel pagi.</p>
                                 </div>
                             </div>
+                            <div class="flex items-start gap-4">
+                                <div class="feature-icon bg-orange-100 text-orange-600"><i class="fas fa-door-open"></i></div>
+                                <div>
+                                    <p class="font-semibold text-gray-800">Sapa (Satpam Siaga)</p>
+                                    <p class="text-sm text-gray-500">
+                                        Aplikasi untuk merekam pergerakan keluar masuk pegawai maupun tamu di lingkungan BPS.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-4">
+                               <div class="feature-icon bg-indigo-100 text-indigo-600"><i class="fas fa-wallet"></i></div>
+                               <div>
+                                   <p class="font-semibold text-gray-800">Dipaku (Dipa Aku)</p>
+                                   <p class="text-sm text-gray-500">Aplikasi keuangan untuk memantau RPD dan realisasinya.</p>
+                               </div>
+                           </div>
                              <div class="flex items-start gap-4">
                                 <div class="feature-icon bg-green-100 text-green-600"><i class="fas fa-shopping-cart"></i></div>
                                 <div>
@@ -191,13 +207,6 @@ if (is_array($role_tampil) && in_array('admin', $role_tampil)) {
                                     <p class="text-sm text-gray-500">Memfasilitasi penilaian kinerja mitra statistik secara objektif.</p>
                                 </div>
                             </div>
-                             <div class="flex items-start gap-4">
-                                <div class="feature-icon bg-indigo-100 text-indigo-600"><i class="fas fa-wallet"></i></div>
-                                <div>
-                                    <p class="font-semibold text-gray-800">Dipaku (Dipa Aku)</p>
-                                    <p class="text-sm text-gray-500">Aplikasi keuangan untuk memantau RPD dan realisasinya.</p>
-                                </div>
-                            </div>
                             <div class="flex items-start gap-4">
                                 <div class="feature-icon bg-gray-100 text-gray-600"><i class="fas fa-tasks"></i></div>
                                 <div>
@@ -205,6 +214,7 @@ if (is_array($role_tampil) && in_array('admin', $role_tampil)) {
                                     <p class="text-sm text-gray-500">Menampilkan target dan realisasi kinerja tim secara terpadu.</p>
                                 </div>
                             </div>
+
                         </div>
 
                         <p class="text-gray-600 text-justify mt-6 pt-4 border-t border-gray-200">

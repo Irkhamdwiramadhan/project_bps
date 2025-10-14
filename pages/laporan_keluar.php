@@ -61,10 +61,10 @@ $jam_sekarang = date('H:i');
                 <form action="../proses/proses_laporan_keluar.php" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="pegawai_id" value="<?= $pegawai_id ?>">
 
-                    <div class="mb-3">
+                    <!-- <div class="mb-3">
                         <label for="nama_pegawai" class="form-label">Nama Pegawai</label>
                         <input type="text" class="form-control" id="nama_pegawai" value="<?= htmlspecialchars($nama_pegawai) ?>" readonly>
-                    </div>
+                    </div> -->
 
                     <div class="row">
                         <div class="col-md-6 mb-3">

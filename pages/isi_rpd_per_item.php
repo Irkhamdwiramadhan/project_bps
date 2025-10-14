@@ -20,6 +20,13 @@ if (empty($kode_unik_item)) {
     die("Error: Kode unik item tidak valid atau tidak ditemukan.");
 }
 
+$selected_outputs = $_GET['selected_outputs'] ?? [];
+if (!is_array($selected_outputs)) {
+    $selected_outputs = [$selected_outputs];
+}
+$tahun = (int)($_GET['tahun'] ?? date("Y"));
+
+
 // Ambil data item berdasarkan KODE_UNIK
 $sql_item = "SELECT id, nama_item, pagu, tahun FROM master_item WHERE kode_unik = ?";
 $stmt_item = $koneksi->prepare($sql_item);
@@ -75,6 +82,11 @@ $stmt_rpd->close();
         
         <input type="hidden" name="kode_unik_item" value="<?= htmlspecialchars($kode_unik_item) ?>">
         <input type="hidden" name="tahun" value="<?= $item['tahun'] ?>">
+        <?php if (isset($_GET['selected_outputs'])): ?>
+        <?php foreach ($_GET['selected_outputs'] as $output): ?>
+            <input type="hidden" name="selected_outputs[]" value="<?= htmlspecialchars($output) ?>">
+        <?php endforeach; ?>
+    <?php endif; ?>
 
         <div class="summary-box bg-light">
             <h5>Total Pagu Anggaran</h5>
@@ -118,7 +130,11 @@ $stmt_rpd->close();
 
         <hr>
         <button type="submit" id="saveButton" class="btn btn-primary btn-lg"><i class="fas fa-save"></i> Simpan Rencana RPD</button>
-        <a href="tambah_rpd.php?tahun=<?= $item['tahun'] ?>" class="btn btn-secondary btn-lg">Kembali</a>
+   <a href="tambah_rpd.php?tahun=<?= $tahun ?>&<?= http_build_query(['selected_outputs' => $selected_outputs]) ?>&step=2" class="btn btn-secondary">
+    ← Kembali
+</a>
+
+
       </form>
     </div>
   </div>

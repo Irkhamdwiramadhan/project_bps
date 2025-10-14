@@ -1,6 +1,4 @@
 <?php
-// proses/cetak_rpd_excel.php (REVISI FINAL)
-
 require_once '../vendor/autoload.php';
 include '../includes/koneksi.php';
 
@@ -8,211 +6,261 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Font;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-// Ambil dan validasi tahun dari URL
+// 1. Ambil parameter dari URL
 $tahun_filter = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date("Y");
+$selected_levels = isset($_GET['level_detail']) ? (array)$_GET['level_detail'] : [
+    'program','kegiatan','output','suboutput','komponen','subkomponen','akun','item'
+];
 
-// =========================================================================
-// 1. MENGAMBIL DAN MEMPROSES DATA (LOGIKA IDENTIK DENGAN FILE PDF)
-// =========================================================================
+// 2. Ambil data dari database
 $sql_hierarchy = "SELECT
-    mp.kode AS program_kode, mp.nama AS program_nama, mk.kode AS kegiatan_kode, mk.nama AS kegiatan_nama,
-    mo.kode AS output_kode, mo.nama AS output_nama, mso.kode AS sub_output_kode, mso.nama AS sub_output_nama,
-    mkom.kode AS komponen_kode, mkom.nama AS komponen_nama, msk.kode AS sub_komponen_kode, msk.nama AS sub_komponen_nama,
-    ma.kode AS akun_kode, ma.nama AS akun_nama, mi.nama_item AS item_nama, mi.pagu, mi.kode_unik
+    mp.kode AS program_kode, mp.nama AS program_nama,
+    mk.kode AS kegiatan_kode, mk.nama AS kegiatan_nama,
+    mo.kode AS output_kode, mo.nama AS output_nama,
+    mso.kode AS sub_output_kode, mso.nama AS sub_output_nama,
+    mkom.kode AS komponen_kode, mkom.nama AS komponen_nama,
+    msk.kode AS sub_komponen_kode, msk.nama AS sub_komponen_nama,
+    ma.kode AS akun_kode, ma.nama AS akun_nama,
+    mi.nama_item AS item_nama, mi.pagu, mi.kode_unik, mi.id AS item_id
 FROM master_item mi
-LEFT JOIN master_akun ma ON mi.akun_id = ma.id LEFT JOIN master_sub_komponen msk ON ma.sub_komponen_id = msk.id
-LEFT JOIN master_komponen mkom ON msk.komponen_id = mkom.id LEFT JOIN master_sub_output mso ON mkom.sub_output_id = mso.id
-LEFT JOIN master_output mo ON mso.output_id = mo.id LEFT JOIN master_kegiatan mk ON mo.kegiatan_id = mk.id
+LEFT JOIN master_akun ma ON mi.akun_id = ma.id
+LEFT JOIN master_sub_komponen msk ON ma.sub_komponen_id = msk.id
+LEFT JOIN master_komponen mkom ON msk.komponen_id = mkom.id
+LEFT JOIN master_sub_output mso ON mkom.sub_output_id = mso.id
+LEFT JOIN master_output mo ON mso.output_id = mo.id
+LEFT JOIN master_kegiatan mk ON mo.kegiatan_id = mk.id
 LEFT JOIN master_program mp ON mk.program_id = mp.id
-WHERE mi.tahun = ? ORDER BY mp.kode, mk.kode, mo.kode, mso.kode, mkom.kode, msk.kode, ma.kode, mi.nama_item ASC";
+WHERE mi.tahun = ?
+ORDER BY mp.kode, mk.kode, mo.kode, mso.kode, mkom.kode, msk.kode, ma.kode, mi.id ASC";
 
-$stmt_hierarchy = $koneksi->prepare($sql_hierarchy); $stmt_hierarchy->bind_param("i", $tahun_filter); $stmt_hierarchy->execute();
-$result_hierarchy = $stmt_hierarchy->get_result(); $flat_data = [];
-while ($row = $result_hierarchy->fetch_assoc()) { $flat_data[] = $row; }
-$stmt_hierarchy->close();
+$stmt = $koneksi->prepare($sql_hierarchy);
+$stmt->bind_param("i", $tahun_filter);
+$stmt->execute();
+$result = $stmt->get_result();
+$flat_data = [];
+while ($row = $result->fetch_assoc()) {
+    $flat_data[] = $row;
+}
+$stmt->close();
 
+// Ambil data RPD
 $rpd_data = [];
 $sql_rpd = "SELECT kode_unik_item, bulan, jumlah FROM rpd WHERE tahun = ?";
-$stmt_rpd = $koneksi->prepare($sql_rpd); $stmt_rpd->bind_param("i", $tahun_filter); $stmt_rpd->execute();
-$result_rpd = $stmt_rpd->get_result();
-while ($row = $result_rpd->fetch_assoc()) { $rpd_data[$row['kode_unik_item']][$row['bulan']] = $row['jumlah']; }
-$stmt_rpd->close();
+$stmt2 = $koneksi->prepare($sql_rpd);
+$stmt2->bind_param("i", $tahun_filter);
+$stmt2->execute();
+$res2 = $stmt2->get_result();
+while ($r = $res2->fetch_assoc()) {
+    $rpd_data[$r['kode_unik_item']][$r['bulan']] = $r['jumlah'];
+}
+$stmt2->close();
 
+// 3. Bangun hierarki
 $hierarki = [];
 foreach ($flat_data as $row) {
-    $p_kode = $row['program_kode']; $k_kode = $row['kegiatan_kode']; $o_kode = $row['output_kode']; $so_kode = $row['sub_output_kode'];
-    $kom_kode = $row['komponen_kode']; $sk_kode = $row['sub_komponen_kode']; $a_kode = $row['akun_kode'];
-    if (!$p_kode) continue;
-    if (!isset($hierarki[$p_kode])) { $hierarki[$p_kode] = ['nama' => $row['program_nama'], 'children' => []]; }
-    if (!isset($hierarki[$p_kode]['children'][$k_kode])) { $hierarki[$p_kode]['children'][$k_kode] = ['nama' => $row['kegiatan_nama'], 'children' => []]; }
-    if (!isset($hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode])) { $hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode] = ['nama' => $row['output_nama'], 'children' => []]; }
-    if (!isset($hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode])) { $hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode] = ['nama' => $row['sub_output_nama'], 'children' => []]; }
-    if (!isset($hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode]['children'][$kom_kode])) { $hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode]['children'][$kom_kode] = ['nama' => $row['komponen_nama'], 'children' => []]; }
-    if (!isset($hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode]['children'][$kom_kode]['children'][$sk_kode])) { $hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode]['children'][$kom_kode]['children'][$sk_kode] = ['nama' => $row['sub_komponen_nama'], 'children' => []]; }
-    if (!isset($hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode]['children'][$kom_kode]['children'][$sk_kode]['children'][$a_kode])) { $hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode]['children'][$kom_kode]['children'][$sk_kode]['children'][$a_kode] = ['nama' => $row['akun_nama'], 'items' => []]; }
-    $hierarki[$p_kode]['children'][$k_kode]['children'][$o_kode]['children'][$so_kode]['children'][$kom_kode]['children'][$sk_kode]['children'][$a_kode]['items'][] = $row;
+    $p = $row['program_kode']; $k = $row['kegiatan_kode'];
+    $o = $row['output_kode']; $so = $row['sub_output_kode'];
+    $kom = $row['komponen_kode']; $sk = $row['sub_komponen_kode'];
+    $a = $row['akun_kode'];
+
+    if (!isset($hierarki[$p])) {
+        $hierarki[$p] = ['nama' => $row['program_nama'], 'children' => []];
+    }
+    if (!isset($hierarki[$p]['children'][$k])) {
+        $hierarki[$p]['children'][$k] = ['nama' => $row['kegiatan_nama'], 'children' => []];
+    }
+    if (!isset($hierarki[$p]['children'][$k]['children'][$o])) {
+        $hierarki[$p]['children'][$k]['children'][$o] = ['nama' => $row['output_nama'], 'children' => []];
+    }
+    if (!isset($hierarki[$p]['children'][$k]['children'][$o]['children'][$so])) {
+        $hierarki[$p]['children'][$k]['children'][$o]['children'][$so] = ['nama' => $row['sub_output_nama'], 'children' => []];
+    }
+    if (!isset($hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom])) {
+        $hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom] = ['nama' => $row['komponen_nama'], 'children' => []];
+    }
+    if (!isset($hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom]['children'][$sk])) {
+        $hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom]['children'][$sk] = ['nama' => $row['sub_komponen_nama'], 'children' => []];
+    }
+    if (!isset($hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom]['children'][$sk]['children'][$a])) {
+        $hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom]['children'][$sk]['children'][$a] = [
+            'nama' => $row['akun_nama'],
+            'items' => []
+        ];
+    }
+    $hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom]['children'][$sk]['children'][$a]['items'][] = $row;
 }
 
+// 4. Hitung totals
 function calculateTotals(&$node, $rpd_data) {
-    $total_pagu = 0; $total_rpd_bulanan = array_fill(1, 12, 0);
+    $total_pagu = 0;
+    $total_rpd_bulanan = array_fill(1, 12, 0);
+
     if (isset($node['items'])) {
         foreach ($node['items'] as $item) {
             $total_pagu += (float)$item['pagu'];
             if (isset($rpd_data[$item['kode_unik']])) {
-                foreach ($rpd_data[$item['kode_unik']] as $bulan => $jumlah) { if (isset($total_rpd_bulanan[$bulan])) { $total_rpd_bulanan[$bulan] += (float)$jumlah; } }
+                foreach ($rpd_data[$item['kode_unik']] as $bulan => $jumlah) {
+                    $total_rpd_bulanan[$bulan] += (float)$jumlah;
+                }
             }
         }
     }
     if (isset($node['children'])) {
-        foreach ($node['children'] as &$child_node) {
-            calculateTotals($child_node, $rpd_data);
-            $total_pagu += $child_node['total_pagu'];
-            foreach ($child_node['total_rpd_bulanan'] as $bulan => $jumlah) { if (isset($total_rpd_bulanan[$bulan])) { $total_rpd_bulanan[$bulan] += $jumlah; } }
+        foreach ($node['children'] as &$child) {
+            calculateTotals($child, $rpd_data);
+            $total_pagu += $child['total_pagu'];
+            foreach ($child['total_rpd_bulanan'] as $bulan => $jumlah) {
+                $total_rpd_bulanan[$bulan] += $jumlah;
+            }
         }
     }
     $node['total_pagu'] = $total_pagu;
     $node['total_rpd_bulanan'] = $total_rpd_bulanan;
 }
-foreach ($hierarki as &$program_node) { calculateTotals($program_node, $rpd_data); } unset($program_node);
+foreach ($hierarki as &$prog) {
+    calculateTotals($prog, $rpd_data);
+}
+unset($prog);
 
-// =========================================================================
-// 2. MEMBUAT DOKUMEN EXCEL
-// =========================================================================
+// 5. Siapkan Excel
 $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();
 
-// Judul Laporan
+// Judul utama
 $sheet->mergeCells('A1:P1');
-$sheet->setCellValue('A1', 'Laporan Rencana Penarikan Dana (RPD) - Tahun ' . $tahun_filter);
+$sheet->setCellValue('A1', "Laporan Rencana Penarikan Dana (RPD) - Tahun $tahun_filter");
 $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
 $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-// Header Tabel
-$header = ['Uraian Anggaran', 'Pagu', 'Sisa Pagu', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-$sheet->fromArray($header, NULL, 'A3');
-$sheet->getStyle('A3:P3')->getFont()->setBold(true);
-$sheet->getStyle('A3:P3')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFD9D9D9');
+// Baris level detail
+$sheet->mergeCells('A2:P2');
+$sheet->setCellValue('A2', 'Level Detail: ' . implode(', ', array_map('ucwords', $selected_levels)));
+$sheet->getStyle('A2')->getFont()->setItalic(true);
+$sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-// Menentukan Style
+// Header kolom
+$header = ['Uraian Anggaran', 'Pagu', 'Sisa Pagu', 'Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+$sheet->fromArray($header, NULL, 'A4');
+$sheet->getStyle('A4:P4')->getFont()->setBold(true);
+$sheet->getStyle('A4:P4')->getFill()->setFillType(Fill::FILL_SOLID)
+      ->getStartColor()->setARGB('FFD9D9D9');
+
 $currencyFormat = '#,##0;-#,##0;"0"';
-$allBorders = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFBFBFBF']]]];
-$level_styles = [
-    ['font' => ['bold' => true, 'size' => 11], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE6E6E6']]],
-    ['font' => ['bold' => true, 'size' => 10], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEDEDED']]],
-    ['font' => ['bold' => true], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF3F3F3']]],
-    ['font' => ['bold' => true]],
-    ['font' => ['bold' => false]],
-    ['font' => ['bold' => false, 'italic' => true]],
-    ['font' => ['bold' => true, 'italic' => true, 'color' => ['argb' => 'FF27AE60']], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF8F8F8']]],
+$allBorders = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]];
+$style_item_merah = ['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFC0C0']]];
+$style_level = [
+    ['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEFEFEF']], 'font' => ['bold' => true]],
+    ['font' => ['bold' => false]]
 ];
-$style_item_sisa = ['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFF3CD']]];
 
-$row_num = 4; // Mulai dari baris ke-4
+$row_num = 5;
+// Hitung total keseluruhan
+$total_pagu_all = 0;
+$total_rpd_bulanan_all = array_fill(1, 12, 0);
+$total_sisa_all = 0;
 
-// [REVISI] Baris Total Keseluruhan
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-
-// ...... (sebelumnya tetap sama sampai ke bagian $row_num = 4)
-
-// ===== Revisi: Baris Total Keseluruhan (tulis cell-by-cell, jangan merge sebelum menulis) =====
-$grand_total_pagu = array_sum(array_column($hierarki, 'total_pagu'));
-$grand_total_rpd_bulanan = array_fill(1, 12, 0);
-foreach ($hierarki as $program_node) {
-    $t = (is_array($program_node['total_rpd_bulanan'] ?? null)) ? $program_node['total_rpd_bulanan'] : array_fill(1,12,0);
-    foreach ($t as $bulan => $jumlah) { $grand_total_rpd_bulanan[$bulan] += (float)$jumlah; }
+foreach ($hierarki as $prog) {
+    $total_pagu_all += $prog['total_pagu'] ?? 0;
+    foreach ($prog['total_rpd_bulanan'] as $b => $j) {
+        $total_rpd_bulanan_all[$b] += $j;
+    }
 }
-$grand_total_rpd = array_sum($grand_total_rpd_bulanan);
-$grand_sisa_pagu = (float)$grand_total_pagu - (float)$grand_total_rpd;
+$total_rpd_all = array_sum($total_rpd_bulanan_all);
+$total_sisa_all = $total_pagu_all - $total_rpd_all;
 
-// tulis label + angka cell-by-cell
-$sheet->setCellValue('A' . $row_num, "JUMLAH KESELURUHAN");
-$sheet->getStyle('A' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-$sheet->getStyle("A{$row_num}:P{$row_num}")->applyFromArray($level_styles[0]);
-
-$sheet->setCellValue('B' . $row_num, (float)$grand_total_pagu);
-$sheet->setCellValue('C' . $row_num, (float)$grand_sisa_pagu);
-
-$colIdx = 4; // kolom D = index 4 -> Jan
-for ($b = 1; $b <= 12; $b++) {
+// Masukkan baris JUMLAH KESELURUHAN di row_num
+$sheet->setCellValue("A{$row_num}", "JUMLAH KESELURUHAN");
+$sheet->setCellValue("B{$row_num}", $total_pagu_all);
+$sheet->setCellValue("C{$row_num}", $total_sisa_all);
+$colIdx = 4;
+for ($b=1; $b<=12; $b++) {
     $colLetter = Coordinate::stringFromColumnIndex($colIdx++);
-    $sheet->setCellValue($colLetter . $row_num, (float)($grand_total_rpd_bulanan[$b] ?? 0));
+    $sheet->setCellValue($colLetter . $row_num, $total_rpd_bulanan_all[$b]);
 }
-$row_num++;
 
-// ===== Revisi: fungsi rekursif printExcelTree (tulis cell-by-cell, hindari merge sebelum menulis) =====
-function printExcelTree($sheet, $nodes, $level, &$row_num, $rpd_data, $level_styles, $style_item_sisa) {
-    $indent = str_repeat('  ', $level);
-    $current_style = $level_styles[$level] ?? end($level_styles);
+// Terapkan style sama seperti header atau level
+$sheet->getStyle("A{$row_num}:P{$row_num}")->applyFromArray($style_level[0]);
+$row_num++; // geser row_num untuk data selanjutnya
+
+function printExcelTreeFiltered(
+    $sheet, $nodes, $level, &$row_num, $rpd_data,
+    $style_level, $style_item_merah, $selected_levels
+) {
+    $level_order = ['program','kegiatan','output','suboutput','komponen','subkomponen','akun','item'];
+    $w_indent = 2; // indent spaces per level
 
     foreach ($nodes as $kode => $node) {
-        $nama_node = $node['nama'] ?? 'Uraian Tidak Ditemukan';
-        $total_rpd_node = array_sum(is_array($node['total_rpd_bulanan'] ?? null) ? $node['total_rpd_bulanan'] : array_fill(1,12,0));
-        $sisa_pagu_node = (float)($node['total_pagu'] ?? 0) - (float)$total_rpd_node;
+        $level_name = $level_order[$level] ?? 'item';
+        $indent = str_repeat(' ', $level * $w_indent);
 
-        // tulis label dan angka tanpa merge
-        $sheet->setCellValue('A' . $row_num, $indent . $kode . ' - ' . $nama_node);
-        $sheet->setCellValue('B' . $row_num, (float)($node['total_pagu'] ?? 0));
-        $sheet->setCellValue('C' . $row_num, (float)$sisa_pagu_node);
-
-        // tulis bulan (D.. sampai)
-        $colIdx = 4;
-        $rpd_bulanan = is_array($node['total_rpd_bulanan'] ?? null) ? $node['total_rpd_bulanan'] : array_fill(1,12,0);
-        for ($b = 1; $b <= 12; $b++) {
-            $colLetter = Coordinate::stringFromColumnIndex($colIdx++);
-            $sheet->setCellValue($colLetter . $row_num, (float)($rpd_bulanan[$b] ?? 0));
+        // jika level ini tidak dipilih dan ada children, turun ke children
+        if (!in_array($level_name, $selected_levels) && isset($node['children'])) {
+            printExcelTreeFiltered($sheet, $node['children'], $level+1, $row_num, $rpd_data,
+                $style_level, $style_item_merah, $selected_levels);
+            continue;
         }
 
-        // apply style ke seluruh range baris (A..P)
-        $sheet->getStyle("A{$row_num}:P{$row_num}")->applyFromArray($current_style);
-        $row_num++;
+        // jika level ini dipilih, cetak barisnya
+        if (in_array($level_name, $selected_levels)) {
+            $total_rpd = array_sum($node['total_rpd_bulanan'] ?? []);
+            $sisa = ($node['total_pagu'] ?? 0) - $total_rpd;
 
-        // items: tulis cell-by-cell juga (hindari fromArray agar kontrol penuh)
-        if (!empty($node['items']) && is_array($node['items'])) {
-            $item_indent = str_repeat('  ', $level + 1);
+            $sheet->setCellValue("A{$row_num}", $indent . "$kode - " . ($node['nama'] ?? ''));
+            $sheet->setCellValue("B{$row_num}", $node['total_pagu'] ?? 0);
+            $sheet->setCellValue("C{$row_num}", $sisa);
+            $colIdx = 4;
+            for ($b = 1; $b <= 12; $b++) {
+                $colLetter = Coordinate::stringFromColumnIndex($colIdx++);
+                $sheet->setCellValue($colLetter . $row_num, $node['total_rpd_bulanan'][$b] ?? 0);
+            }
+            $sheet->getStyle("A{$row_num}:P{$row_num}")->applyFromArray($style_level[0]);
+            $row_num++;
+        }
+
+        // print item jika level “item” dipilih
+        if (isset($node['items']) && in_array('item', $selected_levels)) {
             foreach ($node['items'] as $item) {
-                $item_total_rpd = (isset($rpd_data[$item['kode_unik']]) && is_array($rpd_data[$item['kode_unik']])) ? array_sum($rpd_data[$item['kode_unik']]) : 0;
-                $sisa_pagu_item = (float)($item['pagu'] ?? 0) - (float)$item_total_rpd;
+                $item_total = array_sum($rpd_data[$item['kode_unik']] ?? []);
+                $sisa_item = $item['pagu'] - $item_total;
 
-                $sheet->setCellValue('A' . $row_num, $item_indent . "- " . ($item['item_nama'] ?? ''));
-                $sheet->setCellValue('B' . $row_num, (float)($item['pagu'] ?? 0));
-                $sheet->setCellValue('C' . $row_num, (float)$sisa_pagu_item);
-
+                $sheet->setCellValue("A{$row_num}", $indent . "  - " . $item['item_nama']);
+                $sheet->setCellValue("B{$row_num}", $item['pagu']);
+                $sheet->setCellValue("C{$row_num}", $sisa_item);
                 $colIdx = 4;
                 for ($b = 1; $b <= 12; $b++) {
                     $colLetter = Coordinate::stringFromColumnIndex($colIdx++);
-                    $val = ($item['kode_unik'] && isset($rpd_data[$item['kode_unik']]) && is_array($rpd_data[$item['kode_unik']])) ? ($rpd_data[$item['kode_unik']][$b] ?? 0) : 0;
-                    $sheet->setCellValue($colLetter . $row_num, (float)$val);
+                    $sheet->setCellValue($colLetter . $row_num, $rpd_data[$item['kode_unik']][$b] ?? 0);
                 }
 
-                if ($sisa_pagu_item != 0) {
-                    $sheet->getStyle("A{$row_num}:P{$row_num}")->applyFromArray($style_item_sisa);
+                if ($sisa_item != 0) {
+                    $sheet->getStyle("A{$row_num}:P{$row_num}")->applyFromArray($style_item_merah);
                 }
                 $row_num++;
             }
         }
 
-        // rekursif children
-        if (!empty($node['children'])) {
-            printExcelTree($sheet, $node['children'], $level + 1, $row_num, $rpd_data, $level_styles, $style_item_sisa);
+        // turun ke children
+        if (isset($node['children'])) {
+            printExcelTreeFiltered($sheet, $node['children'], $level+1, $row_num, $rpd_data,
+                $style_level, $style_item_merah, $selected_levels);
         }
     }
 }
 
-
-// Panggil fungsi rekursif
+// Cetak isi
 if (!empty($hierarki)) {
-    printExcelTree($sheet, $hierarki, 0, $row_num, $rpd_data, $level_styles, $style_item_sisa);
+    printExcelTreeFiltered($sheet, $hierarki, 0, $row_num, $rpd_data,
+        $style_level, $style_item_merah, $selected_levels);
 }
 
-// Finishing Styles
+// Styling akhir
 $last_row = $row_num - 1;
-$sheet->getStyle("A3:P{$last_row}")->applyFromArray($allBorders);
-$sheet->getStyle("B4:P{$last_row}")->getNumberFormat()->setFormatCode($currencyFormat);
-$sheet->getStyle("B4:P{$last_row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+$sheet->getStyle("A4:P{$last_row}")->applyFromArray($allBorders);
+$sheet->getStyle("B5:P{$last_row}")->getNumberFormat()->setFormatCode($currencyFormat);
+$sheet->getStyle("B5:P{$last_row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
 // Atur lebar kolom
 $sheet->getColumnDimension('A')->setWidth(70);
@@ -220,14 +268,12 @@ for ($col = 'B'; $col <= 'P'; $col++) {
     $sheet->getColumnDimension($col)->setWidth(18);
 }
 
-// =========================================================================
-// 3. OUTPUT FILE EXCEL KE BROWSER
-// =========================================================================
-$filename = 'laporan_rpd_' . $tahun_filter . '.xlsx';
+// Output ke browser
+$filename = "laporan_rpd_{$tahun_filter}.xlsx";
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-header('Content-Disposition: attachment;filename="' . $filename . '"');
+header('Content-Disposition: attachment;filename="'.$filename.'"');
 header('Cache-Control: max-age=0');
+
 $writer = new Xlsx($spreadsheet);
 $writer->save('php://output');
 exit;
-?>

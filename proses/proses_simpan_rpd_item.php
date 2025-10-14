@@ -100,6 +100,12 @@ try {
 // =========================================================================
 // Daripada ke halaman laporan, kita kembali ke halaman tambah_rpd.
 // Halaman tambah_rpd akan otomatis menampilkan Langkah 2 karena konteksnya tersimpan di session.
-header("Location: ../pages/tambah_rpd.php?tahun=" . $tahun);
+if (!empty($_POST['selected_outputs'])) {
+    $selected_outputs = $_POST['selected_outputs'];
+    $query_string = http_build_query(['tahun' => $tahun, 'selected_outputs' => $selected_outputs]);
+    header("Location: ../pages/tambah_rpd.php?$query_string");
+} else {
+    header("Location: ../pages/tambah_rpd.php?tahun=" . $tahun);
+}
 exit();
 ?>

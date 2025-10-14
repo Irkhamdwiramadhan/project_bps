@@ -164,7 +164,9 @@ select.form-control:focus {
                             <option value="realisasi_gabungan">3. Laporan Realisasi vs RPD</option>
                         </select>
                     </div>
-
+                    
+                    
+                    
                     <div class="form-step" data-step="2">
                         <label for="tahun">Tahun Anggaran</label>
                         <select class="form-control" id="tahun" name="tahun" required>
@@ -172,10 +174,10 @@ select.form-control:focus {
                                 <option value="<?= htmlspecialchars($thn) ?>" <?= ($thn == date('Y')) ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($thn) ?>
                                 </option>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
                         </select>
                     </div>
-
+                    
                     <div class="form-step" data-step="3">
                         <label for="format">Format Laporan</label>
                         <select class="form-control" id="format" name="format" required>
@@ -184,6 +186,19 @@ select.form-control:focus {
                         </select>
                     </div>
                     
+                    <div class="form-step" data-step="4">
+                      <label><strong>Pilih Variabel yang Ingin Dicetak</strong></label>
+                      <div class="form-group d-flex flex-wrap gap-3 mt-2">
+                        <label><input type="checkbox" name="level_detail[]" value="program"> Program</label>
+                        <label><input type="checkbox" name="level_detail[]" value="kegiatan"> Kegiatan</label>
+                        <label><input type="checkbox" name="level_detail[]" value="output"> Output</label>
+                        <label><input type="checkbox" name="level_detail[]" value="suboutput"> Sub Output</label>
+                        <label><input type="checkbox" name="level_detail[]" value="komponen"> Komponen</label>
+                        <label><input type="checkbox" name="level_detail[]" value="subkomponen"> Sub Komponen</label>
+                        <label><input type="checkbox" name="level_detail[]" value="akun"> Akun</label>
+                        <label><input type="checkbox" name="level_detail[]" value="item"> Item</label>
+                      </div>
+                    </div>
                     <div class="mt-4 pt-3">
                         <button type="submit" id="downloadBtn" class="btn btn-download btn-block">
                             <i class="fas fa-download mr-2"></i>Unduh Laporan
@@ -201,9 +216,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const cetakForm = document.getElementById('cetakForm');
     const laporanSelect = document.getElementById('laporan');
     const formatSelect = document.getElementById('format');
+    const checkboxes = document.querySelectorAll('input[name="level_detail[]"]');
     const downloadBtn = document.getElementById('downloadBtn');
 
-    // Pemetaan dari value laporan ke nama file dasar
     const fileMap = {
         'rpd': 'cetak_rpd',
         'realisasi_saja': 'cetak_hanya_realisasi',
@@ -213,12 +228,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateFormAction() {
         const jenisLaporan = laporanSelect.value;
         const format = formatSelect.value;
-        
-        if (jenisLaporan && format) {
+        const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+
+        if (jenisLaporan && format && anyChecked) {
             const baseFileName = fileMap[jenisLaporan];
             const formatSuffix = (format === 'excel') ? '_excel' : '_pdf';
             const fullActionPath = `../proses/${baseFileName}${formatSuffix}.php`;
-            
+
             cetakForm.action = fullActionPath;
             downloadBtn.disabled = false;
         } else {
@@ -227,13 +243,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Panggil fungsi saat ada perubahan pada salah satu dropdown
     laporanSelect.addEventListener('change', updateFormAction);
     formatSelect.addEventListener('change', updateFormAction);
-    
-    // Panggil fungsi saat halaman pertama kali dimuat untuk inisialisasi
+    checkboxes.forEach(cb => cb.addEventListener('change', updateFormAction));
+
     updateFormAction();
 });
 </script>
+
 
 <?php include '../includes/footer.php'; ?>

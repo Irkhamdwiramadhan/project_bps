@@ -298,6 +298,80 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 <li><a href="pegawai.php" class="nav-item"><i class="fas fa-users menu-icon"></i><span class="nav-text">Data Pegawai</span></a></li>
                 <li class="has-sub">
                     <details>
+                    <summary class="nav-item">
+                        <img src="../assets/img/logo/simpedu.png" alt="Dipaku Icon" class="menu-icon" style="width:24px; height:24px;">
+                        <span class="nav-text">Small Simpedu</span>
+                        <i class="fas fa-chevron-right caret"></i>
+                    </summary>
+                
+                    <ul class="sub-menu">
+                        <li><a href="halaman_tim.php"><i class="fas fa-users"></i> Tim</a></li>
+                        <li><a href="kegiatan_tim.php"><i class="fas fa-clipboard-list"></i> Kegiatan</a></li>
+                        <li><a href="dashboard_kegiatan.php"><i class="fas fa-chart-line"></i> Dashboard Tim</a></li>
+                    </ul>
+                </details>
+            </li>
+            
+                            <li class="has-sub">
+                                <details>
+                                    <summary class="nav-item">
+                                        <img src="../assets/img/logo/dipaku.png" alt="Dipaku Icon" class="menu-icon" style="width:30px; height:30px;">
+                                        <span class="nav-text">Dipaku</span>
+                                        <i class="fas fa-chevron-right caret"></i>
+                                    </summary>
+                                    <ul class="sub-menu">
+                                        <li><a href="master_data.php"><i class="fas fa-book"></i> Anggaran</a></li>
+                                        <li><a href="rpd.php"><i class="fas fa-calendar-alt"></i> Rpd</a></li>
+                                        <li><a href="realisasi.php"><i class="fas fa-chart-line"></i> Realisasi</a></li>
+                                        <?php
+                                        $allowed_roles = ['super_admin', 'admin_dipaku']; 
+            
+                                        if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
+                                            echo '<li><a href="upload.php"><i class="fas fa-upload"></i> Upload</a></li>';
+                                        }
+                                        if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
+                                            echo '<li><a href="cetak.php"><i class="fas fa-print"></i> Cetak</a></li>';
+                                        }
+                                        ?>
+            
+                                        
+                                        
+                                      
+                                    
+                                    </ul>
+                                </details>
+                            </li>
+                            <li class="has-sub">
+                                <details class="prestasi-menu">
+                                    <summary class="nav-item">
+                                        <img src="../assets/img/logo/prestasi.png" alt="Prestasi Icon" class="menu-icon" style="width:30px; height:30px;">
+                                        <span class="nav-text">Prestasi</span>
+                                        <i class="fas fa-chevron-right caret"></i>
+                                    </summary>
+                                    <ul class="sub-menu">
+                                        <li><a href="calon_berprestasi.php"><i class="fas fa-user-plus"></i> Daftar Calon</a></li>
+                                        <li><a href="form_penilaian.php"><i class="fas fa-clipboard-check"></i> Form Penilaian</a></li>
+                                        <li><a href="hasil_penilaian.php"><i class="fas fa-chart-line"></i> Hasil Penilaian</a></li>
+                                    </ul>
+                                </details>
+                            </li>
+                            <li class="has-sub">
+                                <details>
+                                    <summary class="nav-item">
+                                        <img src="../assets/img/logo/bs_mart.png" alt="bs_mart Icon" class="menu-icon" style="width:30px; height:30px;">
+                                        <span class="nav-text">B-S Mart</span>
+                                        <i class="fas fa-chevron-right caret"></i>
+                                    </summary>
+                                    <ul class="sub-menu">
+                                        <li><a href="tambah_penjualan.php"><i class="fas fa-plus-circle"></i> Tambah Penjualan</a></li>
+                                        <li><a href="barang_tersedia.php"><i class="fas fa-box-open"></i> Stok Barang</a></li>
+                                        <li><a href="history_penjualan.php"><i class="fas fa-history"></i> History Penjualan</a></li>
+                                        <li><a href="rekap_transaksi.php"><i class="fas fa-receipt"></i> Rekap Transaksi</a></li>
+                                    </ul>
+                                </details>
+                            </li>
+                <li class="has-sub">
+                    <details>
                         <summary class="nav-item">
                             <img src="../assets/img/logo/siap.png" alt="Dipaku Icon" class="menu-icon" style="width:30px; height:30px;">
                             <span class="nav-text">SIAP</span>
@@ -312,6 +386,31 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 </li>
                 
                 <li class="has-sub">
+                    <details class="pms-menu">
+                        <summary class="nav-item">
+                            <img src="../assets/img/logo/pms.png" alt="PMS Icon" class="menu-icon" style="width:30px; height:30px;">
+                            <span class="nav-text">PMS</span>
+                            <i class="fas fa-chevron-right caret"></i>
+                        </summary>
+                        <ul class="sub-menu">
+                            <li><a href="mitra.php"><i class="fas fa-users-cog"></i> Mitra</a></li>
+                            <?php
+                        
+                            $allowed_roles = ['super_admin', 'admin_mitra', 'ketua_tim']; 
+            
+                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
+                                echo '<li><a href="manage_batas_honor.php"><i class="fas fa-chart-line"></i>Batas Honor</a></li>';
+                            }
+                            ?>
+                            <li><a href="kegiatan.php"><i class="fas fa-tasks"></i> Kegiatan</a></li>
+                            <li><a href="jenis_surveys.php"><i class="fas fa-poll"></i> Jenis Survey</a></li>
+                            <li><a href="penilaian_mitra.php"><i class="fas fa-star-half-alt"></i> Penilaian Mitra</a></li>
+                            <li><a href="rekap_honor.php"><i class="fas fa-receipt"></i> Rekap Honor</a></li>
+                            
+                        </ul>
+                    </details>
+                </li>
+                <li class="has-sub">
     <details>
         <summary class="nav-item">
             <img src="../assets/img/logo/sapa.png" alt="sapa Icon" class="menu-icon" style="width:30px; height:30px;">
@@ -325,7 +424,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                 </a>
             </li>
             <li>
-                <a href="Tamu.php">
+                <a href="tamu.php">
                     <i class="fas fa-user-friends menu-icon"></i> Tamu
                 </a>
             </li>
@@ -337,105 +436,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
         </ul>
     </details>
 </li>
-
-                <li class="has-sub">
-                    <details>
-                        <summary class="nav-item">
-                            <img src="../assets/img/logo/dipaku.png" alt="Dipaku Icon" class="menu-icon" style="width:30px; height:30px;">
-                            <span class="nav-text">Dipaku</span>
-                            <i class="fas fa-chevron-right caret"></i>
-                        </summary>
-                        <ul class="sub-menu">
-                            <li><a href="master_data.php"><i class="fas fa-book"></i> Anggaran</a></li>
-                            <li><a href="rpd.php"><i class="fas fa-calendar-alt"></i> Rpd</a></li>
-                            <li><a href="realisasi.php"><i class="fas fa-chart-line"></i> Realisasi</a></li>
-                            <?php
-                            $allowed_roles = ['super_admin', 'admin_dipaku']; 
-
-                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
-                                echo '<li><a href="upload.php"><i class="fas fa-upload"></i> Upload</a></li>';
-                            }
-                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
-                                echo '<li><a href="cetak.php"><i class="fas fa-print"></i> Cetak</a></li>';
-                            }
-                            ?>
-
-                            
-                            
-                          
-                        
-                        </ul>
-                    </details>
-                </li>
-                <li class="has-sub">
-                    <details>
-                        <summary class="nav-item">
-                            <img src="../assets/img/logo/bs_mart.png" alt="bs_mart Icon" class="menu-icon" style="width:30px; height:30px;">
-                            <span class="nav-text">B-S Mart</span>
-                            <i class="fas fa-chevron-right caret"></i>
-                        </summary>
-                        <ul class="sub-menu">
-                            <li><a href="tambah_penjualan.php"><i class="fas fa-plus-circle"></i> Tambah Penjualan</a></li>
-                            <li><a href="barang_tersedia.php"><i class="fas fa-box-open"></i> Stok Barang</a></li>
-                            <li><a href="history_penjualan.php"><i class="fas fa-history"></i> History Penjualan</a></li>
-                            <li><a href="rekap_transaksi.php"><i class="fas fa-receipt"></i> Rekap Transaksi</a></li>
-                        </ul>
-                    </details>
-                </li>
-                <li class="has-sub">
-                    <details class="prestasi-menu">
-                        <summary class="nav-item">
-                            <img src="../assets/img/logo/prestasi.png" alt="Prestasi Icon" class="menu-icon" style="width:30px; height:30px;">
-                            <span class="nav-text">Prestasi</span>
-                            <i class="fas fa-chevron-right caret"></i>
-                        </summary>
-                        <ul class="sub-menu">
-                            <li><a href="calon_berprestasi.php"><i class="fas fa-user-plus"></i> Daftar Calon</a></li>
-                            <li><a href="form_penilaian.php"><i class="fas fa-clipboard-check"></i> Form Penilaian</a></li>
-                            <li><a href="hasil_penilaian.php"><i class="fas fa-chart-line"></i> Hasil Penilaian</a></li>
-                        </ul>
-                    </details>
-                </li>
-                <li class="has-sub">
-                    <details class="pms-menu">
-                        <summary class="nav-item">
-                            <img src="../assets/img/logo/pms.png" alt="PMS Icon" class="menu-icon" style="width:30px; height:30px;">
-                            <span class="nav-text">PMS</span>
-                            <i class="fas fa-chevron-right caret"></i>
-                        </summary>
-                        <ul class="sub-menu">
-                            <li><a href="mitra.php"><i class="fas fa-users-cog"></i> Mitra</a></li>
-                            <?php 
-                            // Logika baru yang lebih solid untuk menampilkan menu "Kelola Akses"
-                            // Menu ini akan muncul jika user memiliki peran 'super_admin' atau 'admin_pegawai'
-                            if (is_array($role_tampil) && (in_array('super_admin', $role_tampil) )) {
-                                echo '<li><a href="manage_batas_honor.php"><i class="fas fa-chart-line"></i>Batas Honor</a></li>';
-                            }
-                            ?>
-                            <li><a href="kegiatan.php"><i class="fas fa-tasks"></i> Kegiatan</a></li>
-                            <li><a href="jenis_surveys.php"><i class="fas fa-poll"></i> Jenis Survey</a></li>
-                            <li><a href="penilaian_mitra.php"><i class="fas fa-star-half-alt"></i> Penilaian Mitra</a></li>
-                            <li><a href="rekap_honor.php"><i class="fas fa-receipt"></i> Rekap Honor</a></li>
-                            
-                        </ul>
-                    </details>
-                </li>
     
-                <li class="has-sub">
-                    <details>
-                    <summary class="nav-item">
-                        <img src="../assets/img/logo/simpedu.png" alt="Dipaku Icon" class="menu-icon" style="width:24px; height:24px;">
-                        <span class="nav-text">Small Simpedu</span>
-                        <i class="fas fa-chevron-right caret"></i>
-                    </summary>
-
-                        <ul class="sub-menu">
-                            <li><a href="halaman_tim.php"><i class="fas fa-users"></i> Tim</a></li>
-                            <li><a href="kegiatan_tim.php"><i class="fas fa-clipboard-list"></i> Kegiatan</a></li>
-                            <li><a href="dashboard_kegiatan.php"><i class="fas fa-chart-line"></i> Dashboard Tim</a></li>
-                        </ul>
-                    </details>
-                </li>
             </ul>
         </nav>
         

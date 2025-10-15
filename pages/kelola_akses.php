@@ -275,6 +275,31 @@ while ($row = $result_current_roles->fetch_assoc()) {
             flex-direction: column; /* Centang peran menjadi tumpukan vertikal */
         }
     }
+    /* Untuk layar medium seperti iPad (antara 768px dan 1180px) */
+@media (max-width: 1180px) and (min-width: 768px) {
+    .sidebar {
+        position: fixed;
+        width: 220px;
+        height: 100%;
+        z-index: 10;
+        left: 0;
+        top: 0;
+    }
+
+    .main-content {
+        margin-left: 220px; /* beri ruang agar tidak ketimpa sidebar */
+    }
+}
+.sidebar.hidden {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+}
+
+.main-content {
+    transition: margin-left 0.3s ease;
+}
+
+
 </style>
 </head>
 <body>

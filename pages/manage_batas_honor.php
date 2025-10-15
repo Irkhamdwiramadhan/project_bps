@@ -154,31 +154,82 @@ tbody tr:hover {
     background-color: #f9fafb;
 }
 
-/* --- TOMBOL DAN FORM --- */
+/* --- AREA FORM FILTER --- */
 .filter-form {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
     align-items: flex-end;
+    gap: 1rem;
     margin-bottom: 2rem;
 }
+
 .filter-group {
+    flex: 1 1 200px;
     display: flex;
     flex-direction: column;
 }
+
 .filter-group label {
-    color: #4a5568;
     font-weight: 500;
-    margin-bottom: 0.25rem;
+    color: #374151;
+    margin-bottom: 0.4rem;
 }
+
 .form-input {
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
-    padding: 0.75rem;
+    padding: 0.75rem 1rem;
     font-size: 0.95rem;
-    background-color: #fff;
-    transition: border-color 0.2s;
+    width: 100%;
+    box-sizing: border-box;
 }
+
+.btn-primary {
+    padding: 0.75rem 1.8rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    background-image: linear-gradient(to right, #6366f1 0%, #4f46e5 100%);
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+    transition: all 0.3s ease;
+    flex-shrink: 0; /* tombol tidak mengecil */
+}
+
+.btn-primary:hover {
+    background-image: linear-gradient(to right, #4f46e5 0%, #6366f1 100%);
+    transform: translateY(-2px);
+}
+
+/* --- RESPONSIVE FIX --- */
+@media (max-width: 768px) {
+    .filter-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn-primary {
+        width: 100%;
+        text-align: center;
+    }
+
+    .btn-secondary {
+        width: 100%;
+        text-align: center;
+    }
+
+    .flex-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .flex-container h1 {
+        font-size: 1.5rem;
+    }
+}
+
 .btn-primary {
     padding: 0.75rem 1.5rem;
     border: none;
@@ -241,12 +292,14 @@ tbody tr:hover {
         <h2 class="text-xl text-gray-600 mb-6">Tahun <?= htmlspecialchars($tahun_filter) ?></h2>
 
         <form action="" method="GET" class="filter-form">
-            <div class="filter-group">
-                <label for="tahun">Pilih Tahun</label>
-                <input type="number" id="tahun" name="tahun" class="form-input" value="<?= htmlspecialchars($tahun_filter) ?>" required>
-            </div>
-            <button type="submit" class="btn-primary">Tampilkan</button>
-        </form>
+    <div class="filter-group">
+        <label for="tahun">Pilih Tahun</label>
+        <input type="number" id="tahun" name="tahun" class="form-input"
+               value="<?= htmlspecialchars($tahun_filter) ?>" required>
+    </div>
+    <button type="submit" class="btn-primary">Tampilkan</button>
+</form>
+
 
         <div class="card space-y-8">
             <div class="table-container">

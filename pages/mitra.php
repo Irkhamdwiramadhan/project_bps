@@ -8,7 +8,7 @@ include '../includes/sidebar.php';
 $user_roles = $_SESSION['user_role'] ?? [];
 
 // Tentukan peran mana saja yang diizinkan untuk mengakses fitur ini
-$allowed_roles_for_action = ['super_admin', 'admin_pegawai'];
+$allowed_roles_for_action = ['super_admin', 'admin_mitra', 'ketua_tim'];
 // Periksa apakah pengguna memiliki salah satu peran yang diizinkan untuk melihat aksi
 $has_access_for_action = false;
 foreach ($user_roles as $role) {
@@ -243,7 +243,9 @@ if ($result_tahun && $result_tahun->num_rows > 0) {
             </select>
 
             <button type="submit" class="btn-form btn-blue-form shadow-md">Cari</button>
+            <?php if ($has_access_for_action): ?>
             <a href="tambah_mitra.php" class="btn-form btn-blue-form shadow-md"> + Tambah Mitra </a>
+            <?php endif; ?>
         </form>
 
         <div class="data-table-container">
@@ -319,8 +321,10 @@ if ($result_tahun && $result_tahun->num_rows > 0) {
                                     <td data-label="Aksi">
                                         <div class="flex flex-col md:flex-row gap-2">
                                             <a href="detail_mitra.php?id=<?= htmlspecialchars($row['id']) ?>" class="btn-action btn-detail">Detail</a>
+                                            <?php if ($has_access_for_action): ?>
                                             <a href="edit_mitra.php?id=<?= htmlspecialchars($row['id']) ?>" class="btn-action btn-edit">Edit</a>
                                             <a href="delete_mitra.php?id=<?= htmlspecialchars($row['id']) ?>" onclick="return confirm('Apakah Anda yakin ingin menghapus mitra ini?');" class="btn-action btn-delete">Hapus</a>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -342,4 +346,4 @@ if ($result_tahun && $result_tahun->num_rows > 0) {
     </div>
 </div>
 
-<?php include '../includes/footer.php'; ?>
+<?php include '../includes/footer.php'; ?> 

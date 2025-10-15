@@ -29,143 +29,223 @@ foreach ((array)$user_roles as $role) {
 ?>
 
 <style>
-    /* Mengimpor font dan variabel warna untuk konsistensi */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-    :root {
-        --primary-color: #4A90E2;
-        --background-color: #f4f7f9;
-        --card-bg-color: #ffffff;
-        --header-text-color: #4A4A4A;
-        --border-color: #e2e8f0;
-        --shadow-color: rgba(0, 0, 0, 0.05);
-    }
-    body {
-        font-family: 'Poppins', sans-serif;
-        background-color: var(--background-color);
-    }
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
-    /* Header Utama */
-    .header-content {
-        background-color: var(--card-bg-color);
-        padding: 20px 30px;
-        border-bottom: 1px solid var(--border-color);
-        box-shadow: 0 2px 4px var(--shadow-color);
-    }
-    .header-content h2 {
-        font-weight: 600;
-        color: var(--header-text-color);
-        margin: 0;
-    }
+:root {
+  --primary-color: #324057;
+  --primary-hover: #455873;
+  --background-color: #f9fafb;
+  --card-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --text-dark: #1f2937;
+  --text-muted: #6b7280;
+}
 
-    /* Kartu Konten */
-    .card {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px var(--shadow-color);
-        background-color: var(--card-bg-color);
-    }
-    .card-header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-    .card-header h5 {
-        font-weight: 600;
-        margin: 0;
-    }
-    .search-box {
-        position: relative;
-    }
-    #searchInput {
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-        padding: 8px 12px;
-        width: 280px;
-    }
+/* ====== GLOBAL ====== */
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-dark);
+  margin: 0;
+  padding: 0;
+}
 
-    /* Tabel Modern */
-    .table-responsive {
-        padding: 0;
-    }
-    .table {
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-    .table thead {
-        background-color: #f8fafc;
-    }
-    .table th {
-        font-weight: 600;
-        color: #475569;
-        border-bottom: 2px solid var(--border-color);
-        padding: 1rem 1.25rem;
-        text-transform: uppercase;
-        font-size: 0.8rem;
-        letter-spacing: 0.5px;
-    }
-    .table td {
-        padding: 1rem 1.25rem;
-        vertical-align: middle;
-        border-bottom: 1px solid var(--border-color);
-    }
-     .table tbody tr:last-child td {
-        border-bottom: none;
-    }
-    .table tbody tr:hover {
-        background-color: #f1f5f9;
-    }
-    .team-name {
-        font-weight: 500;
-    }
+/* ====== HEADER ====== */
+.header-content {
+  background-color: var(--card-bg);
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.header-content h2 {
+  font-weight: 600;
+  margin: 0;
+}
+.header-content .btn {
+  background-color: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+.header-content .btn:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
 
-    /* Grup Tombol Aksi */
-    .btn-action-group {
-        display: flex;
-        gap: 8px;
-    }
-    .btn-action-group .btn {
-        width: 36px;
-        height: 36px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-    }
-    /* Tombol toggle status */
+/* ====== CARD ====== */
+.card {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+.card-header h5 {
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ====== SEARCH & FILTER ====== */
+.search-box input {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  width: 260px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+.search-box input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(50, 64, 87, 0.2);
+}
+
+.btn-outline-primary,
+.btn-outline-success,
+.btn-outline-secondary {
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+/* ====== TABLE ====== */
+.table-responsive {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 700px;
+}
+.table thead {
+  background-color: #f1f5f9;
+}
+.table th {
+  padding: 1rem 1rem;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  color: #475569;
+  border-bottom: 2px solid var(--border-color);
+  text-align: left;
+}
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+.table tbody tr:hover {
+  background-color: #f9fafc;
+}
+
+/* ====== BUTTON ACTION ====== */
+.btn-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.btn-action-group .btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  transition: all 0.3s ease;
+}
+.btn-action-group .btn:hover {
+  transform: translateY(-1px);
+}
+
+/* ====== TOGGLE STATUS BUTTON ====== */
 .btn-toggle-status {
-    width: 36px;
-    height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-    border: none;
-    cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
 }
-
-/* Status aktif */
 .btn-toggle-status.active {
-    background-color: #28a745; /* hijau */
-    color: #fff;
+  background-color: #22c55e;
+  color: #fff;
 }
-
-/* Status nonaktif */
 .btn-toggle-status.inactive {
-    background-color: #6c757d; /* abu-abu */
-    color: #fff;
+  background-color: #6b7280;
+  color: #fff;
 }
-
-/* Efek hover */
 .btn-toggle-status:hover {
-    opacity: 0.8;
+  opacity: 0.9;
 }
 
+/* ====== RESPONSIVE ====== */
+@media (max-width: 992px) {
+  .header-content {
+    padding: 1rem;
+  }
+  .search-box input {
+    width: 100%;
+  }
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .table {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content h2 {
+    font-size: 1.4rem;
+  }
+  .header-content .btn {
+    width: 100%;
+    text-align: center;
+  }
+  .card-header {
+    align-items: stretch;
+  }
+  .card-header .d-flex {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .btn-outline-primary,
+  .btn-outline-success,
+  .btn-outline-secondary {
+    width: 100%;
+  }
+  .btn-action-group {
+    justify-content: flex-start;
+  }
+}
 </style>
+
 
 <main class="main-content">
     <div class="header-content d-flex justify-content-between align-items-center">

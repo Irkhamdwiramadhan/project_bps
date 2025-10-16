@@ -2,10 +2,22 @@
 require_once('../vendor/autoload.php');
 include '../includes/koneksi.php';
 
+// ===================== 1. TANGKAP SEMUA FILTER DARI URL =====================
 $tahun_filter = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date("Y");
 $selected_levels = isset($_GET['level_detail']) ? (array)$_GET['level_detail'] : [];
 
-// ===================== AMBIL DATA =====================
+// Tangkap filter spesifik. Gunakan null jika tidak ada.
+$filters = [
+    'program_id' => !empty($_GET['program_id']) ? (int)$_GET['program_id'] : null,
+    'kegiatan_id' => !empty($_GET['kegiatan_id']) ? (int)$_GET['kegiatan_id'] : null,
+    'output_id' => !empty($_GET['output_id']) ? (int)$_GET['output_id'] : null,
+    'sub_output_id' => !empty($_GET['sub_output_id']) ? (int)$_GET['sub_output_id'] : null,
+    'komponen_id' => !empty($_GET['komponen_id']) ? (int)$_GET['komponen_id'] : null,
+    'sub_komponen_id' => !empty($_GET['sub_komponen_id']) ? (int)$_GET['sub_komponen_id'] : null,
+    'akun_id' => !empty($_GET['akun_id']) ? (int)$_GET['akun_id'] : null,
+];
+
+// ===================== 2. BANGUN KUERI SQL SECARA DINAMIS =====================
 $sql_hierarchy = "SELECT
     mp.kode AS program_kode, mp.nama AS program_nama,
     mk.kode AS kegiatan_kode, mk.nama AS kegiatan_nama,
@@ -22,17 +34,53 @@ LEFT JOIN master_komponen mkom ON msk.komponen_id = mkom.id
 LEFT JOIN master_sub_output mso ON mkom.sub_output_id = mso.id
 LEFT JOIN master_output mo ON mso.output_id = mo.id
 LEFT JOIN master_kegiatan mk ON mo.kegiatan_id = mk.id
-LEFT JOIN master_program mp ON mk.program_id = mp.id
-WHERE mi.tahun = ?
-ORDER BY mp.kode, mk.kode, mo.kode, mso.kode, mkom.kode, msk.kode, ma.kode, mi.id ASC";
+LEFT JOIN master_program mp ON mk.program_id = mp.id";
+
+// Persiapan untuk Prepared Statement yang dinamis
+$where_clauses = ["mi.tahun = ?"];
+$param_types = "i";
+$param_values = [$tahun_filter];
+
+// Mapping kolom filter di database
+$filter_column_map = [
+    'program_id' => 'mp.id',
+    'kegiatan_id' => 'mk.id',
+    'output_id' => 'mo.id',
+    'sub_output_id' => 'mso.id',
+    'komponen_id' => 'mkom.id',
+    'sub_komponen_id' => 'msk.id',
+    'akun_id' => 'ma.id',
+];
+
+// Tambahkan klausa WHERE hanya jika filter dipilih
+foreach ($filters as $key => $value) {
+    if ($value !== null) {
+        $where_clauses[] = $filter_column_map[$key] . " = ?";
+        $param_types .= "i"; // Semua ID adalah integer
+        $param_values[] = $value;
+    }
+}
+
+$sql_hierarchy .= " WHERE " . implode(" AND ", $where_clauses);
+$sql_hierarchy .= " ORDER BY mp.kode, mk.kode, mo.kode, mso.kode, mkom.kode, msk.kode, ma.kode, mi.id ASC";
+
 $stmt_hierarchy = $koneksi->prepare($sql_hierarchy);
-$stmt_hierarchy->bind_param("i", $tahun_filter);
+$stmt_hierarchy->bind_param($param_types, ...$param_values); // Gunakan splat operator
 $stmt_hierarchy->execute();
 $result_hierarchy = $stmt_hierarchy->get_result();
+
 $flat_data = [];
-while ($row = $result_hierarchy->fetch_assoc()) $flat_data[] = $row;
+while ($row = $result_hierarchy->fetch_assoc()) {
+    $flat_data[] = $row;
+}
 $stmt_hierarchy->close();
 
+// Jika tidak ada data sama sekali setelah filter, tampilkan pesan
+if (empty($flat_data)) {
+    die("Tidak ada data yang ditemukan untuk filter yang dipilih.");
+}
+
+// ===================== AMBIL DATA RPD (Tidak perlu diubah) =====================
 $rpd_data = [];
 $sql_rpd = "SELECT kode_unik_item, bulan, jumlah FROM rpd WHERE tahun = ?";
 $stmt_rpd = $koneksi->prepare($sql_rpd);
@@ -44,7 +92,7 @@ while ($row = $result_rpd->fetch_assoc()) {
 }
 $stmt_rpd->close();
 
-// ===================== BANGUN HIERARKI =====================
+// ===================== BANGUN HIERARKI (Tidak perlu diubah) =====================
 $hierarki = [];
 foreach ($flat_data as $row) {
     $p = $row['program_kode']; $k = $row['kegiatan_kode']; $o = $row['output_kode'];
@@ -60,7 +108,7 @@ foreach ($flat_data as $row) {
     $hierarki[$p]['children'][$k]['children'][$o]['children'][$so]['children'][$kom]['children'][$sk]['children'][$a]['items'][] = $row;
 }
 
-// ===================== HITUNG TOTAL =====================
+// ===================== HITUNG TOTAL (Tidak perlu diubah) =====================
 function calculateTotals(&$node, $rpd_data) {
     $total_pagu = 0;
     $total_rpd = array_fill(1, 12, 0);
@@ -86,23 +134,24 @@ function calculateTotals(&$node, $rpd_data) {
 }
 foreach ($hierarki as &$program_node) calculateTotals($program_node, $rpd_data);
 
-// ===================== PDF =====================
+// ===================== PDF GENERATION (Tidak perlu diubah) =====================
 class MYPDF extends TCPDF {
+    // ... isi class MYPDF sama persis seperti kode Anda sebelumnya ...
     public $tahun_laporan;
     public $selected_levels;
 
     function Header() {
         $this->SetFont('helvetica','B',12);
         $this->Cell(0,10,'Laporan Rencana Penarikan Dana (RPD) - Tahun '.$this->tahun_laporan,0,1,'C');
-        $this->SetFont('helvetica','',10);
-        $this->Cell(0,0,'Level Detail: '.implode(', ',$this->selected_levels),0,1,'C');
+        $this->SetFont('helvetica','',8);
+        $this->Cell(0,0,'Level Detail: '.ucwords(implode(', ',$this->selected_levels)),0,1,'C');
         $this->Ln(5);
         $this->printTableHeader();
     }
 
     function printTableHeader() {
         $header = ['Uraian Anggaran','Pagu','Sisa Pagu','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
-        $w = [120,25,25,19,19,19,19,19,19,19,19,19,19,19,19];
+        $w = [120,25,25,19,19,19,19,19,19,19,19,19,19,19,19]; // Sesuaikan dengan orientasi Landscape A3
         $this->SetFont('helvetica','B',7);
         $this->SetFillColor(200,200,200);
         foreach($header as $i=>$h){ $this->Cell($w[$i],7,$h,1,0,'C',1); }
@@ -126,32 +175,31 @@ $pdf->AddPage();
 $level_order = ['program','kegiatan','output','suboutput','komponen','subkomponen','akun','item'];
 
 function checkPageBreak($pdf) {
-    if($pdf->GetY() > 300){ // Jika mendekati bawah halaman
+    if($pdf->GetY() > ($pdf->getPageHeight() - 30)){ // Cek jika Y mendekati batas bawah margin
         $pdf->AddPage();
     }
 }
 
 function printFilteredTree($pdf, $nodes, $rpd_data, $level_now, $level_order, $selected_levels) {
+    // ... isi fungsi printFilteredTree sama persis seperti kode Anda sebelumnya ...
     $w = [120,25,25,19,19,19,19,19,19,19,19,19,19,19,19];
     foreach ($nodes as $kode => $node) {
         $level_name = $level_order[$level_now];
-
-        // Turun ke anak bila level ini tidak dipilih
+        
         if (!in_array($level_name, $selected_levels) && isset($node['children'])) {
             printFilteredTree($pdf, $node['children'], $rpd_data, $level_now+1, $level_order, $selected_levels);
             continue;
         }
 
-        // Jika level dipilih (program, kegiatan, dst)
         if (in_array($level_name, $selected_levels)) {
             checkPageBreak($pdf);
-            $pdf->SetFillColor(235,235,235); // warna abu-abu lembut untuk header level
+            $pdf->SetFillColor(235,235,235);
             $pdf->SetFont('helvetica','B',7);
 
             $total_rpd_node = array_sum($node['total_rpd_bulanan']);
             $sisa_pagu_node = $node['total_pagu'] - $total_rpd_node;
 
-            $pdf->Cell($w[0],6,str_repeat(' ', $level_now*4)."$kode - {$node['nama']}",1,0,'L',1);
+            $pdf->Cell($w[0],6,str_repeat('  ', $level_now)."$kode - {$node['nama']}",1,0,'L',1);
             $pdf->Cell($w[1],6,number_format($node['total_pagu']),1,0,'R',1);
             $pdf->Cell($w[2],6,number_format($sisa_pagu_node),1,0,'R',1);
             for($b=1;$b<=12;$b++) {
@@ -160,22 +208,16 @@ function printFilteredTree($pdf, $nodes, $rpd_data, $level_now, $level_order, $s
             $pdf->Ln();
         }
 
-        // Cetak baris item (dengan warna merah bila belum selesai)
         if (isset($node['items']) && in_array('item', $selected_levels)) {
             foreach ($node['items'] as $item) {
                 checkPageBreak($pdf);
                 $item_total = isset($rpd_data[$item['kode_unik']]) ? array_sum($rpd_data[$item['kode_unik']]) : 0;
                 $sisa = $item['pagu'] - $item_total;
 
-                // Warna hanya untuk item (bukan level atas)
-                if ($sisa != 0) {
-                    $pdf->SetFillColor(255,200,200); // merah muda
-                } else {
-                    $pdf->SetFillColor(255,255,255); // putih
-                }
+                $pdf->SetFillColor(($sisa != 0) ? 255 : 255, ($sisa != 0) ? 220 : 255, ($sisa != 0) ? 220 : 255);
 
                 $pdf->SetFont('helvetica','',7);
-                $pdf->Cell($w[0],5,str_repeat(' ', ($level_now+1)*4)."- {$item['item_nama']}",1,0,'L',1);
+                $pdf->Cell($w[0],5,str_repeat('  ', ($level_now+1))."- {$item['item_nama']}",1,0,'L',1);
                 $pdf->Cell($w[1],5,number_format($item['pagu']),1,0,'R',1);
                 $pdf->Cell($w[2],5,number_format($sisa),1,0,'R',1);
 
@@ -187,13 +229,11 @@ function printFilteredTree($pdf, $nodes, $rpd_data, $level_now, $level_order, $s
             }
         }
 
-        // Rekursif ke level anak
         if (isset($node['children'])) {
             printFilteredTree($pdf, $node['children'], $rpd_data, $level_now+1, $level_order, $selected_levels);
         }
     }
 }
-
 
 printFilteredTree($pdf, $hierarki, $rpd_data, 0, $level_order, $selected_levels);
 $pdf->Output('laporan_rpd_'.$tahun_filter.'.pdf','I');

@@ -11,8 +11,8 @@ if (empty(array_intersect($user_roles, $allowed_roles))) {
     die("Akses ditolak.");
 }
 
-// Ambil daftar tahun unik untuk form pemilihan
-$tahun_result = $koneksi->query("SELECT DISTINCT tahun FROM master_item ORDER BY tahun DESC");
+// Ambil daftar tahun unik dari master_program untuk konsistensi
+$tahun_result = $koneksi->query("SELECT DISTINCT tahun FROM master_program ORDER BY tahun DESC");
 $daftar_tahun = [];
 if ($tahun_result) {
     while ($row = $tahun_result->fetch_assoc()) {
@@ -26,6 +26,7 @@ if (empty($daftar_tahun)) {
 ?>
 
 <style>
+/* CSS Anda yang sudah ada di sini, tidak perlu diubah */
 :root {
     --primary-blue: #0A2E5D;
     --secondary-blue: #4A90E2;
@@ -119,6 +120,10 @@ select.form-control:focus {
     border-color: var(--secondary-blue);
     box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.25);
 }
+select.form-control:disabled {
+    background-color: #e9ecef;
+    opacity: 1;
+}
 
 /* Kustomisasi Tombol Download */
 .btn-download {
@@ -165,8 +170,6 @@ select.form-control:focus {
                         </select>
                     </div>
                     
-                    
-                    
                     <div class="form-step" data-step="2">
                         <label for="tahun">Tahun Anggaran</label>
                         <select class="form-control" id="tahun" name="tahun" required>
@@ -174,11 +177,51 @@ select.form-control:focus {
                                 <option value="<?= htmlspecialchars($thn) ?>" <?= ($thn == date('Y')) ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($thn) ?>
                                 </option>
-                                <?php endforeach; ?>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     
                     <div class="form-step" data-step="3">
+                        <label>Filter Data Spesifik (Opsional)</label>
+                        
+                        <div class="mb-3">
+                            <select id="program_id" name="program_id" class="form-control">
+                                <option value="">-- Semua Program --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <select id="kegiatan_id" name="kegiatan_id" class="form-control" disabled>
+                                <option value="">-- Semua Kegiatan --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <select id="output_id" name="output_id" class="form-control" disabled>
+                                <option value="">-- Semua Output --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <select id="sub_output_id" name="sub_output_id" class="form-control" disabled>
+                                <option value="">-- Semua Sub Output --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <select id="komponen_id" name="komponen_id" class="form-control" disabled>
+                                <option value="">-- Semua Komponen --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                             <select id="sub_komponen_id" name="sub_komponen_id" class="form-control" disabled>
+                                <option value="">-- Semua Sub Komponen --</option>
+                            </select>
+                        </div>
+                         <div>
+                             <select id="akun_id" name="akun_id" class="form-control" disabled>
+                                <option value="">-- Semua Akun --</option>
+                            </select>
+                        </div>
+
+                    </div>
+                    <div class="form-step" data-step="4">
                         <label for="format">Format Laporan</label>
                         <select class="form-control" id="format" name="format" required>
                             <option value="pdf">PDF</option>
@@ -186,19 +229,20 @@ select.form-control:focus {
                         </select>
                     </div>
                     
-                    <div class="form-step" data-step="4">
-                      <label><strong>Pilih Variabel yang Ingin Dicetak</strong></label>
+                    <div class="form-step" data-step="5">
+                      <label><strong>Pilih Level Detail Laporan</strong></label>
                       <div class="form-group d-flex flex-wrap gap-3 mt-2">
-                        <label><input type="checkbox" name="level_detail[]" value="program"> Program</label>
-                        <label><input type="checkbox" name="level_detail[]" value="kegiatan"> Kegiatan</label>
-                        <label><input type="checkbox" name="level_detail[]" value="output"> Output</label>
-                        <label><input type="checkbox" name="level_detail[]" value="suboutput"> Sub Output</label>
-                        <label><input type="checkbox" name="level_detail[]" value="komponen"> Komponen</label>
-                        <label><input type="checkbox" name="level_detail[]" value="subkomponen"> Sub Komponen</label>
-                        <label><input type="checkbox" name="level_detail[]" value="akun"> Akun</label>
-                        <label><input type="checkbox" name="level_detail[]" value="item"> Item</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="program"> Program</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="kegiatan"> Kegiatan</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="output"> Output</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="suboutput"> Sub Output</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="komponen"> Komponen</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="subkomponen"> Sub Komponen</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="akun"> Akun</label>
+                          <label class="form-check-label"><input type="checkbox" class="form-check-input" name="level_detail[]" value="item"> Item</label>
                       </div>
                     </div>
+
                     <div class="mt-4 pt-3">
                         <button type="submit" id="downloadBtn" class="btn btn-download btn-block">
                             <i class="fas fa-download mr-2"></i>Unduh Laporan
@@ -218,6 +262,86 @@ document.addEventListener('DOMContentLoaded', function() {
     const formatSelect = document.getElementById('format');
     const checkboxes = document.querySelectorAll('input[name="level_detail[]"]');
     const downloadBtn = document.getElementById('downloadBtn');
+    const tahunSelect = document.getElementById('tahun');
+
+    // === START: LOGIKA BARU UNTUK FILTER BERTINGKAT ===
+
+    const dropdownChain = [
+        { id: 'program_id', type: 'program', child: 'kegiatan_id' },
+        { id: 'kegiatan_id', type: 'kegiatan', child: 'output_id' },
+        { id: 'output_id', type: 'output', child: 'sub_output_id' },
+        { id: 'sub_output_id', type: 'sub_output', child: 'komponen_id' },
+        { id: 'komponen_id', type: 'komponen', child: 'sub_komponen_id' },
+        { id: 'sub_komponen_id', type: 'sub_komponen', child: 'akun_id' },
+        { id: 'akun_id', type: 'akun', child: null }
+    ];
+
+    function loadDropdownData(type, parentId, tahunValue, targetId) {
+        const targetSelect = document.getElementById(targetId);
+        // Pastikan URL ini benar sesuai struktur folder Anda
+        let apiUrl = `get_data1.php?type=${type}&tahun=${tahunValue}`;
+        
+        if (parentId) {
+            apiUrl += `&parent_id=${parentId}`;
+        }
+
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                targetSelect.innerHTML = `<option value="">-- Semua ${type.replace(/_/g, ' ')} --</option>`;
+                
+                data.forEach(item => {
+                    // PENTING: value diisi dengan 'id' untuk query selanjutnya
+                    targetSelect.innerHTML += `<option value="${item.id}">${item.kode} - ${item.nama}</option>`;
+                });
+                
+                targetSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error(`Error fetching data for ${type}:`, error);
+                targetSelect.innerHTML = `<option value="">-- Gagal memuat data --</option>`;
+                targetSelect.disabled = false; // Aktifkan agar user tahu ada masalah
+            });
+    }
+
+    function resetChildDropdowns(startIndex) {
+        for (let i = startIndex; i < dropdownChain.length; i++) {
+            const select = document.getElementById(dropdownChain[i].id);
+            const type = dropdownChain[i].type;
+            select.innerHTML = `<option value="">-- Semua ${type.replace(/_/g, ' ')} --</option>`;
+            select.disabled = true;
+        }
+    }
+
+    tahunSelect.addEventListener('change', () => {
+        const tahun = tahunSelect.value;
+        resetChildDropdowns(0);
+        if (tahun) {
+            loadDropdownData('program', null, tahun, 'program_id');
+        }
+    });
+    
+    dropdownChain.forEach((item, index) => {
+        const currentSelect = document.getElementById(item.id);
+        currentSelect.addEventListener('change', () => {
+            const selectedValue = currentSelect.value;
+            const tahun = tahunSelect.value;
+
+            resetChildDropdowns(index + 1);
+
+            if (item.child && selectedValue) {
+                const childType = dropdownChain[index + 1].type;
+                loadDropdownData(childType, selectedValue, tahun, item.child);
+            }
+        });
+    });
+
+    tahunSelect.dispatchEvent(new Event('change'));
+
+    // === END: LOGIKA BARU ===
 
     const fileMap = {
         'rpd': 'cetak_rpd',
@@ -233,9 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (jenisLaporan && format && anyChecked) {
             const baseFileName = fileMap[jenisLaporan];
             const formatSuffix = (format === 'excel') ? '_excel' : '_pdf';
-            const fullActionPath = `../proses/${baseFileName}${formatSuffix}.php`;
-
-            cetakForm.action = fullActionPath;
+            cetakForm.action = `../proses/${baseFileName}${formatSuffix}.php`;
             downloadBtn.disabled = false;
         } else {
             cetakForm.action = '';
@@ -250,6 +372,5 @@ document.addEventListener('DOMContentLoaded', function() {
     updateFormAction();
 });
 </script>
-
 
 <?php include '../includes/footer.php'; ?>

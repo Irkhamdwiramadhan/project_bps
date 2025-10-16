@@ -394,14 +394,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                         </summary>
                         <ul class="sub-menu">
                             <li><a href="mitra.php"><i class="fas fa-users-cog"></i> Mitra</a></li>
-                            <?php
-                        
-                            $allowed_roles = ['super_admin', 'admin_mitra', 'ketua_tim']; 
-            
-                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
-                                echo '<li><a href="manage_batas_honor.php"><i class="fas fa-chart-line"></i>Batas Honor</a></li>';
-                            }
-                            ?>
+                       
                             <li><a href="kegiatan.php"><i class="fas fa-tasks"></i> Kegiatan</a></li>
                             <li><a href="jenis_surveys.php"><i class="fas fa-poll"></i> Jenis Survey</a></li>
                             <li><a href="penilaian_mitra.php"><i class="fas fa-star-half-alt"></i> Penilaian Mitra</a></li>

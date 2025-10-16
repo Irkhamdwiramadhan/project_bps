@@ -284,6 +284,9 @@ tbody tr:hover {
 <div class="content-wrapper">
     <div class="main-content responsive-padding">
         <div class="flex-container">
+                <a href="rekap_honor.php" class="btn-secondary">
+            ← Kembali
+        </a>
             <h1 class="text-3xl font-bold text-gray-800">Riwayat Batas Honor</h1>
             <a href="tambah_batas_honor.php" class="btn-secondary">
                 + Tambah Batas Honor

@@ -22,6 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] != "POST") {
 }
 
 // Ambil data input
+$tim_id = $_POST['tim_id'] ?? null;
 $mitra_ids = $_POST['mitra_id'] ?? [];
 $jumlah_satuan_array = $_POST['jumlah_satuan'] ?? [];
 $bulan_pembayaran = $_POST['bulan_pembayaran'] ?? null;
@@ -36,12 +37,13 @@ $sub_komponen_id = $_POST['sub_komponen_id'] ?? null;
 $akun_id = $_POST['akun_id'] ?? null;
 $item_id = $_POST['item_id'] ?? null; // ini kode unik tanpa nama item
 
-if (empty($mitra_ids) || empty($bulan_pembayaran) || empty($tahun_pembayaran) || empty($item_id)) {
+// Validasi input
+if (empty($tim_id) || empty($mitra_ids) || empty($bulan_pembayaran) || empty($tahun_pembayaran) || empty($item_id)) {
     header("Location: ../pages/tambah_kegiatan.php?status=error&message=" . urlencode("Data kegiatan tidak lengkap."));
     exit;
 }
 
-// 🔍 Ambil data item dari master_item (pakai LIKE agar cocok meskipun tanpa nama)
+// Ambil data item dari master_item
 $sql_item = "SELECT kode_unik, nama_item, harga, satuan 
              FROM master_item 
              WHERE kode_unik LIKE CONCAT(?, '%') 
@@ -63,7 +65,7 @@ if ($res_item->num_rows == 0) {
 $item_data = $res_item->fetch_assoc();
 $harga_per_satuan = (float)$item_data['harga'];
 $satuan_item = $item_data['satuan'];
-$item_kode_unik_full = $item_data['kode_unik']; // ✅ ambil kode unik lengkap
+$item_kode_unik_full = $item_data['kode_unik']; // kode unik lengkap
 $stmt_item->close();
 
 $mitra_over_limit = [];
@@ -80,13 +82,14 @@ try {
     $sub_komponen_kode = get_kode($koneksi, 'master_sub_komponen', $sub_komponen_id);
     $akun_kode = get_kode($koneksi, 'master_akun', $akun_id);
 
-    // Prepare query insert
+    // Prepare query insert ke mitra_surveys dengan tim_id
     $sql_insert_survey = "INSERT INTO mitra_surveys 
-        (mitra_id, program_id, kegiatan_id, output_id, sub_output_id, komponen_id, sub_komponen_id, akun_id, survey_ke_berapa)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        (tim_id, mitra_id, program_id, kegiatan_id, output_id, sub_output_id, komponen_id, sub_komponen_id, akun_id, survey_ke_berapa)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt_insert_survey = $koneksi->prepare($sql_insert_survey);
     if (!$stmt_insert_survey) throw new Exception("Gagal prepare INSERT mitra_surveys: " . $koneksi->error);
 
+    // Prepare query insert honor_mitra
     $sql_insert_honor = "INSERT INTO honor_mitra
         (mitra_survey_id, mitra_id, honor_per_satuan, jumlah_satuan, total_honor, tanggal_input, bulan_pembayaran, tahun_pembayaran, item_kode_unik)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -122,7 +125,8 @@ try {
 
         // Insert ke mitra_surveys
         $stmt_insert_survey->bind_param(
-            "isssssssi",
+            "iisssssssi",
+            $tim_id,
             $mitra_id,
             $program_kode,
             $kegiatan_kode,
@@ -140,7 +144,7 @@ try {
         $mitra_survey_id = $koneksi->insert_id;
         $tanggal_input = date('Y-m-d H:i:s');
 
-        // Insert ke honor_mitra pakai kode lengkap dari master_item ✅
+        // Insert ke honor_mitra
         $stmt_insert_honor->bind_param(
             "iidddsiis",
             $mitra_survey_id,
@@ -151,7 +155,7 @@ try {
             $tanggal_input,
             $bulan_pembayaran,
             $tahun_pembayaran,
-            $item_kode_unik_full // gunakan kode lengkap
+            $item_kode_unik_full
         );
         if (!$stmt_insert_honor->execute()) {
             throw new Exception("Gagal simpan honor_mitra untuk mitra $mitra_id: " . $stmt_insert_honor->error);

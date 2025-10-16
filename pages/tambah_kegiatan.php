@@ -23,6 +23,17 @@ if ($result_tahun_item && $result_tahun_item->num_rows > 0) {
         $tahun_list[] = $row['tahun'];
     }
 }
+
+// Ambil daftar tim
+$sql_tim = "SELECT id, nama_tim FROM tim ORDER BY nama_tim ASC";
+$result_tim = $koneksi->query($sql_tim);
+$tim_list = [];
+if ($result_tim && $result_tim->num_rows > 0) {
+    while ($row = $result_tim->fetch_assoc()) {
+        $tim_list[] = $row;
+    }
+}
+
 ?>
 
 <style>
@@ -196,6 +207,16 @@ label {
             <!-- Pilih Tahun Anggaran (filter utama) -->
             
     <div class="grid">
+        <div class="form-group">
+    <label for="tim_id">Pilih Tim</label>
+    <select id="tim_id" name="tim_id" class="form-select" required>
+        <option value="">-- Pilih Tim --</option>
+        <?php foreach ($tim_list as $tim) : ?>
+            <option value="<?= htmlspecialchars($tim['id']) ?>"><?= htmlspecialchars($tim['nama_tim']) ?></option>
+        <?php endforeach; ?>
+    </select>
+</div>
+
         <div class="form-group">
             <label for="tahun_anggaran">Tahun Anggaran</label>
             <select id="tahun_anggaran" name="tahun_anggaran" class="form-select" required>

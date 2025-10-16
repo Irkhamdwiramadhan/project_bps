@@ -177,8 +177,13 @@ foreach ($user_roles as $role) {
 </style>
 
 <div class="content-wrapper">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="header-content">
         <h1 class="text-3xl font-bold text-gray-800 mb-6">Halaman Kegiatan Mitra</h1>
+        <a href="rekap_kegiatan_tim.php" class="btn btn-primary">Rekap Kegiatan Tim</a></div>
+
+    
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
         
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
            

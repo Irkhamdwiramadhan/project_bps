@@ -203,11 +203,31 @@ try {
     .action-link:hover {
         color: #4338ca;
     }
+       .manage-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background-color: #6c757d; /* Warna abu-abu sekunder */
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background-color 0.3s ease;
+    }
+    .manage-button:hover {
+        background-color: #5a6268;
+    }
 </style>
 
 <div class="content-wrapper">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 class="text-3xl font-bold text-gray-800 mb-8">Rekapitulasi Honor Mitra</h1>
+            <a href="manage_batas_honor.php" class="manage-button">
+                    <i class="fas fa-user-cog"></i> Kelola Batas Honor
+                </a>
 
         <form action="" method="GET" class="filter-form">
             <div class="filter-group">

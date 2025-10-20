@@ -224,58 +224,60 @@ $selected_outputs_query = http_build_query(['selected_outputs' => $selected_outp
                 <th style="width:160px;">Aksi</th>
               </tr>
             </thead>
-            <tbody>
-              <?php if (!empty($hierarki)): ?>
-                <?php foreach ($hierarki as $p_kode => $program): ?>
-                  <tr class="hierarchy-row"><td colspan="4"><strong><?= htmlspecialchars($p_kode) ?></strong> - <?= htmlspecialchars($program['nama']) ?></td></tr>
-                  <?php foreach ($program['children'] as $k_kode => $kegiatan): ?>
-                    <tr class="hierarchy-row"><td colspan="4" style="padding-left:12px;"><strong><?= htmlspecialchars($k_kode) ?></strong> - <?= htmlspecialchars($kegiatan['nama']) ?></td></tr>
-                    <?php foreach ($kegiatan['children'] as $o_kode => $output): ?>
-                      <tr class="hierarchy-row"><td colspan="4" style="padding-left:24px;"><strong><?= htmlspecialchars($o_kode) ?></strong> - <?= htmlspecialchars($output['nama']) ?></td></tr>
-                      <?php foreach ($output['children'] as $so_kode => $sub_output): ?>
+         <tbody>
+    <?php if (!empty($hierarki)): ?>
+        <?php foreach ($hierarki as $p_kode => $program): ?>
+            <tr class="hierarchy-row"><td colspan="4"><strong><?= htmlspecialchars($p_kode) ?></strong> - <?= htmlspecialchars($program['nama']) ?></td></tr>
+            <?php foreach ($program['children'] as $k_kode => $kegiatan): ?>
+                <tr class="hierarchy-row"><td colspan="4" style="padding-left:12px;"><strong><?= htmlspecialchars($k_kode) ?></strong> - <?= htmlspecialchars($kegiatan['nama']) ?></td></tr>
+                <?php foreach ($kegiatan['children'] as $o_kode => $output): ?>
+                    <tr class="hierarchy-row"><td colspan="4" style="padding-left:24px;"><strong><?= htmlspecialchars($o_kode) ?></strong> - <?= htmlspecialchars($output['nama']) ?></td></tr>
+                    <?php foreach ($output['children'] as $so_kode => $sub_output): ?>
                         <tr class="hierarchy-row"><td colspan="4" style="padding-left:36px;"><strong><?= htmlspecialchars($so_kode) ?></strong> - <?= htmlspecialchars($sub_output['nama']) ?></td></tr>
                         <?php foreach ($sub_output['children'] as $kom_kode => $komponen): ?>
-                          <tr class="hierarchy-row"><td colspan="4" style="padding-left:48px;"><strong><?= htmlspecialchars($kom_kode) ?></strong> - <?= htmlspecialchars($komponen['nama']) ?></td></tr>
-                          <?php foreach ($komponen['children'] as $sk_kode => $sub_komponen): ?>
-                            <tr class="hierarchy-row"><td colspan="4" style="padding-left:60px;"><strong><?= htmlspecialchars($sk_kode) ?></strong> - <?= htmlspecialchars($sub_komponen['nama']) ?></td></tr>
-                            <?php foreach ($sub_komponen['children'] as $a_kode => $akun): ?>
-                              <tr class="hierarchy-row"><td colspan="4" style="padding-left:72px;"><strong><?= htmlspecialchars($a_kode) ?></strong> - <?= htmlspecialchars($akun['nama']) ?></td></tr>
-                              <?php foreach ($akun['items'] as $item): 
-                                $total_rpd_item = (float)($rpd_data[$item['kode_unik']] ?? 0);
-                                $pagu_item = (float)$item['pagu'];
-                                // URL ke isi_rpd_per_item membawa selected_outputs[] agar Back kembali ke Langkah2
-                                $item_link = "isi_rpd_per_item.php?kode_unik=" . urlencode($item['kode_unik'])
-                                           . "&" . http_build_query(['selected_outputs' => $selected_outputs_ids])
-                                           . "&tahun=" . urlencode($tahun_filter)
-                                           . "&step=2";
-                              ?>
-                                <tr>
-                                  <td style="padding-left:84px;"><?= htmlspecialchars($item['item_nama']) ?></td>
-                                  <td style="text-align:right;">Rp <?= number_format($pagu_item, 0, ',', '.') ?></td>
-                                  <td style="text-align:right;">Rp <?= number_format($total_rpd_item, 0, ',', '.') ?></td>
-                                  <td style="text-align:center;">
-                                    <?php if ($total_rpd_item > 0 && abs($total_rpd_item - $pagu_item) < 0.01): ?>
-                                      <span class="text-success"><i class="fas fa-check-circle"></i> Selesai</span>
-                                    <?php else: ?>
-                                      <a href="<?= $item_link ?>" class="btn btn-sm <?= $total_rpd_item > 0 ? 'btn-warning' : 'btn-info' ?>">
-                                        <i class="fas <?= $total_rpd_item > 0 ? 'fa-edit' : 'fa-plus' ?>"></i>
-                                        <?= $total_rpd_item > 0 ? 'Edit RPD' : 'Tambah RPD' ?>
-                                      </a>
-                                    <?php endif; ?>
-                                  </td>
-                                </tr>
-                              <?php endforeach; ?>
+                            <tr class="hierarchy-row"><td colspan="4" style="padding-left:48px;"><strong><?= htmlspecialchars($kom_kode) ?></strong> - <?= htmlspecialchars($komponen['nama']) ?></td></tr>
+                            <?php foreach ($komponen['children'] as $sk_kode => $sub_komponen): ?>
+                                <tr class="hierarchy-row"><td colspan="4" style="padding-left:60px;"><strong><?= htmlspecialchars($sk_kode) ?></strong> - <?= htmlspecialchars($sub_komponen['nama']) ?></td></tr>
+                                <?php foreach ($sub_komponen['children'] as $a_kode => $akun): ?>
+                                    <tr class="hierarchy-row"><td colspan="4" style="padding-left:72px;"><strong><?= htmlspecialchars($a_kode) ?></strong> - <?= htmlspecialchars($akun['nama']) ?></td></tr>
+                                    <?php foreach ($akun['items'] as $item): 
+                                        $total_rpd_item = (float)($rpd_data[$item['kode_unik']] ?? 0);
+                                        $pagu_item = (float)$item['pagu'];
+                                        $item_link = "isi_rpd_per_item.php?kode_unik=" . urlencode($item['kode_unik'])
+                                                    . "&" . http_build_query(['selected_outputs' => $selected_outputs_ids])
+                                                    . "&tahun=" . urlencode($tahun_filter)
+                                                    . "&step=2";
+
+                                        // ==========================================================
+                                        // REVISI LOGIKA UTAMA ADA DI SINI
+                                        // ==========================================================
+                                        // Cek apakah data RPD untuk item ini sudah ada di database.
+                                        // `isset` lebih akurat daripada `> 0` karena bisa jadi RPD pernah diisi lalu dinolkan.
+                                        $rpd_exists = isset($rpd_data[$item['kode_unik']]);
+                                    ?>
+                                        <tr>
+                                            <td style="padding-left:84px;"><?= htmlspecialchars($item['item_nama']) ?></td>
+                                            <td style="text-align:right;">Rp <?= number_format($pagu_item, 0, ',', '.') ?></td>
+                                            <td style="text-align:right;">Rp <?= number_format($total_rpd_item, 0, ',', '.') ?></td>
+                                            <td style="text-align:center;">
+                                                <a href="<?= $item_link ?>" class="btn btn-sm <?= $rpd_exists ? 'btn-warning' : 'btn-info' ?>">
+                                                    <i class="fas <?= $rpd_exists ? 'fa-edit' : 'fa-plus' ?>"></i>
+                                                    <?= $rpd_exists ? 'Update RPD' : 'Tambah RPD' ?>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
                             <?php endforeach; ?>
-                          <?php endforeach; ?>
                         <?php endforeach; ?>
-                      <?php endforeach; ?>
-                    <?php endforeach; ?>
                     <?php endforeach; ?>
                 <?php endforeach; ?>
-              <?php else: ?>
-                <tr><td colspan="4" class="text-center text-muted">Tidak ada item ditemukan.</td></tr>
-              <?php endif; ?>
-            </tbody>
+            <?php endforeach; ?>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <tr><td colspan="4" class="text-center text-muted">Tidak ada item ditemukan.</td></tr>
+    <?php endif; ?>
+</tbody>
           </table>
         </div>
       </div>

@@ -134,7 +134,7 @@ body.sidebar-collapse .content-wrapper { margin-left: 80px; }
     <section class="content-header d-flex justify-content-between align-items-center mb-4">
         <h1><i class="fas fa-walking me-2"></i> Daftar Laporan Keluar (Pegawai)</h1>
         <div>
-            <a href="laporan_keluar_add.php" class="btn btn-primary me-2 shadow-sm">
+            <a href="laporan_keluar.php" class="btn btn-primary me-2 shadow-sm">
                 <i class="fas fa-plus"></i> Tambah Laporan
             </a>
             <a href="../proses/proses_download_laporan_keluar.php?tgl_mulai=<?= $tgl_mulai ?>&tgl_selesai=<?= $tgl_selesai ?>"

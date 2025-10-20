@@ -43,7 +43,7 @@ try {
                                 AVG(mpk.kualitas) AS rata_rata_kualitas,
                                 AVG(mpk.volume_pemasukan) AS rata_rata_volume_pemasukan,
                                 AVG(mpk.perilaku) AS rata_rata_perilaku,
-                                AVG((mpk.beban_kerja + mpk.kualitas + mpk.volume_pemasukan + mpk.perilaku) / 4) AS rata_rata_penilaian
+                                AVG((mpk.kualitas + mpk.volume_pemasukan + mpk.perilaku) / 3) AS rata_rata_penilaian
                              FROM
                                 mitra_penilaian_kinerja AS mpk
                              JOIN

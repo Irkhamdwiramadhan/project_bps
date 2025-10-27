@@ -213,8 +213,10 @@ foreach ($user_roles as $role) {
                             if ($has_access_for_action) {
                                 echo "<td>
                                     <a href='detail_apel.php?id={$row['id']}' class='btn-action detail'>Detail</a>
+                                    <a href='edit_apel.php?id={$row['id']}' class='btn-action detail'>Edit</a>
                                     <a href='../proses/proses_hapus_apel.php?id={$row['id']}'
                                     class='btn-action delete'
+
                                     onclick=\"return confirm('Apakah Anda yakin ingin menghapus data ini?');\">
                                     Hapus
                                     </a>

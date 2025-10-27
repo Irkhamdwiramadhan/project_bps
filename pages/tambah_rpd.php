@@ -6,7 +6,7 @@ include '../includes/sidebar.php';
 
 // Cek hak akses
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_dipaku', 'pegawai'];
+$allowed_roles = ['super_admin', 'admin_dipaku', 'ketua_tim'];
 if (empty(array_intersect($user_roles, $allowed_roles))) {
     die("Akses ditolak.");
 }

@@ -212,6 +212,10 @@ select:focus {
     background-color: #dc3545;
     color: #fff;
 }
+.btn-action.edit {
+    background-color: #fceb00;
+    color: #fff;
+}
 .btn-action:hover {
     opacity: 0.8;
 }

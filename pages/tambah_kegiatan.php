@@ -37,156 +37,266 @@ if ($result_tim && $result_tim->num_rows > 0) {
 ?>
 
 <style>
-/* --- DESAIN TAMPILAN MODERN --- */
-body {
-    background-color: #e2e8f0;
-}
-.main-content {
-    padding: 2rem;
-}
-.card {
-    background-color: #ffffff;
-    padding: 2.5rem;
-    border-radius: 1rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-.form-group {
-    margin-bottom: 1.5rem;
-}
-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: #4a5568;
-}
-.form-input, .form-select, .select-search-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    background-color: #f7fafc;
-    transition: all 0.2s ease-in-out;
-}
-.form-input:focus, .form-select:focus, .select-search-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
-}
-.select-search-container {
+    /* --- DESAIN TAMPILAN MODERN --- */
+    body {
+        background-color: #e2e8f0;
+    }
+
+    .main-content {
+        padding: 2rem;
+    }
+
+    .card {
+        background-color: #ffffff;
+        padding: 2.5rem;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #4a5568;
+    }
+
+    .form-input,
+    .form-select,
+    .select-search-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.5rem;
+        background-color: #f7fafc;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .select-search-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    }
+
+    .select-search-container {
+        position: relative;
+    }
+
+    .select-search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        background-color: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        display: none;
+    }
+
+    .select-search-dropdown-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .select-search-dropdown-item:hover {
+        background-color: #eef2ff;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    /* Tambahan CSS untuk layout bulan dan tahun dalam satu baris */
+    .bulan-tahun-input {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+
+    .bulan-tahun-input>div {
+        flex-grow: 1;
+    }
+
+    .alert {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 0.5rem;
+        display: flex;
+        gap: 1rem;
+    }
+
+    .alert-danger {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    .alert-warning {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        border: none;
+    }
+
+    .btn-primary {
+        background-color: #3b82f6;
+        color: #ffffff;
+    }
+
+    .btn-primary:hover {
+        background-color: #2563eb;
+    }
+
+    .btn-secondary {
+        background-color: #e5e7eb;
+        color: #4b5563;
+    }
+
+    .btn-secondary:hover {
+        background-color: #d1d5db;
+    }
+
+    .btn-group {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .btn-add-mitra {
+        background-color: #28a745;
+        color: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: background-color 0.2s;
+        cursor: pointer;
+        border: none;
+    }
+
+    .btn-add-mitra:hover {
+        background-color: #218838;
+    }
+
+    .mitra-input-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .mitra-input-group .input-wrapper-mitra {
+        flex-grow: 1;
+    }
+
+    .mitra-input-group .input-wrapper-jumlah {
+        width: 300px;
+        flex-shrink: 0;
+    }
+
+    .honor-status-message {
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        font-weight: 500;
+        color: #dc2626;
+        /* red-600 */
+    }
+
+    .small-muted {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    /* Container checkbox custom */
+.checkbox-container {
+    display: flex;
+    align-items: center;
     position: relative;
+    padding-left: 30px;
+    cursor: pointer;
+    font-size: 1rem;
+    user-select: none;
+    color: #ff0000ff;
 }
-.select-search-dropdown {
+
+/* Hide default checkbox */
+.checkbox-container input {
     position: absolute;
-    top: 100%;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+/* Custom checkmark */
+.checkbox-container .checkmark {
+    position: absolute;
     left: 0;
-    right: 0;
-    z-index: 20;
-    background-color: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.5rem;
-    max-height: 200px;
-    overflow-y: auto;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    top: 50%;
+    transform: translateY(-50%);
+    height: 20px;
+    width: 20px;
+    background-color: #f0f0f0;
+    border: 2px solid #cbd5e0;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+/* On hover */
+.checkbox-container:hover .checkmark {
+    border-color: #6366f1;
+}
+
+/* When checked */
+.checkbox-container input:checked ~ .checkmark {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+
+/* Checkmark indicator */
+.checkbox-container .checkmark:after {
+    content: "";
+    position: absolute;
     display: none;
 }
-.select-search-dropdown-item {
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
+
+/* Show the checkmark */
+.checkbox-container input:checked ~ .checkmark:after {
+    display: block;
 }
-.select-search-dropdown-item:hover {
-    background-color: #eef2ff;
+
+/* Checkmark style */
+.checkbox-container .checkmark:after {
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-}
-/* Tambahan CSS untuk layout bulan dan tahun dalam satu baris */
-.bulan-tahun-input {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-end;
-}
-.bulan-tahun-input > div {
-    flex-grow: 1;
-}
-.alert {
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    border-radius: 0.5rem;
-    display: flex;
-    gap: 1rem;
-}
-.alert-danger {
-    background-color: #fee2e2;
-    color: #991b1b;
-}
-.alert-warning {
-    background-color: #fef3c7;
-    color: #92400e;
-}
-.btn-primary, .btn-secondary {
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.5rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    border: none;
-}
-.btn-primary {
-    background-color: #3b82f6;
-    color: #ffffff;
-}
-.btn-primary:hover {
-    background-color: #2563eb;
-}
-.btn-secondary {
-    background-color: #e5e7eb;
-    color: #4b5563;
-}
-.btn-secondary:hover {
-    background-color: #d1d5db;
-}
-.btn-group {
-    margin-top: 1.5rem;
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-}
-.btn-add-mitra {
-    background-color: #28a745;
-    color: #fff;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    transition: background-color 0.2s;
-    cursor: pointer;
-    border: none;
-}
-.btn-add-mitra:hover {
-    background-color: #218838;
-}
-.mitra-input-group {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-.mitra-input-group .input-wrapper-mitra {
-    flex-grow: 1;
-}
-.mitra-input-group .input-wrapper-jumlah {
-    width: 300px;
-    flex-shrink: 0;
-}
-.honor-status-message {
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-    font-weight: 500;
-    color: #dc2626; /* red-600 */
-}
+
+/* Small muted text */
 .small-muted {
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     color: #6b7280;
     margin-top: 0.25rem;
 }
@@ -199,98 +309,98 @@ label {
 
         <?php if (isset($_GET['status']) && $_GET['status'] == 'error') : ?>
             <div class="alert alert-danger">
-                <strong>Error!</strong> <?= htmlspecialchars(str_replace('_',' ', $_GET['message'])); ?>
+                <strong>Error!</strong> <?= htmlspecialchars(str_replace('_', ' ', $_GET['message'])); ?>
             </div>
         <?php endif; ?>
 
         <form action="../proses/proses_tambah_kegiatan.php" method="POST" id="kegiatan-form">
             <!-- Pilih Tahun Anggaran (filter utama) -->
-            
-    <div class="grid">
-        <div class="form-group">
-    <label for="tim_id">Pilih Tim</label>
-    <select id="tim_id" name="tim_id" class="form-select" required>
-        <option value="">-- Pilih Tim --</option>
-        <?php foreach ($tim_list as $tim) : ?>
-            <option value="<?= htmlspecialchars($tim['id']) ?>"><?= htmlspecialchars($tim['nama_tim']) ?></option>
-        <?php endforeach; ?>
-    </select>
-</div>
 
-        <div class="form-group">
-            <label for="tahun_anggaran">Tahun Anggaran</label>
-            <select id="tahun_anggaran" name="tahun_anggaran" class="form-select" required>
-                <option value="">-- Pilih Tahun --</option>
-                <?php
-                $tahun_list = $koneksi->query("SELECT DISTINCT tahun FROM master_program ORDER BY tahun DESC");
-                while ($th = $tahun_list->fetch_assoc()) {
-                    echo "<option value='{$th['tahun']}'>{$th['tahun']}</option>";
-                }
-                ?>
-            </select>
-        </div>
+            <div class="grid">
+                <div class="form-group">
+                    <label for="tim_id">Pilih Tim</label>
+                    <select id="tim_id" name="tim_id" class="form-select" required>
+                        <option value="">-- Pilih Tim --</option>
+                        <?php foreach ($tim_list as $tim) : ?>
+                            <option value="<?= htmlspecialchars($tim['id']) ?>"><?= htmlspecialchars($tim['nama_tim']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="program_id">Program</label>
-            <select id="program_id" name="program_id" class="form-select" disabled required>
-                <option value="">-- Pilih Program --</option>
-            </select>
-        </div>
+                <div class="form-group">
+                    <label for="tahun_anggaran">Tahun Anggaran</label>
+                    <select id="tahun_anggaran" name="tahun_anggaran" class="form-select" required>
+                        <option value="">-- Pilih Tahun --</option>
+                        <?php
+                        $tahun_list = $koneksi->query("SELECT DISTINCT tahun FROM master_program ORDER BY tahun DESC");
+                        while ($th = $tahun_list->fetch_assoc()) {
+                            echo "<option value='{$th['tahun']}'>{$th['tahun']}</option>";
+                        }
+                        ?>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="kegiatan_id">Kegiatan</label>
-            <select id="kegiatan_id" name="kegiatan_id" class="form-select" disabled required>
-                <option value="">-- Pilih Kegiatan --</option>
-            </select>
-        </div>
+                <div class="form-group">
+                    <label for="program_id">Program</label>
+                    <select id="program_id" name="program_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Program --</option>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="output_id">Output</label>
-            <select id="output_id" name="output_id" class="form-select" disabled required>
-                <option value="">-- Pilih Output --</option>
-            </select>
-        </div>
+                <div class="form-group">
+                    <label for="kegiatan_id">Kegiatan</label>
+                    <select id="kegiatan_id" name="kegiatan_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Kegiatan --</option>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="sub_output_id">Sub Output</label>
-            <select id="sub_output_id" name="sub_output_id" class="form-select" disabled required>
-                <option value="">-- Pilih Sub Output --</option>
-            </select>
-        </div>
+                <div class="form-group">
+                    <label for="output_id">Output</label>
+                    <select id="output_id" name="output_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Output --</option>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="komponen_id">Komponen</label>
-            <select id="komponen_id" name="komponen_id" class="form-select" disabled required>
-                <option value="">-- Pilih Komponen --</option>
-            </select>
-        </div>
+                <div class="form-group">
+                    <label for="sub_output_id">Sub Output</label>
+                    <select id="sub_output_id" name="sub_output_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Sub Output --</option>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="sub_komponen_id">Sub Komponen</label>
-            <select id="sub_komponen_id" name="sub_komponen_id" class="form-select" disabled required>
-                <option value="">-- Pilih Sub Komponen --</option>
-            </select>
-        </div>
+                <div class="form-group">
+                    <label for="komponen_id">Komponen</label>
+                    <select id="komponen_id" name="komponen_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Komponen --</option>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="akun_id">Akun</label>
-            <select id="akun_id" name="akun_id" class="form-select" disabled required>
-                <option value="">-- Pilih Akun --</option>
-            </select>
-        </div>
+                <div class="form-group">
+                    <label for="sub_komponen_id">Sub Komponen</label>
+                    <select id="sub_komponen_id" name="sub_komponen_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Sub Komponen --</option>
+                    </select>
+                </div>
 
-        <div class="form-group">
-            <label for="item_id">Item</label>
-            <select id="item_id" name="item_id" class="form-select" disabled required>
-                <option value="">-- Pilih Item --</option>
-            </select>
-        </div>
-    </div>
+                <div class="form-group">
+                    <label for="akun_id">Akun</label>
+                    <select id="akun_id" name="akun_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Akun --</option>
+                    </select>
+                </div>
 
-    <div class="form-group">
-        <label for="harga_per_satuan">Harga Honor (Otomatis dari Item)</label>
-        <input type="number" id="harga_per_satuan" name="harga_per_satuan" class="form-input" readonly required>
-    </div>
+                <div class="form-group">
+                    <label for="item_id">Item</label>
+                    <select id="item_id" name="item_id" class="form-select" disabled required>
+                        <option value="">-- Pilih Item --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="harga_per_satuan">Harga Honor (Otomatis dari Item)</label>
+                <input type="number" id="harga_per_satuan" name="harga_per_satuan" class="form-input" readonly required>
+            </div>
 
 
 
@@ -325,6 +435,16 @@ label {
                     </div>
                 </div>
             </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+    <label class="checkbox-container">
+            <strong>Centang jika kegiatan merupakan sensus</strong>
+        <input type="checkbox" id="is_sensus" name="is_sensus" value="1">
+        <span class="checkmark"></span>
+    
+    </label>
+    <p class="small-muted">Jika dicentang, batas honor tidak berlaku.</p>
+</div>
+
             <div class="form-group">
                 <label class="form-label">Nama Mitra dan Jumlah Satuan yang diikuti mitra</label>
                 <div id="mitra-container">
@@ -360,87 +480,106 @@ label {
 </div>
 
 <script>
-let mitraCounter = 1;
-let honorStatus = {}; // Objek untuk menyimpan status honor setiap mitra
+    let mitraCounter = 1;
+    let honorStatus = {}; // Objek untuk menyimpan status honor setiap mitra
 
-// === Setup select-search untuk mitra (reuse dari kode lama) ===
-function setupSelectSearch(input, dropdown, hidden, isMitra) {
-    const items = dropdown.querySelectorAll('.select-search-dropdown-item');
+    // === Setup select-search untuk mitra (reuse dari kode lama) ===
+    function setupSelectSearch(input, dropdown, hidden, isMitra) {
+        const items = dropdown.querySelectorAll('.select-search-dropdown-item');
 
-    input.addEventListener('focus', () => { dropdown.style.display = 'block'; });
-    input.addEventListener('blur', () => { setTimeout(()=> dropdown.style.display='none', 150); });
-
-    input.addEventListener('input', function() {
-        const q = this.value.toLowerCase();
-        items.forEach(it => {
-            const txt = (it.getAttribute('data-name') || '').toLowerCase();
-            if (txt.includes(q)) {
-                it.style.display = 'block';
-            } else { it.style.display = 'none'; }
+        input.addEventListener('focus', () => {
+            dropdown.style.display = 'block';
         });
-    });
-
-    items.forEach(item => {
-        item.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            const selectedId = item.getAttribute('data-id');
-            const selectedName = item.getAttribute('data-name');
-            const parentGroup = input.closest('.mitra-input-group');
-            const oldMitraId = hidden.value;
-
-            if (isMitra) {
-                // Hapus status honor lama jika mitra diganti
-                if (oldMitraId && oldMitraId !== selectedId) {
-                    delete honorStatus[oldMitraId];
-                }
-                
-                const allMitraIds = Array.from(document.querySelectorAll('input[name="mitra_id[]"]')).map(el => el.value);
-                if (allMitraIds.includes(selectedId)) {
-                    alert('Nama mitra ini sudah dipilih. Silakan pilih nama mitra yang berbeda.');
-                    return;
-                }
-            }
-
-            input.value = selectedName;
-            hidden.value = selectedId;
-            dropdown.style.display = 'none';
-
-            if (isMitra && parentGroup) {
-                // Tambahkan event listener untuk jumlah satuan di grup ini
-                const jumlahInput = parentGroup.querySelector('.jumlah-satuan-input');
-                if (jumlahInput) {
-                    jumlahInput.addEventListener('input', () => validateHonor(parentGroup));
-
-                }
-                validateHonor(parentGroup);
-            }
+        input.addEventListener('blur', () => {
+            setTimeout(() => dropdown.style.display = 'none', 150);
         });
-    });
-}
+
+        input.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            items.forEach(it => {
+                const txt = (it.getAttribute('data-name') || '').toLowerCase();
+                if (txt.includes(q)) {
+                    it.style.display = 'block';
+                } else {
+                    it.style.display = 'none';
+                }
+            });
+        });
+
+        items.forEach(item => {
+            item.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                const selectedId = item.getAttribute('data-id');
+                const selectedName = item.getAttribute('data-name');
+                const parentGroup = input.closest('.mitra-input-group');
+                const oldMitraId = hidden.value;
+
+                if (isMitra) {
+                    // Hapus status honor lama jika mitra diganti
+                    if (oldMitraId && oldMitraId !== selectedId) {
+                        delete honorStatus[oldMitraId];
+                    }
+
+                    const allMitraIds = Array.from(document.querySelectorAll('input[name="mitra_id[]"]')).map(el => el.value);
+                    if (allMitraIds.includes(selectedId)) {
+                        alert('Nama mitra ini sudah dipilih. Silakan pilih nama mitra yang berbeda.');
+                        return;
+                    }
+                }
+
+                input.value = selectedName;
+                hidden.value = selectedId;
+                dropdown.style.display = 'none';
+
+                if (isMitra && parentGroup) {
+                    // Tambahkan event listener untuk jumlah satuan di grup ini
+                    const jumlahInput = parentGroup.querySelector('.jumlah-satuan-input');
+                    if (jumlahInput) {
+                        jumlahInput.addEventListener('input', () => validateHonor(parentGroup));
+
+                    }
+                    validateHonor(parentGroup);
+                }
+            });
+        });
+    }
 
 
 
-function validateHonor(parentGroup) {
+    function validateHonor(parentGroup) {
     const mitraId = parentGroup.querySelector('[name="mitra_id[]"]').value;
     const jumlahSatuan = parentGroup.querySelector('[name="jumlah_satuan[]"]').value;
     const bulanPembayaran = document.getElementById('bulan_pembayaran').value;
     const tahunPembayaran = document.getElementById('tahun_pembayaran').value;
-
-    // Ambil harga per satuan langsung dari input utama form
     const hargaPerSatuan = parseFloat(document.getElementById('harga_per_satuan').value) || 0;
+    const isSensus = document.getElementById('is_sensus').checked; // ✅ Tambahan
+
+    // Jika sensus, maka skip validasi honor
+    if (isSensus) {
+        let statusElement = parentGroup.querySelector('.honor-status');
+        if (!statusElement) {
+            statusElement = document.createElement('span');
+            statusElement.classList.add('honor-status');
+            parentGroup.appendChild(statusElement);
+        }
+        statusElement.textContent = "✅ Dikecualikan (Sensus)";
+        statusElement.style.color = "blue";
+        honorStatus[mitraId] = true;
+        return;
+    }
 
     // Pastikan semua field terisi sebelum lanjut
     if (!mitraId || !jumlahSatuan || !bulanPembayaran || !tahunPembayaran || hargaPerSatuan === 0) {
         return;
     }
 
-    // Hitung total honor dari harga × jumlah
     const totalHonor = hargaPerSatuan * parseInt(jumlahSatuan);
 
-    // Kirim ke backend untuk validasi batas honor
     fetch('check_honor_limit.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
             mitraId: mitraId,
             currentTotalHonor: totalHonor,
@@ -472,17 +611,18 @@ function validateHonor(parentGroup) {
 
 
 
-function numberWithCommas(x) {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
-// Fungsi untuk menambahkan input mitra baru
-function addMitraInput() {
-    const container = document.getElementById('mitra-container');
-    const newMitraGroup = document.createElement('div');
-    newMitraGroup.className = 'mitra-input-group mb-2';
-    newMitraGroup.dataset.id = mitraCounter;
-    newMitraGroup.innerHTML = `
+    function numberWithCommas(x) {
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    // Fungsi untuk menambahkan input mitra baru
+    function addMitraInput() {
+        const container = document.getElementById('mitra-container');
+        const newMitraGroup = document.createElement('div');
+        newMitraGroup.className = 'mitra-input-group mb-2';
+        newMitraGroup.dataset.id = mitraCounter;
+        newMitraGroup.innerHTML = `
         <div class="select-search-container input-wrapper-mitra">
             <input type="text" id="mitra-search-input-${mitraCounter}" class="select-search-input" placeholder="Cari Nama Mitra..." autocomplete="off" required>
             <input type="hidden" name="mitra_id[]" id="mitra_id-${mitraCounter}">
@@ -499,49 +639,49 @@ function addMitraInput() {
         </div>
         <button type="button" class="btn btn-danger btn-sm" onclick="removeMitraInput(this)">-</button>
     `;
-    container.appendChild(newMitraGroup);
-    
-    const input = document.getElementById(`mitra-search-input-${mitraCounter}`);
-    const dropdown = document.getElementById(`mitra-dropdown-${mitraCounter}`);
-    const hidden = document.getElementById(`mitra_id-${mitraCounter}`);
-    setupSelectSearch(input, dropdown, hidden, true);
+        container.appendChild(newMitraGroup);
 
-    // Tambahkan event listener untuk input jumlah satuan baru
-    newMitraGroup.querySelector('.jumlah-satuan-input').addEventListener('input', function() {
-        validateHonor(newMitraGroup);
-    });
-    
-    mitraCounter++;
-}
+        const input = document.getElementById(`mitra-search-input-${mitraCounter}`);
+        const dropdown = document.getElementById(`mitra-dropdown-${mitraCounter}`);
+        const hidden = document.getElementById(`mitra_id-${mitraCounter}`);
+        setupSelectSearch(input, dropdown, hidden, true);
 
-// Fungsi untuk menghapus input mitra
-function removeMitraInput(button) {
-    const container = button.closest('.mitra-input-group');
-    const hiddenInput = container.querySelector('input[type="hidden"]');
-    const mitraId = hiddenInput.value;
-    
-    if (mitraId) {
-        delete honorStatus[mitraId];
+        // Tambahkan event listener untuk input jumlah satuan baru
+        newMitraGroup.querySelector('.jumlah-satuan-input').addEventListener('input', function() {
+            validateHonor(newMitraGroup);
+        });
+
+        mitraCounter++;
     }
-    container.remove();
-}
 
-// ======= CASCADE DROPDOWN (tahun -> program -> kegiatan -> ... -> item) =======
-// Utility untuk reset descendant selects
-function resetSelect(selectEl, placeholderText) {
-    selectEl.innerHTML = `<option value="">-- ${placeholderText} --</option>`;
-    selectEl.disabled = true;
-}
+    // Fungsi untuk menghapus input mitra
+    function removeMitraInput(button) {
+        const container = button.closest('.mitra-input-group');
+        const hiddenInput = container.querySelector('input[type="hidden"]');
+        const mitraId = hiddenInput.value;
 
-// Fetch helper (returns JSON)
-function fetchJson(url) {
-    return fetch(url).then(r => {
-        if (!r.ok) throw new Error('Network response not ok');
-        return r.json();
-    });
-}
+        if (mitraId) {
+            delete honorStatus[mitraId];
+        }
+        container.remove();
+    }
 
-document.addEventListener('DOMContentLoaded', function() {
+    // ======= CASCADE DROPDOWN (tahun -> program -> kegiatan -> ... -> item) =======
+    // Utility untuk reset descendant selects
+    function resetSelect(selectEl, placeholderText) {
+        selectEl.innerHTML = `<option value="">-- ${placeholderText} --</option>`;
+        selectEl.disabled = true;
+    }
+
+    // Fetch helper (returns JSON)
+    function fetchJson(url) {
+        return fetch(url).then(r => {
+            if (!r.ok) throw new Error('Network response not ok');
+            return r.json();
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
         const tahunSelect = document.getElementById('tahun_anggaran');
         const programSelect = document.getElementById('program_id');
         const kegiatanSelect = document.getElementById('kegiatan_id');
@@ -553,9 +693,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const itemSelect = document.getElementById('item_id');
         const hargaInput = document.getElementById('harga_per_satuan');
         const firstInput = document.getElementById('mitra-search-input-0');
-    const firstDropdown = document.getElementById('mitra-dropdown-0');
-    const firstHidden = document.getElementById('mitra_id-0');
-    setupSelectSearch(firstInput, firstDropdown, firstHidden, true);
+        const firstDropdown = document.getElementById('mitra-dropdown-0');
+        const firstHidden = document.getElementById('mitra_id-0');
+        setupSelectSearch(firstInput, firstDropdown, firstHidden, true);
 
         tahunSelect.addEventListener('change', () => {
             if (tahunSelect.value) {
@@ -643,20 +783,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         });
 
-akunSelect.addEventListener('change', () => {
-    fetch(`get_data.php?type=item&akun_id=${akunSelect.value}`)
-        .then(res => res.json())
-        .then(data => {
-            itemSelect.innerHTML = '<option value="">-- Pilih Item --</option>';
-            data.forEach(d => {
-                itemSelect.innerHTML += `<option value="${d.kode_unik}" data-harga="${d.harga}" data-satuan="${d.satuan}">${d.nama_item} (${d.satuan})</option>`;
-            });
-            itemSelect.disabled = false;
+        akunSelect.addEventListener('change', () => {
+            fetch(`get_data.php?type=item&akun_id=${akunSelect.value}`)
+                .then(res => res.json())
+                .then(data => {
+                    itemSelect.innerHTML = '<option value="">-- Pilih Item --</option>';
+                    data.forEach(d => {
+                        itemSelect.innerHTML += `<option value="${d.kode_unik}" data-harga="${d.harga}" data-satuan="${d.satuan}">${d.nama_item} (${d.satuan})</option>`;
+                    });
+                    itemSelect.disabled = false;
+                });
         });
-});
 
 
-                itemSelect.addEventListener('change', () => {
+        itemSelect.addEventListener('change', () => {
             const selected = itemSelect.options[itemSelect.selectedIndex];
             hargaInput.value = selected.getAttribute('data-harga') || '';
             document.getElementById('satuan_item').value = selected.getAttribute('data-satuan') || '';
@@ -666,8 +806,12 @@ akunSelect.addEventListener('change', () => {
 </script>
 
 <?php
-if ($result_mitra instanceof mysqli_result) { $result_mitra->free(); }
-if ($result_tahun_item instanceof mysqli_result) { $result_tahun_item->free(); }
+if ($result_mitra instanceof mysqli_result) {
+    $result_mitra->free();
+}
+if ($result_tahun_item instanceof mysqli_result) {
+    $result_tahun_item->free();
+}
 
 include '../includes/footer.php';
 ?>

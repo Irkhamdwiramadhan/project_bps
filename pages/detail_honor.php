@@ -27,32 +27,27 @@ $nama_mitra = "Mitra"; // Default
 
 try {
     // 🔹 Ambil data detail honor dengan pencocokan fleksibel master_item
-    $sql_detail = "
-        SELECT 
-            mk.nama AS nama_kegiatan,
-            COALESCE(mi.nama_item, '-') AS nama_item,
-            COALESCE(mi.satuan, '-') AS satuan,
-            hm.jumlah_satuan,
-            hm.honor_per_satuan,
-            hm.total_honor,
-            hm.bulan_pembayaran,
-            hm.tahun_pembayaran,
-            hm.tanggal_input
-        FROM honor_mitra hm
-        LEFT JOIN mitra_surveys ms ON hm.mitra_survey_id = ms.id
-        LEFT JOIN master_kegiatan mk ON ms.kegiatan_id = mk.kode
-        LEFT JOIN master_item mi 
-            ON mi.kode_unik = (
-                SELECT kode_unik 
-                FROM master_item 
-                WHERE hm.item_kode_unik LIKE CONCAT('%', LEFT(kode_unik, LENGTH(kode_unik) - LENGTH(nama_item) - 1), '%') 
-                LIMIT 1
-            )
-        WHERE hm.mitra_id = ? 
-          AND hm.bulan_pembayaran = ? 
-          AND hm.tahun_pembayaran = ?
-        ORDER BY hm.tanggal_input DESC
-    ";
+  $sql_detail = "
+    SELECT DISTINCT
+        mk.nama AS nama_kegiatan,
+        COALESCE(mi.nama_item, '-') AS nama_item,
+        COALESCE(mi.satuan, '-') AS satuan,
+        hm.jumlah_satuan,
+        hm.honor_per_satuan,
+        hm.total_honor,
+        hm.bulan_pembayaran,
+        hm.tahun_pembayaran,
+        hm.tanggal_input
+    FROM honor_mitra hm
+    LEFT JOIN mitra_surveys ms ON hm.mitra_survey_id = ms.id
+    LEFT JOIN master_kegiatan mk ON ms.kegiatan_id = mk.kode
+    LEFT JOIN master_item mi ON hm.item_kode_unik LIKE CONCAT(mi.kode_unik, '%')
+    WHERE hm.mitra_id = ? 
+      AND hm.bulan_pembayaran = ? 
+      AND hm.tahun_pembayaran = ?
+    ORDER BY hm.tanggal_input DESC
+";
+
 
     $stmt_detail = $koneksi->prepare($sql_detail);
     if (!$stmt_detail) {

@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if ($stmt_insert->execute()) {
                     // Redirect setelah berhasil
-                    header("Location: riwayat_batas_honor.php");
+                    header("Location: tambah_batas_honor.php");
                     exit();
                 } else {
                     $message = "Gagal menambahkan data: " . $stmt_insert->error;

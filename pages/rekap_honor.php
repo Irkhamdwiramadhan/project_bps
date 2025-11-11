@@ -289,7 +289,7 @@ try {
                                     $status = 'Hampir Limit';
                                     $badge_class = 'bg-yellow-100';
                                 } elseif ($total_honor >= $honor_limit) {
-                                    $status = 'Melebihi Batas';
+                                    $status = 'sensus';
                                     $badge_class = 'bg-red-100';
                                 }
                                 ?>

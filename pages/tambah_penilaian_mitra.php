@@ -52,21 +52,31 @@ if ($result_mitra_kegiatan) {
 // =========================================================================
 // KUERI RIWAYAT PENILAIAN YANG DIPERBAIKI
 // =========================================================================
-// Menghapus join ke tabel 'surveys' dan menggantinya dengan 'master_kegiatan'
 $sql_penilaian_history = "
     SELECT 
-        p.tanggal_penilaian, p.beban_kerja, p.kualitas, p.volume_pemasukan, p.perilaku, p.keterangan,
+        DISTINCT p.id,
+        p.tanggal_penilaian,
+        p.beban_kerja,
+        p.kualitas,
+        p.volume_pemasukan,
+        p.perilaku,
+        p.keterangan,
         m.nama_lengkap AS nama_mitra,
-        mk.nama AS nama_kegiatan, -- Mengambil nama kegiatan sebagai konteks
+        mk.nama AS nama_kegiatan,
         peg.nama AS nama_penilai,
         ms.id AS mitra_survey_id
     FROM mitra_penilaian_kinerja p
     INNER JOIN mitra_surveys ms ON p.mitra_survey_id = ms.id
     INNER JOIN mitra m ON ms.mitra_id = m.id
     INNER JOIN pegawai peg ON p.penilai_id = peg.id
-    LEFT JOIN master_kegiatan mk ON ms.kegiatan_id = mk.kode -- Join baru
+    LEFT JOIN master_kegiatan mk 
+        ON ms.kegiatan_id = mk.kode 
+        AND mk.tahun = YEAR(p.tanggal_penilaian)
     ORDER BY p.tanggal_penilaian DESC
 ";
+
+
+
 $result_penilaian_history = $koneksi->query($sql_penilaian_history);
 
 $penilaian_history_list = [];
@@ -208,12 +218,9 @@ if ($result_penilaian_history && $result_penilaian_history->num_rows > 0) {
                 </div>
                 
                 <hr class="my-8">
-                <h3 class="text-xl font-semibold text-gray-700 mb-4">Kategori Penilaian</h3>
+            
                 
-                <div class="mb-6">
-                    <label for="beban_kerja" class="form-label">Beban Kerja (Skala 1-10)</label>
-                    <input type="number" id="beban_kerja" name="beban_kerja" class="form-input" min="1" max="10" required>
-                </div>
+             
 
                 <h3 class="text-xl font-semibold text-gray-700 mb-4">Kategori Penilaian (Skala 1-4)</h3>
 
@@ -253,7 +260,7 @@ if ($result_penilaian_history && $result_penilaian_history->num_rows > 0) {
                             <th>Tanggal</th>
                             <th>Penilai</th>
                             <th>Kegiatan yang Dinilai</th>
-                            <th>Beban Kerja</th>
+                          
                             <th>Kualitas</th>
                             <th>Volume</th>
                             <th>Perilaku</th>
@@ -333,7 +340,6 @@ if ($result_penilaian_history && $result_penilaian_history->num_rows > 0) {
                     <td>${item.tanggal_penilaian}</td>
                     <td>${item.nama_penilai}</td>
                     <td>${item.nama_kegiatan || 'N/A'}</td> 
-                    <td>${item.beban_kerja}</td>
                     <td>${item.kualitas}</td>
                     <td>${item.volume_pemasukan}</td>
                     <td>${item.perilaku}</td>

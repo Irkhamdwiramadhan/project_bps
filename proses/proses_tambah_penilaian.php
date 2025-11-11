@@ -9,34 +9,38 @@ if ($_SERVER["REQUEST_METHOD"] != "POST") {
 }
 
 try {
-    // Tangkap data dari form dengan validasi
+    // Tangkap data dari form dengan validasi dasar
     $mitra_survey_id = filter_input(INPUT_POST, 'mitra_survey_id', FILTER_VALIDATE_INT);
     $penilai_id = filter_input(INPUT_POST, 'penilai_id', FILTER_VALIDATE_INT);
-    
+
     // ==========================================================
-    // REVISI 1: TANGKAP DATA 'beban_kerja' DARI FORM
+    // REVISI: beban_kerja boleh kosong, maka gunakan FILTER_DEFAULT
     // ==========================================================
-    $beban_kerja = filter_input(INPUT_POST, 'beban_kerja', FILTER_VALIDATE_INT);
-    
+    $beban_kerja_input = $_POST['beban_kerja'] ?? null;
+    $beban_kerja = ($beban_kerja_input !== '' && $beban_kerja_input !== null) 
+        ? filter_var($beban_kerja_input, FILTER_VALIDATE_INT)
+        : null;
+
     $kualitas = filter_input(INPUT_POST, 'kualitas', FILTER_VALIDATE_INT);
     $volume_pemasukan = filter_input(INPUT_POST, 'volume_pemasukan', FILTER_VALIDATE_INT);
     $perilaku = filter_input(INPUT_POST, 'perilaku', FILTER_VALIDATE_INT);
     $keterangan = filter_input(INPUT_POST, 'keterangan', FILTER_SANITIZE_STRING);
 
     // ==========================================================
-    // REVISI 2: TAMBAHKAN 'beban_kerja' KE DALAM VALIDASI
+    // Validasi wajib isi (beban_kerja tidak termasuk)
     // ==========================================================
-    if ($mitra_survey_id === false || $penilai_id === false || $beban_kerja === false || $kualitas === false || $volume_pemasukan === false || $perilaku === false) {
-        throw new Exception("Data penilaian tidak lengkap atau tidak valid. Pastikan semua kolom terisi dengan benar.");
+    if ($mitra_survey_id === false || $penilai_id === false || 
+        $kualitas === false || $volume_pemasukan === false || $perilaku === false) {
+        throw new Exception("Data penilaian tidak lengkap atau tidak valid. Pastikan semua kolom wajib terisi dengan benar.");
     }
-    
-    // Periksa apakah penilaian untuk mitra_survey_id ini sudah ada (logika ini tetap valid)
+
+    // Cek apakah sudah ada penilaian untuk mitra_survey_id ini
     $sql_check = "SELECT COUNT(*) FROM mitra_penilaian_kinerja WHERE mitra_survey_id = ?";
     $stmt_check = $koneksi->prepare($sql_check);
     if (!$stmt_check) {
         throw new Exception("Gagal menyiapkan statement cek: " . $koneksi->error);
     }
-    
+
     $stmt_check->bind_param("i", $mitra_survey_id);
     $stmt_check->execute();
     $stmt_check->bind_result($count);
@@ -48,32 +52,29 @@ try {
     }
 
     // ==========================================================
-    // REVISI 3: TAMBAHKAN 'beban_kerja' KE DALAM KUERI INSERT
+    // INSERT: kolom beban_kerja boleh NULL
     // ==========================================================
     $sql_insert = "INSERT INTO mitra_penilaian_kinerja 
                    (mitra_survey_id, penilai_id, beban_kerja, kualitas, volume_pemasukan, perilaku, keterangan) 
                    VALUES (?, ?, ?, ?, ?, ?, ?)";
-                   
+
     $stmt_insert = $koneksi->prepare($sql_insert);
     if (!$stmt_insert) {
         throw new Exception("Gagal menyiapkan statement insert: " . $koneksi->error);
     }
 
-    // ==========================================================
-    // REVISI 4: SESUAIKAN bind_param DENGAN DATA BARU
-    // ==========================================================
-    // Tipe data menjadi 6 integer dan 1 string -> "iiiiis"
-    $stmt_insert->bind_param("iiiiiis", 
-        $mitra_survey_id, 
-        $penilai_id, 
-        $beban_kerja, 
-        $kualitas, 
-        $volume_pemasukan, 
-        $perilaku, 
+    // Bind param (beban_kerja bisa null, jadi pastikan pakai 'i' dan nilai null diganti null literal)
+    $stmt_insert->bind_param(
+        "iiiiiis",
+        $mitra_survey_id,
+        $penilai_id,
+        $beban_kerja,
+        $kualitas,
+        $volume_pemasukan,
+        $perilaku,
         $keterangan
     );
-    
-    // Eksekusi kueri
+
     if ($stmt_insert->execute()) {
         $stmt_insert->close();
         $koneksi->close();
@@ -84,7 +85,6 @@ try {
     }
 
 } catch (Exception $e) {
-    // Tutup koneksi jika masih terbuka
     if (isset($koneksi) && $koneksi->ping()) {
         $koneksi->close();
     }

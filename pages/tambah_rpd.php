@@ -14,6 +14,49 @@ if (empty(array_intersect($user_roles, $allowed_roles))) {
 // Ambil tahun dari query (default sekarang)
 $tahun_filter = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date("Y");
 
+// ==========================
+// CEK BATAS WAKTU ISI RPD
+// ==========================
+$today = date("Y-m-d");
+
+// Ambil batas waktu untuk tahun yang sedang difilter
+$stmt_waktu = $koneksi->prepare("SELECT mulai, selesai FROM rpd_setting_waktu WHERE tahun = ? LIMIT 1");
+$stmt_waktu->bind_param("i", $tahun_filter);
+$stmt_waktu->execute();
+$result_waktu = $stmt_waktu->get_result();
+$waktu_rpd = $result_waktu->fetch_assoc();
+$stmt_waktu->close();
+
+// Jika belum ada pengaturan waktu, anggap masih tertutup
+if (!$waktu_rpd) {
+    echo '<main class="main-content">
+            <div class="card card-access-denied">
+              <h2 class="text-center text-danger">Pengisian RPD Belum Dibuka</h2>
+              <p class="text-center">Admin Dipaku belum mengatur waktu pengisian RPD. Silakan hubungi Admin Dipaku.</p>
+            </div>
+          </main>';
+    include '../includes/footer.php';
+    exit;
+}
+
+// Jika di luar rentang waktu, tampilkan pesan ditolak
+if ($today < $waktu_rpd['mulai'] || $today > $waktu_rpd['selesai']) {
+    echo '<main class="main-content">
+            <div class="card card-access-denied">
+              <h2 class="text-center text-danger">Pengisian RPD Ditutup</h2>
+              <p class="text-center">Maaf pengisian RPD Sudah ditutup.
+                Pengisian RPD hanya dapat dilakukan antara 
+                <strong>' . date("d-m-Y", strtotime($waktu_rpd['mulai'])) . '</strong> 
+                sampai 
+                <strong>' . date("d-m-Y", strtotime($waktu_rpd['selesai'])) . '</strong>.<br><br>
+                Silakan hubungi <b>Admin Dipaku</b> untuk memperbarui jadwal pengisian.
+              </p>
+            </div>
+          </main>';
+    include '../includes/footer.php';
+    exit;
+}
+
 // Ambil daftar tahun existing
 $tahun_result = $koneksi->query("SELECT DISTINCT tahun FROM master_output ORDER BY tahun DESC");
 $daftar_tahun = [];
@@ -161,6 +204,17 @@ $selected_outputs_query = http_build_query(['selected_outputs' => $selected_outp
 .level-sub-komponen { padding-left: 125px !important; color: #7f8c8d; }
 .level-akun { padding-left: 150px !important; font-style: italic; color: #27AE60; }
 .level-item { font-weight: normal; padding-left: 175px !important; }
+.card-access-denied {
+  max-width: 600px;
+  margin: 80px auto;
+  padding: 40px;
+  text-align: center;
+  border: 1px solid #f5c2c7;
+  border-radius: 12px;
+  background-color: #fff0f0;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.1);
+}
+
 </style>
 
 <main class="main-content">
@@ -171,7 +225,7 @@ $selected_outputs_query = http_build_query(['selected_outputs' => $selected_outp
       <div class="card">
         <h5>Langkah 1: Pilih Output</h5>
         <a href="rpd.php" class="btn btn-secondary btn-sm mb-3"><i class="fas fa-arrow-left"></i> Kembali</a>
-        <p class="text-muted">Pilih satu atau beberapa Output lalu klik Lanjutkan.</p>
+        <p class="text-m  uted">Pilih satu atau beberapa Output lalu klik Lanjutkan.</p>
 
         <div class="year-buttons mb-3">
           <label class="me-2">Tahun:</label>

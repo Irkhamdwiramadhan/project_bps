@@ -19,21 +19,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $sql = "SELECT id, username, password, role FROM admin_users WHERE username = ?";
         $stmt = $koneksi->prepare($sql);
-        
+
         if ($stmt) {
             $stmt->bind_param("s", $username);
             $stmt->execute();
             $result = $stmt->get_result();
-            
+
             if ($result->num_rows === 1) {
                 $user = $result->fetch_assoc();
-                
+
                 if ($password === $user['password']) {
                     $_SESSION['loggedin'] = true;
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_nama'] = $user['username'];
-                    $_SESSION['user_role'] = [$user['role']]; 
-                    $_SESSION['user_foto'] = null; 
+                    $_SESSION['user_role'] = [$user['role']];
+                    $_SESSION['user_foto'] = null;
 
                     header('Location: pages/dashboard.php');
                     exit();
@@ -41,8 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $error_message = "Username atau password salah.";
-    } 
-    
+    }
+
     // Logika untuk login Pegawai
     elseif ($role_type === 'pegawai') {
         $nama_pangkat = trim($_POST['nama_pangkat']);
@@ -53,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         FROM pegawai 
                         WHERE nama = ? AND nip_bps = ? LIMIT 1";
         $stmt_pegawai = $koneksi->prepare($sql_pegawai);
-        
+
         if ($stmt_pegawai) {
             $stmt_pegawai->bind_param("ss", $nama_pangkat, $nip_bps);
             $stmt_pegawai->execute();
             $result_pegawai = $stmt_pegawai->get_result();
-            
+
             if ($result_pegawai->num_rows === 1) {
                 $pegawai = $result_pegawai->fetch_assoc();
 
@@ -75,12 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt_roles->bind_param("i", $pegawai['id']);
                     $stmt_roles->execute();
                     $result_roles = $stmt_roles->get_result();
-                    
+
                     $user_roles = [];
                     while ($row_role = $result_roles->fetch_assoc()) {
                         $user_roles[] = $row_role['nama'];
                     }
-                    
+
                     // Jika tidak ada peran, tambahkan default
                     if (empty($user_roles)) {
                         $user_roles[] = 'pegawai';
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['user_nama'] = $pegawai['nama'];
                     $_SESSION['user_role'] = $user_roles;
                     $_SESSION['user_foto'] = $pegawai['foto'];
-                    
+
                     header('Location: pages/dashboard.php');
                     exit();
                 }
@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -125,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-position: center;
             background-repeat: no-repeat;
         }
+
         .login-container {
             background-color: rgba(255, 255, 255, 0.95);
             padding: 40px;
@@ -134,15 +136,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             max-width: 400px;
             text-align: center;
         }
+
         .logo {
             width: 100px;
             height: 100px;
         }
+
         .input-group {
             position: relative;
             margin-bottom: 15px;
         }
-        .input-group input, .input-group select {
+
+        .input-group input,
+        .input-group select {
             width: 100%;
             padding: 12px 12px 12px 45px;
             border: 1px solid #ddd;
@@ -150,10 +156,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 16px;
             box-sizing: border-box;
         }
+
         .input-group select {
             background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
             background-size: 12px;
         }
+
         .input-group .icon {
             position: absolute;
             left: 15px;
@@ -161,6 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transform: translateY(-50%);
             color: #aaa;
         }
+
         .btn-login {
             width: 100%;
             padding: 12px;
@@ -174,9 +183,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: background-color 0.3s;
             margin-top: 15px;
         }
+
         .btn-login:hover {
             background-color: #0056b3;
         }
+
         .error {
             color: #e74c3c;
             margin-bottom: 15px;
@@ -184,6 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </style>
 </head>
+
 <body>
     <div class="login-container">
         <img src="assets/img/logo/Sitik (6).png" alt="Logo BPS" class="logo">
@@ -192,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error_message): ?>
             <div class="error"><?php echo htmlspecialchars($error_message); ?></div>
         <?php endif; ?>
-        
+
         <form action="" method="POST">
             <div class="input-group">
                 <i class="fas fa-users icon"></i>
@@ -206,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <i class="fas fa-user icon"></i>
                 <input type="text" name="username" placeholder="Username Admin">
             </div>
-            
+
             <div class="input-group" id="passwordGroup">
                 <i class="fas fa-lock icon"></i>
                 <input type="password" name="password" placeholder="Password">
@@ -221,8 +233,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <i class="fas fa-id-card icon"></i>
                 <input type="text" name="nip_bps" placeholder="NIP BPS">
             </div>
+            <a href="sso_login.php" class="btn btn-primary">
+                Login via SSO BPS
+            </a>
+
 
             <button type="submit" class="btn-login">Masuk</button>
+
         </form>
     </div>
 
@@ -233,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const passwordGroup = document.getElementById('passwordGroup');
             const namaPangkatGroup = document.getElementById('namaPangkatGroup');
             const nipBpsGroup = document.getElementById('nipBpsGroup');
-            
+
             if (role === 'admin') {
                 usernameAdminGroup.style.display = 'block';
                 passwordGroup.style.display = 'block';
@@ -249,4 +266,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.addEventListener('DOMContentLoaded', toggleInputs);
     </script>
 </body>
+
 </html>

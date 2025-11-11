@@ -100,234 +100,328 @@ if (!empty($item_kode_uniks_on_page)) {
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-/*
+    /*
 ================================================
 REVISI CSS TOTAL UNTUK TAMPILAN MODERN
 ================================================
 */
-:root {
-    --primary-blue: #0A2E5D;
-    --primary-blue-light: #E6EEF7;
-    --border-color: #DEE2E6;
-    --text-dark: #212529;
-    --text-light: #6C757D;
-    --background-light: #F8F9FA;
-    --background-page: #F7F9FC;
-    --warning-bg: #FFFBE6;
-    --warning-border: #FFC107;
-    --font-family-sans-serif: 'Inter', sans-serif;
-    --border-radius: 0.5rem; /* 8px */
-}
+    :root {
+        --primary-blue: #0A2E5D;
+        --primary-blue-light: #E6EEF7;
+        --border-color: #DEE2E6;
+        --text-dark: #212529;
+        --text-light: #6C757D;
+        --background-light: #F8F9FA;
+        --background-page: #F7F9FC;
+        --warning-bg: #FFFBE6;
+        --warning-border: #FFC107;
+        --font-family-sans-serif: 'Inter', sans-serif;
+        --border-radius: 0.5rem;
+        /* 8px */
+    }
 
-body {
-    font-family: var(--font-family-sans-serif);
-    background-color: var(--background-page);
-}
+    body {
+        font-family: var(--font-family-sans-serif);
+        background-color: var(--background-page);
+    }
 
-.main-content { 
-    padding: 30px; 
-}
+    .main-content {
+        padding: 30px;
+    }
 
-/* Header Halaman */
-.page-header {
-    background: #fff;
-    padding: 20px 25px;
-    border-radius: var(--border-radius);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-    margin-bottom: 25px;
-}
+    /* Header Halaman */
+    .page-header {
+        background: #fff;
+        padding: 20px 25px;
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+        margin-bottom: 25px;
+    }
 
-.header-container { 
-    display:flex; 
-    justify-content:space-between; 
-    align-items:center; 
-    flex-wrap: wrap; 
-    gap: 15px; 
-    margin-bottom: 20px;
-}
-.section-title { 
-    font-size:1.75rem; 
-    font-weight:700; 
-    margin:0; 
-    color: var(--primary-blue); 
-}
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
 
-/* Filter Tahun */
-.filter-container { 
-    display: flex; 
-    gap: 10px; 
-    align-items: center; 
-}
-.filter-container label {
-    margin-bottom: 0;
-    font-weight: 500;
-    color: var(--text-light);
-}
-.filter-container .btn { 
-    border: 1px solid var(--border-color); 
-    color: var(--primary-blue); 
-    background-color: #fff; 
-    border-radius: 6px; 
-    padding: 6px 14px; 
-    text-decoration: none; 
-    font-size: 0.9rem; 
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-.filter-container .btn:hover {
-    background-color: var(--primary-blue-light);
-    border-color: var(--primary-blue);
-}
-.filter-container .btn.active { 
-    background-color: var(--primary-blue); 
-    color: #fff; 
-    border-color: var(--primary-blue); 
-}
+    .section-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--primary-blue);
+    }
 
-/* Card Utama & Tabel */
-.card { 
-    background:#fff; 
-    border: none;
-    border-radius: var(--border-radius); 
-    box-shadow: 0 4px 20px rgba(0,0,0,0.04); 
-}
+    /* Filter Tahun */
+    .filter-container {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
 
-/* ================================================
+    .filter-container label {
+        margin-bottom: 0;
+        font-weight: 500;
+        color: var(--text-light);
+    }
+
+    .filter-container .btn {
+        border: 1px solid var(--border-color);
+        color: var(--primary-blue);
+        background-color: #fff;
+        border-radius: 6px;
+        padding: 6px 14px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .filter-container .btn:hover {
+        background-color: var(--primary-blue-light);
+        border-color: var(--primary-blue);
+    }
+
+    .filter-container .btn.active {
+        background-color: var(--primary-blue);
+        color: #fff;
+        border-color: var(--primary-blue);
+    }
+
+    /* Card Utama & Tabel */
+    .card {
+        background: #fff;
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    /* ================================================
 REVISI UTAMA UNTUK SCROLLBAR
 ================================================
 */
-.table-responsive {
-    border: none;
-    overflow-x: auto; /* Sudah ada, ini benar untuk scroll horizontal */
+    .table-responsive {
+        border: none;
+        overflow-x: auto;
+        /* Sudah ada, ini benar untuk scroll horizontal */
 
-    /* --- TAMBAHAN KUNCI --- */
-    max-height: 75vh;   /* Batasi tinggi kontainer, misal 75% dari tinggi layar (viewport height) */
-    overflow-y: auto;   /* Tambahkan scroll vertikal jika konten (tabel) melebihi max-height */
-    position: relative; /* Ini penting agar 'position: sticky' pada header tabel berfungsi di dalam kontainer ini */
-}
+        /* --- TAMBAHAN KUNCI --- */
+        max-height: 75vh;
+        /* Batasi tinggi kontainer, misal 75% dari tinggi layar (viewport height) */
+        overflow-y: auto;
+        /* Tambahkan scroll vertikal jika konten (tabel) melebihi max-height */
+        position: relative;
+        /* Ini penting agar 'position: sticky' pada header tabel berfungsi di dalam kontainer ini */
+    }
 
-/* Styling scrollbar agar lebih modern (opsional) */
-.table-responsive::-webkit-scrollbar {
-    height: 8px;
-    width: 8px; /* Tambahkan lebar untuk scrollbar vertikal */
-}
-.table-responsive::-webkit-scrollbar-thumb {
-    background-color: #d1d5db;
-    border-radius: 4px;
-}
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background-color: #a8b0bc;
-}
-.table-responsive::-webkit-scrollbar-track {
-    background-color: #f1f1f1;
-}
+    /* Styling scrollbar agar lebih modern (opsional) */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+        width: 8px;
+        /* Tambahkan lebar untuk scrollbar vertikal */
+    }
 
-.rpd-table { 
-    font-size: 0.85rem; 
-    border-collapse: collapse;
-    width: 100%;
-}
+    .table-responsive::-webkit-scrollbar-thumb {
+        background-color: #d1d5db;
+        border-radius: 4px;
+    }
 
-/* Header Tabel */
-.rpd-table thead th { 
-    text-align: center; 
-    vertical-align: middle; 
-    background-color: var(--background-light); 
-    position: sticky; 
-    top: 0; 
-    z-index: 2; /* Naikkan z-index agar di atas konten */
-    border-bottom: 2px solid var(--border-color);
-    padding: 12px 10px;
-    font-weight: 600;
-    color: var(--text-dark);
-}
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background-color: #a8b0bc;
+    }
 
-/* Body Tabel */
-.rpd-table td {
-    padding: 12px 10px;
-    vertical-align: middle;
-    border: none;
-    border-bottom: 1px solid #EAECF0;
-}
-.rpd-table tr:last-child td {
-    border-bottom: none;
-}
-.rpd-table .uraian-col { text-align: left; min-width: 400px; }
-.rpd-table .pagu-col { text-align: right; min-width: 130px; }
-.rpd-table .bulan-col { text-align: right; min-width: 110px; }
+    .table-responsive::-webkit-scrollbar-track {
+        background-color: #f1f1f1;
+    }
 
-/* Styling Hierarki yang Diperbarui */
-.hierarchy-row td { 
-    font-weight:600; 
-    background-color: var(--background-light); 
-}
-.level-program { font-size: 1.05em; color: #000000ff; }
-.level-kegiatan { padding-left:25px !important; color: #154360;}
-.level-output { padding-left:50px !important; color: #1F618D;}
-.level-sub_output { padding-left:75px !important; color: #2980B9;} /* Diperbaiki */
-.level-komponen { padding-left:100px !important; color: #5499C7;}
-.level-sub_komponen { padding-left:125px !important; color: #7f8c8d;} /* Diperbaiki */
-.level-akun { padding-left:150px !important; font-style: italic; color: #27AE60; }
-.level-item { font-weight:normal; padding-left:175px !important; }
-.level-item:hover { background-color: #fcfcfd; }
+    .rpd-table {
+        font-size: 0.85rem;
+        border-collapse: collapse;
+        width: 100%;
+    }
 
-.warning-row td { 
-    background-color: var(--warning-bg) !important; 
-}
-.warning-row td:first-child { 
-    border-left: 4px solid var(--warning-border); 
-}
+    /* Header Tabel */
+    .rpd-table thead th {
+        text-align: center;
+        vertical-align: middle;
+        background-color: var(--background-light);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        /* Naikkan z-index agar di atas konten */
+        border-bottom: 2px solid var(--border-color);
+        padding: 12px 10px;
+        font-weight: 600;
+        color: var(--text-dark);
+    }
 
-/* Footer & Pagination */
-.card-footer {
-    border-top: 1px solid var(--border-color);
-    background-color: #fff;
-    padding: 10px 25px;
-}
-.pagination-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.pagination-info { font-size: 0.9rem; color: var(--text-light); }
-.pagination { margin: 0; display: flex; gap: 8px; }
+    /* Body Tabel */
+    .rpd-table td {
+        padding: 12px 10px;
+        vertical-align: middle;
+        border: none;
+        border-bottom: 1px solid #EAECF0;
+    }
 
-.pagination .page-item .page-link {
-    display: flex; justify-content: center; align-items: center;
-    width: 38px; height: 38px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px !important;
-    background-color: #fff;
-    color: var(--text-dark);
-    font-weight: 500;
-    text-decoration: none;
-    transition: all 0.2s ease-in-out;
-}
-.pagination .page-item .page-link:hover {
-    border-color: var(--primary-blue);
-    background-color: var(--primary-blue-light);
-}
-.pagination .page-item.active .page-link {
-    background-color: var(--primary-blue);
-    color: #fff;
-    border-color: var(--primary-blue);
-}
-.pagination .page-item.disabled .page-link {
-    background-color: var(--background-light);
-    color: #adb5bd;
-    cursor: not-allowed;
-}
+    .rpd-table tr:last-child td {
+        border-bottom: none;
+    }
 
-/* FIX KOMPREHENSIF UNTUK MENGHILANGKAN TITIK/SIMBOL */
-.pagination .page-item {
-    list-style-type: none !important;
-    list-style: none !important;
-}
-.pagination .page-item .page-link::before,
-.pagination .page-item .page-link::after {
-    content: none !important;
-    display: none !important;
-}
+    .rpd-table .uraian-col {
+        text-align: left;
+        min-width: 400px;
+    }
+
+    .rpd-table .pagu-col {
+        text-align: right;
+        min-width: 130px;
+    }
+
+    .rpd-table .bulan-col {
+        text-align: right;
+        min-width: 110px;
+    }
+
+    /* Styling Hierarki yang Diperbarui */
+    .hierarchy-row td {
+        font-weight: 600;
+        background-color: var(--background-light);
+    }
+
+    .level-program {
+        font-size: 1.05em;
+        color: #000000ff;
+    }
+
+    .level-kegiatan {
+        padding-left: 25px !important;
+        color: #154360;
+    }
+
+    .level-output {
+        padding-left: 50px !important;
+        color: #1F618D;
+    }
+
+    .level-sub_output {
+        padding-left: 75px !important;
+        color: #2980B9;
+    }
+
+    /* Diperbaiki */
+    .level-komponen {
+        padding-left: 100px !important;
+        color: #5499C7;
+    }
+
+    .level-sub_komponen {
+        padding-left: 125px !important;
+        color: #7f8c8d;
+    }
+
+    /* Diperbaiki */
+    .level-akun {
+        padding-left: 150px !important;
+        font-style: italic;
+        color: #27AE60;
+    }
+
+    .level-item {
+        font-weight: normal;
+        padding-left: 175px !important;
+    }
+
+    .level-item:hover {
+        background-color: #fcfcfd;
+    }
+
+    .warning-row td {
+        background-color: var(--warning-bg) !important;
+    }
+
+    .warning-row td:first-child {
+        border-left: 4px solid var(--warning-border);
+    }
+
+    /* Footer & Pagination */
+    .card-footer {
+        border-top: 1px solid var(--border-color);
+        background-color: #fff;
+        padding: 10px 25px;
+    }
+
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .pagination-info {
+        font-size: 0.9rem;
+        color: var(--text-light);
+    }
+
+    .pagination {
+        margin: 0;
+        display: flex;
+        gap: 8px;
+    }
+
+    .pagination .page-item .page-link {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 38px;
+        height: 38px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px !important;
+        background-color: #fff;
+        color: var(--text-dark);
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .pagination .page-item .page-link:hover {
+        border-color: var(--primary-blue);
+        background-color: var(--primary-blue-light);
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: var(--primary-blue);
+        color: #fff;
+        border-color: var(--primary-blue);
+    }
+
+    .pagination .page-item.disabled .page-link {
+        background-color: var(--background-light);
+        color: #adb5bd;
+        cursor: not-allowed;
+    }
+
+    /* FIX KOMPREHENSIF UNTUK MENGHILANGKAN TITIK/SIMBOL */
+    .pagination .page-item {
+        list-style-type: none !important;
+        list-style: none !important;
+    }
+
+    .pagination .page-item .page-link::before,
+    .pagination .page-item .page-link::after {
+        content: none !important;
+        display: none !important;
+    }
+
+    .btn-setting {
+        background-color: #ff8b07ff;
+        border-color: #ff7b00ff;
+        color: #ffffffff;
+        font-weight: 500;
+        border-radius: 6px;
+        padding: 8px 16px;
+        transition: all 0.2s ease;
+    }
 </style>
 
 <main class="main-content">
@@ -336,10 +430,18 @@ REVISI UTAMA UNTUK SCROLLBAR
             <div class="header-container">
                 <h2 class="section-title">Laporan RPD - Tahun <?= $tahun_filter ?></h2>
                 <div class="add-rpd-button-container">
-          <a href="tambah_rpd.php" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Tambah RPD
-          </a>
-</div>
+                    <?php
+                    // Periksa variabel yang kita buat di atas untuk menampilkan tombol "Tambah Apel"
+                    if ($has_access_for_action):
+                    ?>
+                        <a href="rpd_waktu.php" class="btn btn-setting">
+                            <i class="fas fa-plus"></i> setting pengisisan RPD
+                        </a>
+                    <?php endif; ?>
+                    <a href="tambah_rpd.php" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Tambah RPD
+                    </a>
+                </div>
 
             </div>
             <div class="filter-container">
@@ -349,7 +451,7 @@ REVISI UTAMA UNTUK SCROLLBAR
                 <?php endforeach; ?>
             </div>
         </div>
-        
+
         <div class="card">
             <div class="table-responsive">
                 <table class="table rpd-table">
@@ -374,20 +476,20 @@ REVISI UTAMA UNTUK SCROLLBAR
                                 foreach ($levels as $level) {
                                     $kode = $row[$level . '_kode'];
                                     $nama = $row[$level . '_nama'];
-                                    
+
                                     if (!empty($nama) && (!isset($printed_headers[$level]) || $printed_headers[$level] !== $nama)) {
                                         $header_text = "<b>" . htmlspecialchars($kode) . "</b> &nbsp;" . htmlspecialchars($nama);
-                                        echo '<tr class="hierarchy-row"><td colspan="15" class="level-'.$level.'">' . $header_text . '</td></tr>';
-                                        
+                                        echo '<tr class="hierarchy-row"><td colspan="15" class="level-' . $level . '">' . $header_text . '</td></tr>';
+
                                         $printed_headers[$level] = $nama;
-                                        
+
                                         $child_levels_to_reset = array_slice($levels, array_search($level, $levels) + 1);
                                         foreach ($child_levels_to_reset as $child_level) {
                                             unset($printed_headers[$child_level]);
                                         }
                                     }
                                 }
-                                
+
                                 $kode_unik_item = $row['kode_unik'];
                                 $item_total_rpd = isset($rpd_data[$kode_unik_item]) ? array_sum($rpd_data[$kode_unik_item]) : 0;
                                 $sisa_pagu = $row['pagu'] - $item_total_rpd;
@@ -397,7 +499,7 @@ REVISI UTAMA UNTUK SCROLLBAR
                                     <td class="level-item uraian-col"><?= htmlspecialchars($row['item_nama']) ?></td>
                                     <td class="pagu-col">Rp <?= number_format($row['pagu'], 0, ',', '.') ?></td>
                                     <td class="pagu-col">Rp <?= number_format($sisa_pagu, 0, ',', '.') ?></td>
-                                    <?php for ($bulan = 1; $bulan <= 12; $bulan++): 
+                                    <?php for ($bulan = 1; $bulan <= 12; $bulan++):
                                         $jumlah = $rpd_data[$kode_unik_item][$bulan] ?? 0;
                                     ?>
                                         <td class="bulan-col">Rp <?= number_format($jumlah, 0, ',', '.') ?></td>
@@ -405,42 +507,44 @@ REVISI UTAMA UNTUK SCROLLBAR
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="15" class="text-center text-muted p-5">Tidak ada data anggaran untuk tahun <?= $tahun_filter ?>.</td></tr>
+                            <tr>
+                                <td colspan="15" class="text-center text-muted p-5">Tidak ada data anggaran untuk tahun <?= $tahun_filter ?>.</td>
+                            </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
 
             <?php if ($total_pages > 0): ?>
-            <div class="card-footer">
-                <div class="pagination-container">
-                    <div class="pagination-info">
-                        Halaman <strong><?= $current_page ?></strong> dari <strong><?= $total_pages ?></strong> (Total <?= $total_items ?> item)
-                    </div>
-                    
-                    <?php if ($total_pages > 1): ?>
-                    <nav aria-label="Navigasi Halaman">
-                        <ul class="pagination">
-                            <li class="page-item <?= ($current_page <= 1) ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?tahun=<?= $tahun_filter ?>&page=<?= $current_page - 1 ?>" aria-label="Sebelumnya">&lt;</a>
-                            </li>
-                            <?php
-                                $range = 2;
-                                for ($i = 1; $i <= $total_pages; $i++) {
-                                    if ($i == 1 || $i == $total_pages || ($i >= $current_page - $range && $i <= $current_page + $range)) {
-                                        echo '<li class="page-item ' . ($i == $current_page ? 'active' : '') . '">';
-                                        echo '<a class="page-link" href="?tahun=' . $tahun_filter . '&page=' . $i . '">' . $i . '</a></li>';
+                <div class="card-footer">
+                    <div class="pagination-container">
+                        <div class="pagination-info">
+                            Halaman <strong><?= $current_page ?></strong> dari <strong><?= $total_pages ?></strong> (Total <?= $total_items ?> item)
+                        </div>
+
+                        <?php if ($total_pages > 1): ?>
+                            <nav aria-label="Navigasi Halaman">
+                                <ul class="pagination">
+                                    <li class="page-item <?= ($current_page <= 1) ? 'disabled' : '' ?>">
+                                        <a class="page-link" href="?tahun=<?= $tahun_filter ?>&page=<?= $current_page - 1 ?>" aria-label="Sebelumnya">&lt;</a>
+                                    </li>
+                                    <?php
+                                    $range = 2;
+                                    for ($i = 1; $i <= $total_pages; $i++) {
+                                        if ($i == 1 || $i == $total_pages || ($i >= $current_page - $range && $i <= $current_page + $range)) {
+                                            echo '<li class="page-item ' . ($i == $current_page ? 'active' : '') . '">';
+                                            echo '<a class="page-link" href="?tahun=' . $tahun_filter . '&page=' . $i . '">' . $i . '</a></li>';
+                                        }
                                     }
-                                }
-                            ?>
-                            <li class="page-item <?= ($current_page >= $total_pages) ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?tahun=<?= $tahun_filter ?>&page=<?= $current_page + 1 ?>" aria-label="Selanjutnya">&gt;</a>
-                            </li>
-                        </ul>
-                    </nav>
-                    <?php endif; ?>
+                                    ?>
+                                    <li class="page-item <?= ($current_page >= $total_pages) ? 'disabled' : '' ?>">
+                                        <a class="page-link" href="?tahun=<?= $tahun_filter ?>&page=<?= $current_page + 1 ?>" aria-label="Selanjutnya">&gt;</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            </div>
             <?php endif; ?>
         </div>
     </div>

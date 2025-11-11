@@ -35,7 +35,8 @@ $sub_output_id = $_POST['sub_output_id'] ?? null;
 $komponen_id = $_POST['komponen_id'] ?? null;
 $sub_komponen_id = $_POST['sub_komponen_id'] ?? null;
 $akun_id = $_POST['akun_id'] ?? null;
-$item_id = $_POST['item_id'] ?? null; // ini kode unik tanpa nama item
+$item_id = $_POST['item_id'] ?? null; // kode unik
+$is_sensus = isset($_POST['is_sensus']) ? 1 : 0; // kolom baru, default 0
 
 // Validasi input
 if (empty($tim_id) || empty($mitra_ids) || empty($bulan_pembayaran) || empty($tahun_pembayaran) || empty($item_id)) {
@@ -82,17 +83,17 @@ try {
     $sub_komponen_kode = get_kode($koneksi, 'master_sub_komponen', $sub_komponen_id);
     $akun_kode = get_kode($koneksi, 'master_akun', $akun_id);
 
-    // Prepare query insert ke mitra_surveys dengan tim_id
+    // Prepare query insert ke mitra_surveys
     $sql_insert_survey = "INSERT INTO mitra_surveys 
         (tim_id, mitra_id, program_id, kegiatan_id, output_id, sub_output_id, komponen_id, sub_komponen_id, akun_id, survey_ke_berapa)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt_insert_survey = $koneksi->prepare($sql_insert_survey);
     if (!$stmt_insert_survey) throw new Exception("Gagal prepare INSERT mitra_surveys: " . $koneksi->error);
 
-    // Prepare query insert honor_mitra
+    // Prepare query insert honor_mitra (include is_sensus)
     $sql_insert_honor = "INSERT INTO honor_mitra
-        (mitra_survey_id, mitra_id, honor_per_satuan, jumlah_satuan, total_honor, tanggal_input, bulan_pembayaran, tahun_pembayaran, item_kode_unik)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        (mitra_survey_id, mitra_id, honor_per_satuan, jumlah_satuan, total_honor, tanggal_input, bulan_pembayaran, tahun_pembayaran, item_kode_unik, is_sensus)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt_insert_honor = $koneksi->prepare($sql_insert_honor);
     if (!$stmt_insert_honor) throw new Exception("Gagal prepare INSERT honor_mitra: " . $koneksi->error);
 
@@ -110,7 +111,7 @@ try {
         $current_honor = $res_check['total_honor_bulan_ini'] ?? 0;
         $stmt_check->close();
 
-        if (($current_honor + $total_honor_baru) > $max_honor_per_month) {
+        if (($current_honor + $total_honor_baru) > $max_honor_per_month && !$is_sensus) {
             $mitra_over_limit[] = $mitra_id;
             continue;
         }
@@ -146,7 +147,7 @@ try {
 
         // Insert ke honor_mitra
         $stmt_insert_honor->bind_param(
-            "iidddsiis",
+            "iidddsiisi",
             $mitra_survey_id,
             $mitra_id,
             $harga_per_satuan,
@@ -155,7 +156,8 @@ try {
             $tanggal_input,
             $bulan_pembayaran,
             $tahun_pembayaran,
-            $item_kode_unik_full
+            $item_kode_unik_full,
+            $is_sensus
         );
         if (!$stmt_insert_honor->execute()) {
             throw new Exception("Gagal simpan honor_mitra untuk mitra $mitra_id: " . $stmt_insert_honor->error);

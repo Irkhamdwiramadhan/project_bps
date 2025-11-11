@@ -18,35 +18,34 @@ try {
     // REVISI 1: KUERI DETAIL PENILAIAN YANG DIPERBARUI
     // =========================================================================
     // Mengganti join ke tabel 'surveys' dengan join ke 'honor_mitra' dan 'master_item'
-$sql_details = "SELECT
-                    mpk.id,
-                    mpk.tanggal_penilaian,
-                    mpk.beban_kerja,
-                    mpk.kualitas,
-                    mpk.volume_pemasukan,
-                    mpk.perilaku,
-                    mpk.keterangan,
-                    m.nama_lengkap AS nama_mitra,
-                    m.foto AS foto_mitra,
-                    p.nama AS nama_penilai,
-                    -- Mengambil nama pekerjaan dari master_kegiatan untuk konsistensi
-                    mk.nama AS nama_pekerjaan,
-                    (mpk.kualitas + mpk.volume_pemasukan + mpk.perilaku) / 3 AS rata_rata_penilaian
-                FROM
-                    mitra_penilaian_kinerja AS mpk
-                JOIN
-                    mitra_surveys AS ms ON mpk.mitra_survey_id = ms.id
-                JOIN
-                    mitra AS m ON ms.mitra_id = m.id
-                JOIN
-                    pegawai AS p ON mpk.penilai_id = p.id
-                -- Join langsung ke master_kegiatan untuk mendapatkan nama pekerjaan utama
-                LEFT JOIN
-                    master_kegiatan AS mk ON ms.kegiatan_id = mk.kode
-                WHERE
-                    m.id = ?
-                ORDER BY
-                    mpk.tanggal_penilaian DESC";
+$sql_details = "
+    SELECT DISTINCT
+        mpk.id,
+        mpk.tanggal_penilaian,
+        mpk.beban_kerja,
+        mpk.kualitas,
+        mpk.volume_pemasukan,
+        mpk.perilaku,
+        mpk.keterangan,
+        m.nama_lengkap AS nama_mitra,
+        m.foto AS foto_mitra,
+        p.nama AS nama_penilai,
+        mk.nama AS nama_pekerjaan,
+        (mpk.kualitas + mpk.volume_pemasukan + mpk.perilaku) / 3 AS rata_rata_penilaian
+    FROM mitra_penilaian_kinerja AS mpk
+    JOIN mitra_surveys AS ms 
+        ON mpk.mitra_survey_id = ms.id
+    JOIN mitra AS m 
+        ON ms.mitra_id = m.id
+    JOIN pegawai AS p 
+        ON mpk.penilai_id = p.id
+    LEFT JOIN master_kegiatan AS mk 
+        ON ms.kegiatan_id = mk.kode
+        AND mk.tahun = YEAR(mpk.tanggal_penilaian)
+    WHERE m.id = ?
+    ORDER BY mpk.tanggal_penilaian DESC
+";
+
 
     $stmt_details = $koneksi->prepare($sql_details);
 
@@ -134,7 +133,7 @@ $sql_details = "SELECT
                             <th>Penilai</th>
                             <th>Tanggal</th>
                             <th>Pekerjaan yang Dinilai</th>
-                            <th>Beban Kerja</th>
+                      
                             <th>Kualitas</th>
                             <th>Volume</th>
                             <th>Perilaku</th>
@@ -150,7 +149,7 @@ $sql_details = "SELECT
                                     <td><?= htmlspecialchars($row['nama_penilai']); ?></td>
                                     <td><?= htmlspecialchars($row['tanggal_penilaian']); ?></td>
                                     <td><?= htmlspecialchars($row['nama_pekerjaan'] ?? 'N/A'); ?></td>
-                                    <td class="rating-cell"><?= htmlspecialchars($row['beban_kerja']); ?></td>
+          
                                     <td class="rating-cell"><?= htmlspecialchars($row['kualitas']); ?></td>
                                     <td class="rating-cell"><?= htmlspecialchars($row['volume_pemasukan']); ?></td>
                                     <td class="rating-cell"><?= htmlspecialchars($row['perilaku']); ?></td>

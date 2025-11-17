@@ -4,6 +4,69 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
+
+$user_roles = $_SESSION['user_role'] ?? [];
+
+// Tentukan peran mana saja yang diizinkan untuk mengakses fitur ini
+$allowed_roles_for_action = ['super_admin', 'admin_apel'];
+
+// Periksa apakah pengguna memiliki salah satu peran yang diizinkan untuk melihat aksi
+$has_access_for_action = false;
+foreach ($user_roles as $role) {
+    if (in_array($role, $allowed_roles_for_action)) {
+        $has_access_for_action = true;
+        break; // Keluar dari loop setelah menemukan kecocokan
+    }
+}
+// --- FUNGSI HELPER FORMAT PERIODE ---
+function formatPeriode($jenis, $nilai) {
+    $jenisLower = strtolower($jenis); 
+    $jenisLabel = ucfirst($jenis); 
+
+    if (empty($nilai)) return $jenisLabel;
+
+    switch ($jenisLower) {
+        case 'bulanan':
+            $nama_bulan = [
+                1=>'Januari', '01'=>'Januari', 2=>'Februari', '02'=>'Februari',
+                3=>'Maret', '03'=>'Maret', 4=>'April', '04'=>'April',
+                5=>'Mei', '05'=>'Mei', 6=>'Juni', '06'=>'Juni',
+                7=>'Juli', '07'=>'Juli', 8=>'Agustus', '08'=>'Agustus',
+                9=>'September', '09'=>'September', 10=>'Oktober', 11=>'November', 12=>'Desember'
+            ];
+            $bulanText = $nama_bulan[$nilai] ?? $nilai;
+            return "Bulanan ($bulanText)";
+
+        case 'triwulan':
+            $map = [1 => 'Jan - Mar', 2 => 'Apr - Jun', 3 => 'Jul - Sep', 4 => 'Okt - Des'];
+            $range = isset($map[$nilai]) ? " ({$map[$nilai]})" : "";
+            return "Triwulan $nilai" . $range;
+
+        case 'subron':
+            $map = [1 => 'Jan - Apr', 2 => 'Mei - Ags', 3 => 'Sep - Des'];
+            $range = isset($map[$nilai]) ? " ({$map[$nilai]})" : "";
+            return "Sub-Round $nilai" . $range;
+
+        case 'semester':
+            $map = [1 => 'Jan - Jun', 2 => 'Jul - Des'];
+            $range = isset($map[$nilai]) ? " ({$map[$nilai]})" : "";
+            return "Semester $nilai" . $range;
+
+        case 'tahunan':
+            return "Tahun $nilai";
+
+        default:
+            return "$jenisLabel $nilai";
+    }
+}
+
+// Array untuk fallback data lama (Bulan biasa)
+$list_bulan_biasa = [
+    1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+    5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+    9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+];
+
 // Pastikan ID mitra dikirim
 if (!isset($_GET['id']) || empty($_GET['id'])) {
     header('Location: kegiatan.php?status=error&message=ID_mitra_tidak_ditemukan');
@@ -15,7 +78,7 @@ $user_role = $_SESSION['user_role'] ?? '';
 
 try {
     // Ambil data mitra
-    $sql_mitra = "SELECT nama_lengkap, nama_kecamatan, domisili_sama FROM mitra WHERE id = ?";
+    $sql_mitra = "SELECT nama_lengkap, alamat_detail, domisili_sama FROM mitra WHERE id = ?";
     $stmt_mitra = $koneksi->prepare($sql_mitra);
     $stmt_mitra->bind_param("i", $mitra_id);
     $stmt_mitra->execute();
@@ -27,45 +90,63 @@ try {
         exit;
     }
 
-    // Ambil daftar kegiatan dan item: gunakan subquery terkorrelasi untuk ambil 1 item yang cocok
+    // --- QUERY DATA HONOR (ANTI DUPLIKAT & FIX UNSIGNED ERROR) ---
     $sql_kegiatan = "
-    SELECT DISTINCT
+    SELECT
         hm.id AS honor_id,
-        ms.id AS mitra_survey_id,
-        mk.nama AS nama_kegiatan,
-        -- Ambil nama_item dari master_item: cari baris pertama yang kode_uniknya diawali oleh hm.item_kode_unik
+        hm.mitra_survey_id,
+        
+        -- Ambil Data Periode dari tabel mitra_surveys
+        ms.periode_jenis,
+        ms.periode_nilai,
+        
+        -- SUBQUERY #1: Ambil Nama KEGIATAN
         (
-            SELECT mi2.nama_item
-            FROM master_item mi2
-            WHERE mi2.kode_unik LIKE CONCAT(hm.item_kode_unik, '%')
+            SELECT mk.nama
+            FROM master_kegiatan mk
+            WHERE mk.kode = (SELECT ms_inner.kegiatan_id FROM mitra_surveys ms_inner WHERE ms_inner.id = hm.mitra_survey_id LIMIT 1)
+            -- FIX ERROR: Gunakan CAST AS SIGNED agar bisa menghitung selisih negatif
+            ORDER BY ABS(CAST(mk.tahun AS SIGNED) - CAST(hm.tahun_pembayaran AS SIGNED)) ASC
             LIMIT 1
+        ) AS nama_kegiatan,
+        
+        -- SUBQUERY #2: Ambil Nama Item
+        (
+            SELECT mi.nama_item
+            FROM master_item mi
+            WHERE mi.kode_unik = hm.item_kode_unik
+            -- FIX ERROR: Gunakan CAST AS SIGNED
+            ORDER BY ABS(CAST(mi.tahun AS SIGNED) - CAST(hm.tahun_pembayaran AS SIGNED)) ASC
+            LIMIT 1 
         ) AS nama_item,
+        
+        -- SUBQUERY #3: Ambil Satuan
         (
-            SELECT mi3.satuan
-            FROM master_item mi3
-            WHERE mi3.kode_unik LIKE CONCAT(hm.item_kode_unik, '%')
-            LIMIT 1
+            SELECT mi.satuan
+            FROM master_item mi
+            WHERE mi.kode_unik = hm.item_kode_unik
+            -- FIX ERROR: Gunakan CAST AS SIGNED
+            ORDER BY ABS(CAST(mi.tahun AS SIGNED) - CAST(hm.tahun_pembayaran AS SIGNED)) ASC
+            LIMIT 1 
         ) AS satuan,
+
         hm.jumlah_satuan,
         hm.total_honor,
         hm.bulan_pembayaran,
         hm.tahun_pembayaran,
         hm.tanggal_input
+        
     FROM honor_mitra hm
-    LEFT JOIN mitra_surveys ms 
-        ON hm.mitra_survey_id = ms.id
-    LEFT JOIN master_kegiatan mk 
-        ON ms.kegiatan_id = mk.kode 
-        AND mk.tahun = YEAR(hm.tanggal_input)
+    -- JOIN ke mitra_surveys untuk ambil periode
+    LEFT JOIN mitra_surveys ms ON hm.mitra_survey_id = ms.id
+    
     WHERE hm.mitra_id = ?
     ORDER BY hm.tanggal_input DESC, hm.id DESC
-";
-
+    ";
 
     $stmt_kegiatan = $koneksi->prepare($sql_kegiatan);
-    if (!$stmt_kegiatan) {
-        throw new Exception("Gagal prepare statement: " . $koneksi->error);
-    }
+    if (!$stmt_kegiatan) throw new Exception("Gagal prepare: " . $koneksi->error);
+    
     $stmt_kegiatan->bind_param("i", $mitra_id);
     $stmt_kegiatan->execute();
     $result_kegiatan = $stmt_kegiatan->get_result();
@@ -74,122 +155,31 @@ try {
 
     $jumlah_kegiatan = count($kegiatan_list);
     $status_partisipasi = ($jumlah_kegiatan > 0) ? 'Sudah Ikut Kegiatan' : 'Belum Ikut Kegiatan';
+
 } catch (Exception $e) {
     echo "Error: " . htmlspecialchars($e->getMessage());
     exit;
 }
 ?>
 
-<!-- (CSS sama seperti sebelumnya) -->
 <style>
-    /* ... (tetap gunakan CSS yang sudah ada di file asli) ... */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
-    body {
-        font-family: 'Poppins', sans-serif;
-        background: #f0f4f8;
-    }
-
-    .content-wrapper {
-        padding: 1rem;
-        transition: margin-left 0.3s ease;
-    }
-
-    @media (min-width: 640px) {
-        .content-wrapper {
-            margin-left: 16rem;
-            padding-top: 2rem;
-        }
-    }
-
-    .card {
-        background: #fff;
-        border-radius: 1rem;
-        padding: 2.5rem;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-    }
-
-    .badge-green {
-        background: #d1f7e3;
-        color: #28a745;
-        font-weight: 600;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.875rem;
-    }
-
-    .badge-red {
-        background: #fce8e8;
-        color: #dc3545;
-        font-weight: 600;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.875rem;
-    }
-
-    .table-container {
-        overflow-x: auto;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.95rem;
-    }
-
-    thead th {
-        background: #e2e8f0;
-        color: #4a5568;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 1rem 1.5rem;
-        text-align: left;
-    }
-
-    tbody td {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    tbody tr:hover {
-        background: #f9fafb;
-    }
-
-    .btn-delete {
-        background: #ef4444;
-        color: #fff;
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-    .btn-delete:hover {
-        background: #dc2626;
-    }
-
-    .btn-back {
-        display: inline-flex;
-        align-items: center;
-        /* Mengurangi padding untuk ukuran yang lebih kecil */
-        padding: 0.5rem;
-        border-radius: 9999px;
-        background-color: #e5e7eb;
-        color: #4b5563;
-        transition: background-color 0.2s, color 0.2s;
-    }
-
-    .btn-back:hover {
-        background-color: #d1d5db;
-        color: #111827;
-    }
-
-    .btn-back svg {
-        /* Mengurangi ukuran SVG ikon */
-        height: 1rem;
-        width: 1rem;
-    }
+    body { font-family: 'Poppins', sans-serif; background: #f0f4f8; }
+    .content-wrapper { padding: 1rem; transition: margin-left 0.3s ease; }
+    @media (min-width: 640px) { .content-wrapper { margin-left: 16rem; padding-top: 2rem; } }
+    .card { background: #fff; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); }
+    .badge-green { background: #d1f7e3; color: #28a745; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; }
+    .badge-red { background: #fce8e8; color: #dc3545; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; }
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    thead th { background: #e2e8f0; color: #4a5568; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 1.5rem; text-align: left; }
+    tbody td { padding: 1rem 1.5rem; border-bottom: 1px solid #e2e8f0; }
+    tbody tr:hover { background: #f9fafb; }
+    .btn-delete { background: #ef4444; color: #fff; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 500; }
+    .btn-delete:hover { background: #dc2626; }
+    .btn-back { display: inline-flex; align-items: center; padding: 0.5rem; border-radius: 9999px; background-color: #e5e7eb; color: #4b5563; transition: background-color 0.2s, color 0.2s; }
+    .btn-back:hover { background-color: #d1d5db; color: #111827; }
+    .btn-back svg { height: 1rem; width: 1rem; }
 </style>
 
 <div class="content-wrapper">
@@ -207,21 +197,10 @@ try {
             <div>
                 <h2 class="text-2xl font-semibold text-gray-800 mb-4">Informasi Mitra</h2>
                 <div class="space-y-4">
-                    <div class="flex items-center space-x-4">
-                        <p class="text-gray-500 w-40">Nama Mitra:</p>
-                        <p class="font-medium text-lg text-gray-900"><?= htmlspecialchars($mitra['nama_lengkap']) ?></p>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <p class="text-gray-500 w-40">Kecamatan:</p>
-                        <p class="font-medium text-lg text-gray-900"><?= htmlspecialchars($mitra['nama_kecamatan']) ?></p>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <p class="text-gray-500 w-40">Status Partisipasi:</p><span class="badge <?= ($status_partisipasi == 'Sudah Ikut Kegiatan') ? 'badge-green' : 'badge-red' ?>"><?= htmlspecialchars($status_partisipasi) ?></span>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <p class="text-gray-500 w-40">Jumlah Kegiatan:</p>
-                        <p class="font-medium text-lg text-gray-900"><?= htmlspecialchars($jumlah_kegiatan) ?></p>
-                    </div>
+                    <div class="flex items-center space-x-4"><p class="text-gray-500 w-40">Nama Mitra:</p><p class="font-medium text-lg text-gray-900"><?= htmlspecialchars($mitra['nama_lengkap']) ?></p></div>
+                    <div class="flex items-center space-x-4"><p class="text-gray-500 w-40">Alamat:</p><p class="font-medium text-lg text-gray-900"><?= htmlspecialchars($mitra['alamat_detail'] ?? '-') ?></p></div>
+                    <div class="flex items-center space-x-4"><p class="text-gray-500 w-40">Status Partisipasi:</p><span class="badge <?= ($status_partisipasi == 'Sudah Ikut Kegiatan') ? 'badge-green' : 'badge-red' ?>"><?= htmlspecialchars($status_partisipasi) ?></span></div>
+                    <div class="flex items-center space-x-4"><p class="text-gray-500 w-40">Jumlah Kegiatan:</p><p class="font-medium text-lg text-gray-900"><?= htmlspecialchars($jumlah_kegiatan) ?></p></div>
                 </div>
             </div>
 
@@ -233,14 +212,14 @@ try {
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Nama Kegiatan</th>
+                                    <th>Nama Kegiatan</th> 
                                     <th>Nama Item</th>
                                     <th>Satuan</th>
                                     <th>Jumlah</th>
                                     <th>Total Honor</th>
-                                    <th>Bulan</th>
+                                    <th>Periode</th> 
                                     <th>Tahun</th>
-                                    <?php if (in_array($user_role, ['super_admin'])): ?><th>Aksi</th><?php endif; ?>
+                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -253,9 +232,19 @@ try {
                                         <td><?= htmlspecialchars($keg['satuan'] ?? '-') ?></td>
                                         <td><?= htmlspecialchars($keg['jumlah_satuan'] ?? '-') ?></td>
                                         <td><?= number_format($keg['total_honor'] ?? 0, 0, ',', '.') ?></td>
-                                        <td><?= htmlspecialchars($keg['bulan_pembayaran'] ?? '-') ?></td>
+                                        
+                                        <td>
+                                            <?php 
+                                                if (!empty($keg['periode_jenis'])) {
+                                                    echo htmlspecialchars(formatPeriode($keg['periode_jenis'], $keg['periode_nilai']));
+                                                } else {
+                                                    echo htmlspecialchars($list_bulan_biasa[(int)$keg['bulan_pembayaran']] ?? '-');
+                                                }
+                                            ?>
+                                        </td>
+                                        
                                         <td><?= htmlspecialchars($keg['tahun_pembayaran'] ?? '-') ?></td>
-                                        <?php if (in_array($user_role, ['super_admin'])): ?>
+                                        <?php if ($has_access_for_action): ?>
                                             <td>
                                                 <a href="../proses/delete_kegiatan.php?id=<?= htmlspecialchars($keg['honor_id']) ?>" class="btn-delete" onclick="return confirm('Apakah Anda yakin ingin menghapus kegiatan ini?');">Hapus</a>
                                             </td>

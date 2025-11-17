@@ -10,6 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['id'])) {
 $id = $_POST['id'];
 
 try {
+    // === Ambil semua data dari form ===
     $id_mitra = $_POST['id_mitra'] ?? '';
     $nama_lengkap = $_POST['nama_lengkap'] ?? '';
     $nik = $_POST['nik'] ?? '';
@@ -21,6 +22,8 @@ try {
     $pekerjaan = $_POST['pekerjaan'] ?? '';
     $deskripsi_pekerjaan_lain = $_POST['deskripsi_pekerjaan_lain'] ?? '';
     $npwp = $_POST['npwp'] ?? '';
+    $norek = $_POST['norek'] ?? ''; // ✅ kolom baru
+    $bank = $_POST['bank'] ?? '';   // ✅ kolom baru
     $no_telp = $_POST['no_telp'] ?? '';
     $email = $_POST['email'] ?? '';
 
@@ -31,11 +34,11 @@ try {
     $nama_desa = $_POST['nama_desa'] ?? '';
     $alamat_detail = $_POST['alamat_detail'] ?? '';
     $domisili_sama = isset($_POST['domisili_sama']) ? 1 : 0;
-    
+
     $mengikuti_pendataan_bps = $_POST['mengikuti_pendataan_bps'] ?? 'Tidak';
     $posisi = $_POST['posisi'] ?? null;
-    
-    // Perbaikan: Gunakan ternary operator untuk mengubah nilai checkbox menjadi 1 atau 0
+
+    // Checkbox pengalaman survei
     $sp = isset($_POST['sp']) ? 1 : 0;
     $st = isset($_POST['st']) ? 1 : 0;
     $se = isset($_POST['se']) ? 1 : 0;
@@ -43,53 +46,59 @@ try {
     $sakernas = isset($_POST['sakernas']) ? 1 : 0;
     $sbh = isset($_POST['sbh']) ? 1 : 0;
 
+    // === Susun query dinamis ===
     $params = [];
     $types = "";
-
     $sql = "UPDATE mitra SET id_mitra = ?";
     $params[] = $id_mitra;
     $types .= "s";
 
-    if ($nama_lengkap !== '') { $sql .= ", nama_lengkap = ?"; $params[] = $nama_lengkap; $types .= "s"; }
-    if ($nik !== '') { $sql .= ", nik = ?"; $params[] = $nik; $types .= "s"; }
-    if ($tanggal_lahir !== null) { $sql .= ", tanggal_lahir = ?"; $params[] = $tanggal_lahir; $types .= "s"; }
-    if ($jenis_kelamin !== '') { $sql .= ", jenis_kelamin = ?"; $params[] = $jenis_kelamin; $types .= "s"; }
-    if ($agama !== '') { $sql .= ", agama = ?"; $params[] = $agama; $types .= "s"; }
-    if ($status_perkawinan !== '') { $sql .= ", status_perkawinan = ?"; $params[] = $status_perkawinan; $types .= "s"; }
-    if ($pendidikan !== '') { $sql .= ", pendidikan = ?"; $params[] = $pendidikan; $types .= "s"; }
-    if ($pekerjaan !== '') { $sql .= ", pekerjaan = ?"; $params[] = $pekerjaan; $types .= "s"; }
-    if ($deskripsi_pekerjaan_lain !== '') { $sql .= ", deskripsi_pekerjaan_lain = ?"; $params[] = $deskripsi_pekerjaan_lain; $types .= "s"; }
-    if ($npwp !== '') { $sql .= ", npwp = ?"; $params[] = $npwp; $types .= "s"; }
-    if ($no_telp !== '') { $sql .= ", no_telp = ?"; $params[] = $no_telp; $types .= "s"; }
-    if ($email !== '') { $sql .= ", email = ?"; $params[] = $email; $types .= "s"; }
+    // Tambahkan kolom jika ada isinya
+    $fields = [
+        'nama_lengkap' => $nama_lengkap,
+        'nik' => $nik,
+        'tanggal_lahir' => $tanggal_lahir,
+        'jenis_kelamin' => $jenis_kelamin,
+        'agama' => $agama,
+        'status_perkawinan' => $status_perkawinan,
+        'pendidikan' => $pendidikan,
+        'pekerjaan' => $pekerjaan,
+        'deskripsi_pekerjaan_lain' => $deskripsi_pekerjaan_lain,
+        'npwp' => $npwp,
+        'norek' => $norek, // ✅ ditambahkan
+        'bank' => $bank,   // ✅ ditambahkan
+        'no_telp' => $no_telp,
+        'email' => $email,
+        'alamat_provinsi' => $alamat_provinsi,
+        'alamat_kabupaten' => $alamat_kabupaten,
+        'nama_kecamatan' => $nama_kecamatan,
+        'alamat_desa' => $alamat_desa,
+        'nama_desa' => $nama_desa,
+        'alamat_detail' => $alamat_detail,
+        'mengikuti_pendataan_bps' => $mengikuti_pendataan_bps,
+        'posisi' => $posisi
+    ];
 
-    if ($alamat_provinsi !== '') { $sql .= ", alamat_provinsi = ?"; $params[] = $alamat_provinsi; $types .= "s"; }
-    if ($alamat_kabupaten !== '') { $sql .= ", alamat_kabupaten = ?"; $params[] = $alamat_kabupaten; $types .= "s"; }
-    if ($nama_kecamatan !== '') { $sql .= ", nama_kecamatan = ?"; $params[] = $nama_kecamatan; $types .= "s"; }
-    if ($alamat_desa !== '') { $sql .= ", alamat_desa = ?"; $params[] = $alamat_desa; $types .= "s"; }
-    if ($nama_desa !== '') { $sql .= ", nama_desa = ?"; $params[] = $nama_desa; $types .= "s"; }
-    if ($alamat_detail !== '') { $sql .= ", alamat_detail = ?"; $params[] = $alamat_detail; $types .= "s"; }
-    $sql .= ", domisili_sama = ?"; $params[] = $domisili_sama; $types .= "i";
+    foreach ($fields as $key => $value) {
+        if ($value !== '' && $value !== null) {
+            $sql .= ", $key = ?";
+            $params[] = $value;
+            $types .= "s";
+        }
+    }
 
-    if ($mengikuti_pendataan_bps !== '') { $sql .= ", mengikuti_pendataan_bps = ?"; $params[] = $mengikuti_pendataan_bps; $types .= "s"; }
-    if ($posisi !== '') { $sql .= ", posisi = ?"; $params[] = $posisi; $types .= "s"; }
-    
-    // Perbaikan: Tambahkan semua parameter checkbox dengan tipe integer (i)
-    $sql .= ", sp = ?, st = ?, se = ?, susenas = ?, sakernas = ?, sbh = ?";
-    $params[] = $sp;
-    $params[] = $st;
-    $params[] = $se;
-    $params[] = $susenas;
-    $params[] = $sakernas;
-    $params[] = $sbh;
-    $types .= "iiiiii";
+    // Kolom boolean/checkbox
+    $sql .= ", domisili_sama = ?, sp = ?, st = ?, se = ?, susenas = ?, sakernas = ?, sbh = ?";
+    array_push($params, $domisili_sama, $sp, $st, $se, $susenas, $sakernas, $sbh);
+    $types .= "iiiiiii";
 
+    // === Upload foto baru (jika ada) ===
     if (isset($_FILES['foto']) && $_FILES['foto']['error'] == 0) {
         $target_dir = "../uploads/";
         if (!is_dir($target_dir)) {
             mkdir($target_dir, 0777, true);
         }
-        
+
         $stmt_old_foto = $koneksi->prepare("SELECT foto FROM mitra WHERE id = ?");
         $stmt_old_foto->bind_param("s", $id);
         $stmt_old_foto->execute();
@@ -108,7 +117,7 @@ try {
             $sql .= ", foto = ?";
             $params[] = $foto_path;
             $types .= "s";
-            
+
             if ($old_foto_path && file_exists($target_dir . $old_foto_path)) {
                 unlink($target_dir . $old_foto_path);
             }
@@ -117,15 +126,17 @@ try {
         }
     }
 
+    // WHERE clause
     $sql .= " WHERE id = ?";
     $params[] = $id;
     $types .= "s";
 
+    // === Eksekusi ===
     $stmt = $koneksi->prepare($sql);
     if ($stmt === false) {
         throw new Exception('Gagal menyiapkan statement: ' . $koneksi->error);
     }
-    
+
     $stmt->bind_param($types, ...$params);
 
     if ($stmt->execute()) {

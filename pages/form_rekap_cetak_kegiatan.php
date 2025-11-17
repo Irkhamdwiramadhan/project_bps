@@ -1,14 +1,14 @@
 <?php
 session_start();
-include "../includes/koneksi.php";
-include "../includes/header.php";
-include "../includes/sidebar.php";
+include '../includes/koneksi.php';
+include '../includes/header.php';
+include '../includes/sidebar.php';
 
-// Ambil daftar tim dari database
+// Ambil daftar Tim untuk filter
 $sql_tim = "SELECT id, nama_tim FROM tim ORDER BY nama_tim ASC";
 $result_tim = $koneksi->query($sql_tim);
 $tim_list = [];
-if ($result_tim && $result_tim->num_rows > 0) {
+if ($result_tim) {
     while ($row = $result_tim->fetch_assoc()) {
         $tim_list[] = $row;
     }
@@ -16,110 +16,64 @@ if ($result_tim && $result_tim->num_rows > 0) {
 ?>
 
 <style>
-.card {
-    background: #fff;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-    margin: 20px auto;
-    max-width: 700px;
-}
-h3 {
-    margin-bottom: 1rem;
-    color: #333;
-    text-align: center;
-}
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-label {
-    font-weight: bold;
-    margin-bottom: 0.3rem;
-}
-select, input {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-}
-.btn {
-    padding: 10px 16px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    color: #fff;
-    font-weight: 600;
-}
-.btn-primary {
-    background-color: #007bff;
-}
-.btn-primary:hover {
-    background-color: #0056b3;
-}
-.btn-secondary {
-    background-color: #6c757d;
-}
-.btn-secondary:hover {
-    background-color: #545b62;
-}
-.actions {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 1rem;
-}
-@media (max-width: 600px) {
-    .card {
-        padding: 15px;
-        margin: 10px;
+    body { background-color: #e2e8f0; }
+    .main-content { padding: 2rem; }
+    .card { background-color: #ffffff; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 1.5rem; }
+    label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #4a5568; }
+    .form-select, .form-input { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; }
+    .btn-success { background-color: #10b981; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: bold; border: none; cursor: pointer; }
+    .btn-success:hover { background-color: #059669; }
+    
+    /* Style khusus untuk multi-select biasa jika tidak pakai Select2 */
+    select[multiple] {
+        height: 150px;
     }
-}
+    .help-text { font-size: 0.85rem; color: #64748b; margin-top: 5px; }
 </style>
 
 <div class="main-content">
     <div class="card">
-        <h3>Form Cetak Rekap Kegiatan Tim</h3>
+        <h2 style="margin-bottom: 1.5rem; font-size: 1.5rem; font-weight: bold; color: #1e293b;">
+            Cetak Rekap Honor (Excel)
+        </h2>
 
-        <form method="GET" action="../proses/cetak_kegiatan_tim_excel.php" target="_blank">
+        <form action="../proses/export_excel_rekap.php" method="POST" target="_blank">
+            
             <div class="form-group">
-                <label>Pilih Tahun</label>
-                <input type="number" name="tahun" value="<?= date('Y') ?>" required>
-            </div>
-
-            <div class="form-group">
-                <label>Pilih Bulan</label>
-                <select name="bulan">
-                    <option value="">-- Semua Bulan --</option>
-                    <?php
-                    for ($m = 1; $m <= 12; $m++) {
-                        $bulan_nama = date('F', mktime(0, 0, 0, $m, 1));
-                        echo "<option value='$m'>$bulan_nama</option>";
-                    }
-                    ?>
+                <label>Bulan Pembayaran</label>
+                <select name="bulan" class="form-select" required>
+                    <option value="">-- Pilih Bulan --</option>
+                    <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                    <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                    <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                    <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label>Pilih Tim</label>
-                <select name="tim_id">
-                    <option value="">-- Semua Tim --</option>
-                    <?php foreach ($tim_list as $tim): ?>
+                <label>Tahun Anggaran</label>
+                <input type="number" name="tahun" class="form-input" value="<?= date('Y') ?>" required>
+            </div>
+
+            <div class="form-group">
+                <label>Pilih Tim (Bisa lebih dari satu)</label>
+                <select name="tim_id[]" class="form-select" multiple required>
+                    <?php foreach ($tim_list as $tim) : ?>
                         <option value="<?= $tim['id'] ?>"><?= htmlspecialchars($tim['nama_tim']) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <p class="help-text">* Tahan tombol <strong>CTRL</strong> (Windows) atau <strong>Command</strong> (Mac) untuk memilih beberapa tim sekaligus.</p>
             </div>
 
-            <div class="actions">
-                <button type="submit" class="btn btn-primary">Download Excel</button>
-                <a href="rekap_kegiatan_tim.php" class="btn btn-secondary">Kembali</a>
+            <div style="margin-top: 2rem;">
+                <button type="submit" class="btn-success">
+                    Download Excel
+                </button>
             </div>
+
         </form>
     </div>
 </div>
 
-<?php include "../includes/footer.php"; ?>
+<?php include '../includes/footer.php'; ?>

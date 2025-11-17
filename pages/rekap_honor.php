@@ -15,6 +15,21 @@ $nama_bulan = [
     '09' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'Desember'
 ];
 
+// --- REVISI: Ambil Daftar Tahun Unik dari Database ---
+$tahun_list = [];
+$sql_tahun = "SELECT DISTINCT tahun_pembayaran FROM honor_mitra ORDER BY tahun_pembayaran DESC";
+$res_tahun = $koneksi->query($sql_tahun);
+if ($res_tahun) {
+    while ($row = $res_tahun->fetch_assoc()) {
+        $tahun_list[] = $row['tahun_pembayaran'];
+    }
+}
+// Jika database kosong, tetap tampilkan tahun sekarang
+if (empty($tahun_list)) {
+    $tahun_list[] = date('Y');
+}
+// ----------------------------------------------------
+
 // Ambil batas honor (honor cap) untuk bulan dan tahun yang sama
 try {
     $sql_limit = "SELECT batas_honor FROM batas_honor WHERE bulan = ? AND tahun = ?";
@@ -234,29 +249,22 @@ try {
                 <label for="bulan">Bulan</label>
                 <select id="bulan" name="bulan">
                     <?php
-                    $months = [
-                        '01' => 'Januari', '02' => 'Februari', '03' => 'Maret',
-                        '04' => 'April', '05' => 'Mei', '06' => 'Juni',
-                        '07' => 'Juli', '08' => 'Agustus', '09' => 'September',
-                        '10' => 'Oktober', '11' => 'November', '12' => 'Desember'
-                    ];
-                    foreach ($months as $num => $name) {
+                    foreach ($nama_bulan as $num => $name) {
                         $selected = ($num == $bulan_filter) ? 'selected' : '';
                         echo "<option value=\"$num\" $selected>$name</option>";
                     }
                     ?>
                 </select>
             </div>
+            
             <div class="filter-group">
                 <label for="tahun">Tahun</label>
                 <select id="tahun" name="tahun">
-                    <?php
-                    $current_year = date('Y');
-                    for ($i = $current_year; $i >= $current_year - 5; $i--) {
-                        $selected = ($i == $tahun_filter) ? 'selected' : '';
-                        echo "<option value=\"$i\" $selected>$i</option>";
-                    }
-                    ?>
+                    <?php foreach ($tahun_list as $thn) : ?>
+                        <option value="<?= $thn ?>" <?= ($thn == $tahun_filter) ? 'selected' : '' ?>>
+                            <?= $thn ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
             </div>
             <button type="submit">Tampilkan</button>
@@ -289,7 +297,7 @@ try {
                                     $status = 'Hampir Limit';
                                     $badge_class = 'bg-yellow-100';
                                 } elseif ($total_honor >= $honor_limit) {
-                                    $status = 'sensus';
+                                    $status = 'Melebihi Limit'; // Sesuaikan teks status
                                     $badge_class = 'bg-red-100';
                                 }
                                 ?>
@@ -323,7 +331,7 @@ try {
 </div>
 
 <?php
-if ($result_rekap instanceof mysqli_result) { $result_rekap->free(); }
+if (isset($result_rekap) && $result_rekap instanceof mysqli_result) { $result_rekap->free(); }
 if (isset($result_limit) && $result_limit instanceof mysqli_result) { $result_limit->free(); }
 $koneksi->close();
 include '../includes/footer.php';

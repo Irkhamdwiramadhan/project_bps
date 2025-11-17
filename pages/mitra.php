@@ -138,81 +138,17 @@ if ($result_tahun && $result_tahun->num_rows > 0) {
     }
 
     .data-table th,
-    .data-table td {
-        padding: 15px;
-        text-align: left;
-        border-bottom: 1px solid #f0f0f0;
-    }
+   
 
-    .data-table thead th {
-        background-color: #f9fafb;
-        font-weight: 600;
-        color: #777;
-        text-transform: uppercase;
-        font-size: 0.9rem;
-    }
 
     .data-table tbody tr:hover {
         background-color: #f5f5f5;
     }
 
-    /* Media Queries untuk Desain Responsif */
-    @media (max-width: 768px) {
-        .data-table-container {
-            border-radius: 0;
-            box-shadow: none;
-        }
-        .data-table {
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-        .data-table thead {
-            display: none; /* Menyembunyikan header tabel */
-        }
-        .data-table,
-        .data-table tbody,
-        .data-table tr,
-        .data-table td {
-            display: block; /* Mengubah sel menjadi blok */
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .data-table tr {
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 10px;
-            background-color: #fff;
-        }
-        .data-table td {
-            text-align: right;
-            padding-left: 50%; /* Memberi ruang untuk data-label */
-            position: relative;
-        }
-        .data-table td::before {
-            content: attr(data-label);
-            position: absolute;
-            left: 10px;
-            width: 45%;
-            text-align: left;
-            font-weight: bold;
-            color: #555;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .data-table td:first-of-type {
-            padding-top: 15px;
-        }
-        .data-table td:last-of-type {
-            border-bottom: none;
-        }
-        .btn-action {
-            margin: 5px;
-        }
-    }
+        
+      
+       
+    
 </style>
 
 <div class="content-wrapper min-h-screen">
@@ -254,17 +190,16 @@ if ($result_tahun && $result_tahun->num_rows > 0) {
                     <tr>
                         <th>No.</th>
                         <th>Nama Lengkap</th>
-                        <th>NIK</th>
-                        <th>Pekerjaan</th>
-                        <th>Pendidikan</th>
-                        <th>Kecamatan</th>
+                        <th>No Rek</th>
+                       
+                        <th>Alamat</th>
                         <th>Tahun</th> <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
                     // **Penting: Penggunaan Prepared Statement untuk Mencegah SQL Injection**
-                    $sql = "SELECT id, nama_lengkap, nik, foto, pekerjaan, pendidikan, nama_kecamatan, tahun FROM mitra WHERE 1=1";
+                    $sql = "SELECT id, nama_lengkap, nik, norek, foto, pekerjaan, pendidikan, alamat_detail, tahun FROM mitra WHERE 1=1";
                     $types = "";
                     $params = [];
 
@@ -313,10 +248,9 @@ if ($result_tahun && $result_tahun->num_rows > 0) {
                                 <tr>
                                     <td data-label="No."><?= $no++ ?></td>
                                     <td data-label="Nama Lengkap"><?= htmlspecialchars($row['nama_lengkap']) ?></td>
-                                    <td data-label="NIK"><?= htmlspecialchars($row['nik']) ?></td>
-                                    <td data-label="Pekerjaan"><?= htmlspecialchars($row['pekerjaan'] ?? '-') ?></td>
-                                    <td data-label="Pendidikan"><?= htmlspecialchars($row['pendidikan'] ?? '-') ?></td>
-                                    <td data-label="Kecamatan"><?= htmlspecialchars($row['nama_kecamatan'] ?? '-') ?></td>
+                                    <td data-label="NIK"><?= htmlspecialchars($row['norek']) ?></td>
+                       
+                                    <td data-label="Kecamatan"><?= htmlspecialchars($row['alamat_detail'] ?? '-') ?></td>
                                     <td data-label="Tahun"><?= htmlspecialchars($row['tahun'] ?? '-') ?></td>
                                     <td data-label="Aksi">
                                         <div class="flex flex-col md:flex-row gap-2">

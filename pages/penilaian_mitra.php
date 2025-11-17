@@ -9,31 +9,36 @@ $filter_count = isset($_GET['filter_count']) ? intval($_GET['filter_count']) : 0
 $user_roles = $_SESSION['user_role'] ?? [];
 
 try {
-    // Dapatkan daftar jumlah survei unik untuk filter
+    // 1. REVISI: Hitung jumlah penilaian unik (bukan total survey)
     $sql_unique_counts = "
-        SELECT COUNT(ms.id) AS jumlah_survei
-        FROM mitra_surveys AS ms
+        SELECT COUNT(mpk.id) AS jumlah_penilaian
+        FROM mitra_penilaian_kinerja mpk
+        JOIN mitra_surveys ms ON mpk.mitra_survey_id = ms.id
         GROUP BY ms.mitra_id
-        ORDER BY jumlah_survei ASC
+        ORDER BY jumlah_penilaian ASC
     ";
     $result_unique_counts = $koneksi->query($sql_unique_counts);
     $unique_counts = [];
     if ($result_unique_counts) {
         while ($row = $result_unique_counts->fetch_assoc()) {
-            $unique_counts[] = $row['jumlah_survei'];
+            $unique_counts[] = $row['jumlah_penilaian'];
         }
         $unique_counts = array_unique($unique_counts);
+        sort($unique_counts); // Urutkan agar rapi
     }
 
-    // Query utama penilaian
+    // 2. Query utama penilaian
+    // REVISI: Menghapus u.nama (nama_penilai) dari SELECT
     $sql_penilaian = "
         SELECT
             m.id,
             m.nama_lengkap AS nama_mitra,
             m.no_telp,
             m.alamat_detail,
-            u.nama AS nama_penilai,
-            COUNT(ms.id) AS jumlah_survei,
+            -- u.nama AS nama_penilai, -- DIHAPUS
+            
+            COUNT(mpk.id) AS jumlah_survei, 
+            
             AVG(mpk.beban_kerja) AS rata_rata_beban_kerja,
             AVG(mpk.kualitas) AS rata_rata_kualitas,
             AVG(mpk.volume_pemasukan) AS rata_rata_volume_pemasukan,
@@ -45,19 +50,18 @@ try {
             mitra_surveys AS ms ON mpk.mitra_survey_id = ms.id
         JOIN
             mitra AS m ON ms.mitra_id = m.id
-        LEFT JOIN
-            pegawai AS u ON mpk.penilai_id = u.id
+        -- LEFT JOIN pegawai AS u ON mpk.penilai_id = u.id -- JOIN ini tidak diperlukan lagi jika nama tidak diambil
         WHERE
             m.nama_lengkap LIKE ?
+        -- REVISI: Menghapus u.nama dari GROUP BY
         GROUP BY
-            m.id, m.nama_lengkap, m.no_telp, m.alamat_detail, u.nama
+            m.id, m.nama_lengkap, m.no_telp, m.alamat_detail
     ";
 
     if ($filter_count > 0) {
-        $sql_penilaian .= " HAVING COUNT(ms.id) = ?";
+        $sql_penilaian .= " HAVING COUNT(mpk.id) = ?"; 
     }
 
-    // Urutkan dari skor tertinggi
     $sql_penilaian .= " ORDER BY rata_rata_penilaian DESC";
 
     $stmt_penilaian = $koneksi->prepare($sql_penilaian);
@@ -65,11 +69,11 @@ try {
         throw new Exception("Gagal menyiapkan statement: " . $koneksi->error);
     }
 
+    $search_param = '%' . $search_query . '%';
+    
     if ($filter_count > 0) {
-        $search_param = '%' . $search_query . '%';
         $stmt_penilaian->bind_param("si", $search_param, $filter_count);
     } else {
-        $search_param = '%' . $search_query . '%';
         $stmt_penilaian->bind_param("s", $search_param);
     }
 
@@ -84,61 +88,27 @@ try {
 ?>
 
 <style>
+    /* CSS ANDA (TETAP SAMA) */
     body { font-family: 'Poppins', sans-serif; background: #eef2f5; }
     .content-wrapper { padding: 1rem; transition: margin-left 0.3s ease; }
     @media (min-width: 640px) { .content-wrapper { margin-left: 16rem; padding-top: 2rem; } }
-
-    .page-actions-top {
-        display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;
-    }
-    @media (min-width: 768px) {
-        .page-actions-top { flex-direction: row; justify-content: space-between; }
-    }
-
-    .search-form {
-        display: flex; gap: 0.5rem; flex-grow: 1;
-    }
-    .search-form input, .search-form button {
-        padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem;
-    }
-    .search-form button {
-        background-color: #2563eb; color: white; font-weight: 600; cursor: pointer;
-    }
+    .page-actions-top { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+    @media (min-width: 768px) { .page-actions-top { flex-direction: row; justify-content: space-between; } }
+    .search-form { display: flex; gap: 0.5rem; flex-grow: 1; }
+    .search-form input, .search-form button { padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
+    .search-form button { background-color: #2563eb; color: white; font-weight: 600; cursor: pointer; }
     .search-form button:hover { background-color: #1d4ed8; }
-
-    .btn-tambah {
-        background-color: #28a745; color: #fff; padding: 0.75rem 1rem;
-        border-radius: 0.5rem; font-weight: 600; text-decoration: none;
-        display: flex; align-items: center; gap: 0.5rem;
-    }
+    .btn-tambah { background-color: #28a745; color: #fff; padding: 0.75rem 1rem; border-radius: 0.5rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
     .btn-tambah:hover { background-color: #218838; }
     .btn-tambah.disabled { background-color: #6c757d; cursor: not-allowed; opacity: 0.7; }
-
-    .filter-buttons {
-        display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;
-    }
-    .filter-btn {
-        padding: 0.5rem 1rem; border-radius: 0.5rem;
-        text-decoration: none; font-weight: 500; color: #4b5563;
-        border: 1px solid #d1d5db; background-color: #f9fafb;
-    }
-    .filter-btn.active, .filter-btn:hover {
-        background-color: #e5e7eb; border-color: #9ca3af;
-    }
-
-    table {
-        width: 100%; border-collapse: collapse; background: #fff;
-        border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-    th, td {
-        padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #e5e7eb;
-    }
+    .filter-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+    .filter-btn { padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 500; color: #4b5563; border: 1px solid #d1d5db; background-color: #f9fafb; }
+    .filter-btn.active, .filter-btn:hover { background-color: #e5e7eb; border-color: #9ca3af; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
     th { background-color: #f9fafb; font-weight: 600; color: #374151; }
     tr:hover { background-color: #f3f4f6; }
-    .btn-action {
-        padding: 0.4rem 0.8rem; border-radius: 0.5rem;
-        font-size: 0.875rem; font-weight: 500; text-decoration: none; color: #fff;
-    }
+    .btn-action { padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; text-decoration: none; color: #fff; }
     .btn-detail { background-color: #3b82f6; }
     .btn-detail:hover { background-color: #2563eb; }
     .btn-delete { background-color: #ef4444; }
@@ -173,7 +143,7 @@ try {
             <?php foreach ($unique_counts as $count) : ?>
                 <a href="?filter_count=<?= $count; ?>&search=<?= htmlspecialchars($search_query); ?>"
                    class="filter-btn <?= $filter_count === $count ? 'active' : '' ?>">
-                    <?= $count; ?> Survei
+                    <?= $count; ?> Penilaian
                 </a>
             <?php endforeach; ?>
         </div>
@@ -184,13 +154,10 @@ try {
                     <thead>
                         <tr>
                             <th>No</th>
-                               <th>Nama Penilai</th>
                             <th>Nama Mitra</th>
                             <th>No. Telp</th>
                             <th>Alamat</th>
-                         
-                            <th>Jumlah Survei</th>
-                 
+                            <th>Jml Penilaian</th>
                             <th>Skor Akhir</th>
                             <th>Aksi</th>
                         </tr>
@@ -199,17 +166,13 @@ try {
                         <?php $no = 1; while ($row = $result_penilaian->fetch_assoc()) : ?>
                             <tr>
                                 <td><?= $no++; ?></td>
-                                   <td><?= htmlspecialchars($row['nama_penilai'] ?? '-'); ?></td>
                                 <td><?= htmlspecialchars($row['nama_mitra']); ?></td>
                                 <td><?= htmlspecialchars($row['no_telp']); ?></td>
                                 <td><?= htmlspecialchars($row['alamat_detail']); ?></td>
-                             
                                 <td><?= htmlspecialchars($row['jumlah_survei']); ?></td>
-                                
                                 <td><strong><?= number_format($row['rata_rata_penilaian'], 2); ?></strong></td>
                                 <td>
-                                    <a href="detail_penilaian.php?id=<?= htmlspecialchars($row['id']) ?>" class="btn-action btn-detail">Detail</a>
-                             
+                                    <a href="detail_penilaian.php?mitra_id=<?= htmlspecialchars($row['id']) ?>" class="btn-action btn-detail">Detail</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>

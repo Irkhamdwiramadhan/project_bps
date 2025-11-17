@@ -1,0 +1,58 @@
+
+
+
+
+
+
+-- 3. Buat tabel pivot baru penghubung Mitra <-> Tim
+CREATE TABLE mitra_tim (
+  mitra_id INT(11) NOT NULL,
+  tim_id INT(11) NOT NULL,
+  PRIMARY KEY (mitra_id, tim_id),
+  
+  CONSTRAINT fk_mitra_tim_mitra 
+    FOREIGN KEY (mitra_id) REFERENCES mitra(id) ON DELETE CASCADE,
+    
+  CONSTRAINT fk_mitra_tim_tim 
+    FOREIGN KEY (tim_id) REFERENCES tim(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+ALTER TABLE mitra 
+ADD COLUMN norek VARCHAR(30) AFTER email,
+ADD COLUMN bank VARCHAR(50) AFTER norek;
+
+
+
+ALTER TABLE mitra 
+DROP PRIMARY KEY;
+
+ALTER TABLE mitra 
+MODIFY COLUMN id INT(11) NOT NULL AUTO_INCREMENT,
+ADD PRIMARY KEY (id);
+
+-- 1. Jadikan ID sebagai Primary Key
+ALTER TABLE mitra_surveys
+ADD PRIMARY KEY (id);
+
+-- 2. AKTIFKAN AUTO INCREMENT (Ini yang paling penting agar ID otomatis jadi 1, 2, 3...)
+ALTER TABLE mitra_surveys
+MODIFY id INT(11) NOT NULL AUTO_INCREMENT;
+
+
+
+
+-- 1. Set variabel penghitung mulai dari 0
+SET @no = 0;
+
+-- 2. Update kolom ID dengan nomor urut baru
+-- Kita urutkan berdasarkan tanggal_input agar ID-nya rapi secara kronologis
+UPDATE honor_mitra 
+SET id = (@no := @no + 1) 
+ORDER BY tanggal_input ASC;
+
+ALTER TABLE honor_mitra
+ADD PRIMARY KEY (id);
+
+ALTER TABLE honor_mitra
+MODIFY id INT(11) NOT NULL AUTO_INCREMENT;

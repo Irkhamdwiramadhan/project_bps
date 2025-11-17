@@ -54,13 +54,13 @@ include '../includes/sidebar.php';
         }
     }
 
-    /* Gaya untuk card utama */
     .detail-card {
         max-width: 1000px;
         margin: auto;
         background-color: #ffffff;
         border-radius: 1.5rem;
-        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1),
+                    0 4px 10px -2px rgba(0, 0, 0, 0.05);
         padding: 3rem;
         margin-top: 2rem;
         margin-bottom: 2rem;
@@ -71,14 +71,15 @@ include '../includes/sidebar.php';
         border-radius: 0.75rem;
         margin-bottom: 2rem;
     }
-    
-    /* Warna latar belakang untuk setiap bagian */
+
     .section-container.data-pribadi {
         background-color: #f6f8fb;
     }
+
     .section-container.alamat-info {
         background-color: #f6fafc;
     }
+
     .section-container.pengalaman-survei {
         background-color: #f6f8fb;
     }
@@ -148,7 +149,8 @@ include '../includes/sidebar.php';
         transition: all 0.3s ease;
         border: none;
         cursor: pointer;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                    0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
 
     .btn-primary {
@@ -218,13 +220,18 @@ include '../includes/sidebar.php';
                     <p class="label">NPWP:</p>
                     <p class="value"><?= htmlspecialchars($mitra['npwp']); ?></p>
                 </div>
-<<<<<<< HEAD
-                   <div class="detail-group">
+                <div class="detail-group">
+                    <p class="label">Nomor Rekening:</p>
+                    <p class="value"><?= htmlspecialchars($mitra['norek'] ?? '-'); ?></p>
+                </div>
+                <div class="detail-group">
+                    <p class="label">Bank:</p>
+                    <p class="value"><?= htmlspecialchars($mitra['bank'] ?? '-'); ?></p>
+                </div>
+                <div class="detail-group">
                     <p class="label">Tahun:</p>
                     <p class="value"><?= htmlspecialchars($mitra['tahun']); ?></p>
                 </div>
-=======
->>>>>>> c0cd62f89277ac23b11b5e4c99e5ac499444ecef
             </div>
         </div>
 
@@ -276,30 +283,14 @@ include '../includes/sidebar.php';
                 <div class="detail-group md:col-span-2 lg:col-span-3">
                     <p class="label">Kategori Survei yang Diikuti:</p>
                     <div class="flex flex-wrap gap-4 mt-2">
-                        <p class="value">
-                            <span class="font-semibold">SP:</span> <?= ($mitra['sp'] == 1) ? 'Ya' : 'Tidak'; ?>
-                        </p>
-                        <p class="value">
-                            <span class="font-semibold">ST:</span> <?= ($mitra['st'] == 1) ? 'Ya' : 'Tidak'; ?>
-                        </p>
-                        <p class="value">
-                            <span class="font-semibold">SE:</span> <?= ($mitra['se'] == 1) ? 'Ya' : 'Tidak'; ?>
-                        </p>
-                        <p class="value">
-                            <span class="font-semibold">Susenas:</span> <?= ($mitra['susenas'] == 1) ? 'Ya' : 'Tidak'; ?>
-                        </p>
-                        <p class="value">
-                            <span class="font-semibold">Sakernas:</span> <?= ($mitra['sakernas'] == 1) ? 'Ya' : 'Tidak'; ?>
-                        </p>
-                        <p class="value">
-                            <span class="font-semibold">SBH:</span> <?= ($mitra['sbh'] == 1) ? 'Ya' : 'Tidak'; ?>
-                        </p>
+                        <p class="value"><span class="font-semibold">SP:</span> <?= ($mitra['sp'] == 1) ? 'Ya' : 'Tidak'; ?></p>
+                        <p class="value"><span class="font-semibold">ST:</span> <?= ($mitra['st'] == 1) ? 'Ya' : 'Tidak'; ?></p>
+                        <p class="value"><span class="font-semibold">SE:</span> <?= ($mitra['se'] == 1) ? 'Ya' : 'Tidak'; ?></p>
+                        <p class="value"><span class="font-semibold">Susenas:</span> <?= ($mitra['susenas'] == 1) ? 'Ya' : 'Tidak'; ?></p>
+                        <p class="value"><span class="font-semibold">Sakernas:</span> <?= ($mitra['sakernas'] == 1) ? 'Ya' : 'Tidak'; ?></p>
+                        <p class="value"><span class="font-semibold">SBH:</span> <?= ($mitra['sbh'] == 1) ? 'Ya' : 'Tidak'; ?></p>
                     </div>
                 </div>
-<<<<<<< HEAD
-             
-=======
->>>>>>> c0cd62f89277ac23b11b5e4c99e5ac499444ecef
             </div>
         </div>
 

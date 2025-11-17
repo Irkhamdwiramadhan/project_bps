@@ -2,7 +2,6 @@
 session_start();
 include '../includes/koneksi.php';
 
-// Pastikan request POST + ada file
 if ($_SERVER["REQUEST_METHOD"] !== "POST" || !isset($_FILES['excel_file'])) {
     header('Location: ../pages/tambah_mitra.php?status=error&message=Permintaan_tidak_valid');
     exit;
@@ -13,13 +12,17 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 try {
-    // Validasi jenis file
+
+    // ============================
+    // VALIDASI FILE
+    // ============================
     $allowedFileTypes = [
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel'
     ];
+
     if (!in_array($_FILES['excel_file']['type'], $allowedFileTypes)) {
-        throw new Exception("Jenis file tidak didukung. Gunakan file Excel (.xlsx / .xls).");
+        throw new Exception("File tidak valid. Harus .xlsx atau .xls");
     }
 
     $inputFileName = $_FILES['excel_file']['tmp_name'];
@@ -27,125 +30,211 @@ try {
     $sheetData     = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
 
     if (empty($sheetData) || count($sheetData) < 2) {
-        throw new Exception("File Excel kosong atau tidak ada data.");
+        throw new Exception("File Excel kosong.");
     }
 
-    // Mulai transaksi
     $koneksi->begin_transaction();
 
-    // Perbaikan: Tambahkan kolom 'tahun' ke dalam query
-    $sql = "INSERT INTO mitra (
+
+    // ============================
+    // PREPARED STATEMENT
+    // ============================
+
+    // Check existing
+    $sql_check = "SELECT id FROM mitra WHERE nama_lengkap = ? AND email = ?";
+    $stmt_check = $koneksi->prepare($sql_check);
+
+    // INSERT (31 kolom)
+    $sql_insert = "INSERT INTO mitra (
         id_mitra, nama_lengkap, nik, tanggal_lahir, jenis_kelamin, agama,
         status_perkawinan, pendidikan, pekerjaan, deskripsi_pekerjaan_lain,
         npwp, no_telp, email, alamat_provinsi, alamat_kabupaten, nama_kecamatan,
         alamat_desa, alamat_detail, domisili_sama, posisi, mengikuti_pendataan_bps,
-        sp, st, se, susenas, sakernas, sbh, tahun, tanggal_registrasi
-    ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-    )";
+        sp, st, se, susenas, sakernas, sbh, tahun, norek, bank, tanggal_registrasi
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    $stmt = $koneksi->prepare($sql);
-    if (!$stmt) {
-        throw new Exception("Gagal menyiapkan statement: " . $koneksi->error);
+    $stmt_insert = $koneksi->prepare($sql_insert);
+
+    // UPDATE (29 kolom)
+    $sql_update = "UPDATE mitra SET
+        id_mitra = ?, nik = ?, tanggal_lahir = ?, jenis_kelamin = ?, agama = ?,
+        status_perkawinan = ?, pendidikan = ?, pekerjaan = ?, deskripsi_pekerjaan_lain = ?,
+        npwp = ?, no_telp = ?, alamat_provinsi = ?, alamat_kabupaten = ?, nama_kecamatan = ?,
+        alamat_desa = ?, alamat_detail = ?, domisili_sama = ?, posisi = ?, mengikuti_pendataan_bps = ?,
+        sp = ?, st = ?, se = ?, susenas = ?, sakernas = ?, sbh = ?,
+        tahun = ?, norek = ?, bank = ?
+    WHERE id = ?";
+
+    $stmt_update = $koneksi->prepare($sql_update);
+
+    if (!$stmt_check || !$stmt_insert || !$stmt_update) {
+        throw new Exception("Gagal menyiapkan prepared statement");
     }
 
-    $inserted_rows = 0;
-    $skipped_rows  = [];
 
-    // Iterasi setiap baris (mulai baris ke-2 = setelah header)
-    foreach ($sheetData as $row_index => $row) {
-        if ($row_index < 2) continue;
+    // ============================
+    // LOOP DATA EXCEL
+    // ============================
+    $inserted = 0;
+    $updated  = 0;
+    $skipped  = [];
 
-        // Pemetaan dari Kolom Excel ke variabel PHP
-        $id_mitra                  = trim($row['A'] ?? '');
-        $nama_lengkap              = trim($row['B'] ?? '');
-        $nik                       = trim($row['C'] ?? '');
-        $tanggal_lahir             = trim($row['D'] ?? '');
-        $jenis_kelamin             = trim($row['E'] ?? '');
-        $agama                     = trim($row['F'] ?? '');
-        $status_perkawinan         = trim($row['G'] ?? '');
-        $pendidikan                = trim($row['H'] ?? '');
-        $pekerjaan                 = trim($row['I'] ?? '');
-        $deskripsi_pekerjaan_lain  = trim($row['J'] ?? '');
-        $npwp                      = trim($row['K'] ?? '');
-        $no_telp                   = trim($row['L'] ?? '');
-        $email                     = trim($row['M'] ?? '');
-        $alamat_provinsi           = trim($row['N'] ?? '');
-        $alamat_kabupaten          = trim($row['O'] ?? '');
-        $nama_kecamatan            = trim($row['P'] ?? '');
-        $alamat_desa               = trim($row['Q'] ?? ''); // Alamat desa dari kolom Q
-        $alamat_detail             = trim($row['R'] ?? ''); // Alamat detail dari kolom R
-        $domisili_sama             = (strtolower(trim($row['S'] ?? '')) === 'ya') ? 1 : 0; 
-        $posisi                    = trim($row['T'] ?? '');
-        $mengikuti_pendataan_bps   = trim($row['U'] ?? ''); 
-        
-        $sp      = (trim($row['V'] ?? '0') === '1') ? 1 : 0;
-        $st      = (trim($row['W'] ?? '0') === '1') ? 1 : 0;
-        $se      = (trim($row['X'] ?? '0') === '1') ? 1 : 0;
-        $susenas = (trim($row['Y'] ?? '0') === '1') ? 1 : 0;
-        $sakernas= (trim($row['Z'] ?? '0') === '1') ? 1 : 0;
-        $sbh     = (trim($row['AA'] ?? '0') === '1') ? 1 : 0;
-        $tahun   = trim($row['AB'] ?? date('Y'));
-        $tanggal_registrasi = date('Y-m-d H:i:s'); // Menggunakan waktu saat ini
+    foreach ($sheetData as $i => $row) {
 
-        // Lewati jika kolom wajib kosong
-        if (empty($id_mitra) || empty($nama_lengkap) || empty($nik)) {
-            $skipped_rows[] = "Baris {$row_index} (data wajib kosong)";
-            continue;
-        }
+        if ($i < 2) continue; // skip header
 
-        // Konversi tanggal
-        $tanggal_lahir_formatted = null;
-        if (!empty($tanggal_lahir)) {
-            if (is_numeric($tanggal_lahir)) {
-                $tanggal_lahir_formatted = Date::excelToDateTimeObject($tanggal_lahir)->format('Y-m-d');
+        // Ambil semua kolom
+        $id_mitra       = trim($row['A'] ?? '');
+        $nama_lengkap   = trim($row['B'] ?? '');
+        $nik            = trim($row['C'] ?? '');
+
+        // Tanggal lahir
+        $tgl_raw = trim($row['D'] ?? '');
+        $tanggal_lahir = null;
+        if (!empty($tgl_raw)) {
+            if (is_numeric($tgl_raw)) {
+                $tanggal_lahir = Date::excelToDateTimeObject($tgl_raw)->format('Y-m-d');
             } else {
-                $tanggal_lahir_formatted = date('Y-m-d', strtotime($tanggal_lahir));
+                $ts = strtotime(str_replace('/', '-', $tgl_raw));
+                if ($ts) $tanggal_lahir = date('Y-m-d', $ts);
             }
         }
 
-        // Perbaikan: Sesuaikan string tipe data dengan 29 parameter
-        $types = "ssssssssssssssssssisssiiiiiii"; 
+        $jenis_kelamin  = trim($row['E'] ?? '');
+        $agama          = trim($row['F'] ?? '');
+        $status_kawin   = trim($row['G'] ?? '');
+        $pendidikan     = trim($row['H'] ?? '');
+        $pekerjaan      = trim($row['I'] ?? '');
+        $desc_pekerjaan = trim($row['J'] ?? '');
+        $npwp           = trim($row['K'] ?? '');
+        $no_telp        = trim($row['L'] ?? '');
+        $email          = trim($row['M'] ?? '');
 
-        // Perbaikan: Sesuaikan urutan parameter dengan query
-        $stmt->bind_param(
-            $types,
-            $id_mitra, $nama_lengkap, $nik, $tanggal_lahir_formatted,
-            $jenis_kelamin, $agama, $status_perkawinan, $pendidikan,
-            $pekerjaan, $deskripsi_pekerjaan_lain, $npwp, $no_telp, $email,
-            $alamat_provinsi, $alamat_kabupaten, $nama_kecamatan,
-            $alamat_desa, $alamat_detail, // Urutan ini harus sama dengan di query
-            $domisili_sama,
-            $posisi, $mengikuti_pendataan_bps,
-            $sp, $st, $se, $susenas, $sakernas, $sbh,
-            $tahun,
-            $tanggal_registrasi
-        );
-
-        if (!$stmt->execute()) {
-            $skipped_rows[] = "Baris {$row_index} (SQL Error: " . $stmt->error . ")";
+        if (empty($nama_lengkap) || empty($email)) {
+            $skipped[] = "Baris $i: Nama atau Email kosong";
             continue;
         }
-        $inserted_rows++;
+
+        $provinsi   = trim($row['N'] ?? '');
+        $kabupaten  = trim($row['O'] ?? '');
+        $kecamatan  = trim($row['P'] ?? '');
+        $desa       = trim($row['Q'] ?? '');
+        $detail     = trim($row['R'] ?? '');
+        $domisili   = (strtolower(trim($row['S'] ?? '')) == 'ya') ? 1 : 0;
+        $posisi     = trim($row['T'] ?? '');
+        $ikut_bps   = trim($row['U'] ?? '');
+
+        // checkbox
+        $sp       = (trim($row['V'] ?? '0') == '1') ? 1 : 0;
+        $st       = (trim($row['W'] ?? '0') == '1') ? 1 : 0;
+        $se       = (trim($row['X'] ?? '0') == '1') ? 1 : 0;
+        $susenas  = (trim($row['Y'] ?? '0') == '1') ? 1 : 0;
+        $sakernas = (trim($row['Z'] ?? '0') == '1') ? 1 : 0;
+        $sbh      = (trim($row['AA'] ?? '0') == '1') ? 1 : 0;
+
+        $tahun = trim($row['AB'] ?? date('Y'));
+        $norek = trim($row['AC'] ?? '');
+        $bank  = trim($row['AD'] ?? '');
+        $tgl_reg = date('Y-m-d H:i:s');
+
+
+        // ==================================
+        // CHECK APAKAH SUDAH ADA
+        // ==================================
+        $stmt_check->bind_param("ss", $nama_lengkap, $email);
+        $stmt_check->execute();
+
+        $result = $stmt_check->get_result();
+        $exist = $result->fetch_assoc();
+
+
+        // =======================
+        // UPDATE (29 kolom)
+        // =======================
+        if ($exist) {
+
+            $id_db = $exist['id'];
+
+            $types_update =
+                "ssssssssss" .  // 10
+                "sssssss"    .  // 17
+                "i"          .  // 18
+                "ss"         .  // 20
+                "iiiiii"     .  // 26
+                "sss";          // 29
+
+            $stmt_update->bind_param(
+                $types_update,
+                $id_mitra, $nik, $tanggal_lahir, $jenis_kelamin, $agama,
+                $status_kawin, $pendidikan, $pekerjaan, $desc_pekerjaan,
+                $npwp, $no_telp,
+                $provinsi, $kabupaten, $kecamatan,
+                $desa, $detail,
+                $domisili,
+                $posisi, $ikut_bps,
+                $sp, $st, $se, $susenas, $sakernas, $sbh,
+                $tahun, $norek, $bank,
+                $id_db
+            );
+
+            if ($stmt_update->execute()) {
+                $updated++;
+            } else {
+                $skipped[] = "Baris $i gagal UPDATE: " . $stmt_update->error;
+            }
+
+        }
+
+        // =======================
+        // INSERT (31 kolom)
+        // =======================
+        else {
+
+            $types_insert =
+                "ssssssssssssssssss" .  // 18
+                "i" .                  // 19
+                "ss" .                 // 21
+                "iiiiii" .             // 27
+                "ssss";                // 31
+
+            $stmt_insert->bind_param(
+                $types_insert,
+                $id_mitra, $nama_lengkap, $nik, $tanggal_lahir, $jenis_kelamin, $agama,
+                $status_kawin, $pendidikan, $pekerjaan, $desc_pekerjaan,
+                $npwp, $no_telp, $email, $provinsi, $kabupaten, $kecamatan,
+                $desa, $detail, 
+                $domisili,
+                $posisi, $ikut_bps,
+                $sp, $st, $se, $susenas, $sakernas, $sbh,
+                $tahun, $norek, $bank, $tgl_reg
+            );
+
+            if ($stmt_insert->execute()) {
+                $inserted++;
+            } else {
+                $skipped[] = "Baris $i gagal INSERT: " . $stmt_insert->error;
+            }
+        }
     }
 
     $koneksi->commit();
-    $stmt->close();
 
-    $message = "Berhasil menambahkan {$inserted_rows} data mitra.";
-    if (!empty($skipped_rows)) {
-        $message .= " Baris dilewati: " . implode(', ', $skipped_rows) . ".";
+
+    // ========================
+    // SUCCESS MESSAGE
+    // ========================
+    $msg = "Berhasil! INSERT: $inserted, UPDATE: $updated";
+    if (!empty($skipped)) {
+        $msg .= " | Warning: " . implode(" | ", array_slice($skipped, 0, 3));
     }
 
-    header("Location: ../pages/mitra.php?status=success&message=" . urlencode($message));
+    header("Location: ../pages/mitra.php?status=success&message=" . urlencode($msg));
     exit;
 
+
 } catch (Exception $e) {
-    if ($koneksi) {
-        $koneksi->rollback();
-    }
-    $message = urlencode($e->getMessage());
-    header("Location: ../pages/tambah_mitra.php?status=error&message={$message}");
+    $koneksi->rollback();
+    header("Location: ../pages/tambah_mitra.php?status=error&message=" . urlencode($e->getMessage()));
     exit;
 }
 ?>

@@ -167,7 +167,7 @@ include '../includes/sidebar.php';
         </div>
         
         <hr class="my-10 border-gray-300">
-        <form action="../proses/proses_tambah_mitra.php" method="POST" enctype="multipart/form-data" id="formTambahMitra" class="space-y-8">
+        <!-- <form action="../proses/proses_tambah_mitra.php" method="POST" enctype="multipart/form-data" id="formTambahMitra" class="space-y-8">
             <div class="form-section">
                 <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b pb-2">Data Pribadi</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -333,7 +333,7 @@ include '../includes/sidebar.php';
                     Simpan Mitra <i class="fas fa-save ml-2"></i>
                 </button>
             </div>
-        </form>
+        </form> -->
     </div>
 </div>
 

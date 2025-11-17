@@ -270,6 +270,19 @@ include '../includes/sidebar.php';
                         <label for="email" class="input-label">Alamat Email</label>
                         <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($mitra['email']); ?>" class="input-field">
                     </div>
+                    <div class="input-group">
+    <label for="norek" class="input-label">Nomor Rekening</label>
+    <input type="text" id="norek" name="norek" 
+           value="<?php echo htmlspecialchars($mitra['norek']); ?>" 
+           class="input-field">
+</div>
+
+<div class="input-group">
+    <label for="bank" class="input-label">Nama Bank</label>
+    <input type="text" id="bank" name="bank" 
+           value="<?php echo htmlspecialchars($mitra['bank']); ?>" 
+           class="input-field">
+</div>
                 </div>
             </div>
 
@@ -292,10 +305,7 @@ include '../includes/sidebar.php';
                         <label for="alamat_desa" class="input-label">Kode/Nama Desa</label>
                         <input type="text" id="alamat_desa" name="alamat_desa" value="<?php echo htmlspecialchars($mitra['alamat_desa']); ?>" class="input-field">
                     </div>
-                    <div class="input-group md:col-span-2">
-                        <label for="nama_desa" class="input-label">Nama Desa</label>
-                        <input type="text" id="nama_desa" name="nama_desa" value="<?php echo htmlspecialchars($mitra['nama_desa']); ?>" class="input-field">
-                    </div>
+                
                     <div class="input-group md:col-span-2">
                         <label for="alamat_detail" class="input-label">Detail Alamat</label>
                         <textarea id="alamat_detail" name="alamat_detail" rows="3" class="input-field"><?php echo htmlspecialchars($mitra['alamat_detail']); ?></textarea>

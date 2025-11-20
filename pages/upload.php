@@ -4,14 +4,14 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Validasi hak akses, hanya untuk admin
+// Validasi hak akses
 $user_roles = $_SESSION['user_role'] ?? [];
 $allowed_roles = ['super_admin', 'admin_dipaku'];
 if (empty(array_intersect($user_roles, $allowed_roles))) {
     die("Akses ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.");
 }
 
-// Ambil daftar tahun yang SUDAH ADA data anggarannya, untuk filter di form Realisasi
+// Ambil daftar tahun
 $tahun_result = $koneksi->query("SELECT DISTINCT tahun FROM master_item ORDER BY tahun DESC");
 $daftar_tahun_anggaran = [];
 if ($tahun_result) {
@@ -39,7 +39,7 @@ if ($tahun_result) {
 }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(10, 46, 93, 0.3); }
 
-/* Gaya untuk pilihan jenis upload yang modern */
+/* Gaya Selector Upload */
 .upload-type-selector { display: flex; gap: 15px; margin-bottom: 25px; }
 .upload-type-label {
     flex: 1; text-align: center; padding: 20px;
@@ -54,11 +54,80 @@ if ($tahun_result) {
     border-color: var(--primary-blue);
     box-shadow: 0 4px 15px rgba(10, 46, 93, 0.2);
 }
+
+/* --- TAMBAHAN CSS UNTUK LOADING ANIMATION --- */
+#loadingOverlay {
+    display: none; /* Hidden default */
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    z-index: 9999; /* Paling atas */
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    backdrop-filter: blur(5px);
+}
+
+.loading-icon-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin-bottom: 20px;
+}
+
+.loading-icon-container i {
+    font-size: 4rem;
+    color: var(--primary-blue);
+    animation: bounce 2s infinite;
+}
+
+.loading-text h3 { color: var(--primary-blue); font-weight: 700; margin-bottom: 10px; }
+.loading-text p { color: #666; font-size: 1rem; margin: 0; }
+.loading-spinner {
+    width: 50px; height: 50px;
+    border: 5px solid #e9ecef;
+    border-top: 5px solid var(--primary-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+    40% {transform: translateY(-20px);}
+    60% {transform: translateY(-10px);}
+}
 </style>
+
+<div id="loadingOverlay">
+    <div class="text-center">
+        <div class="loading-icon-container">
+            <i class="fas fa-cloud-upload-alt"></i>
+        </div>
+        <div class="loading-text">
+            <h3>Sedang Memproses Data...</h3>
+            <div class="loading-spinner"></div>
+            <p class="font-weight-bold">Mohon Tunggu, Proses ini memakan waktu 1-2 menit.</p>
+            <p class="text-danger"><small>JANGAN MENUTUP ATAU ME-REFRESH HALAMAN INI</small></p>
+        </div>
+    </div>
+</div>
 
 <main class="main-content">
   <div class="container">
     <h2 class="section-title">Pusat Upload Data</h2>
+
+    <?php if (isset($_SESSION['flash_message'])) : ?>
+        <div class="alert alert-<?php echo $_SESSION['flash_message_type']; ?> alert-dismissible fade show" role="alert">
+            <?php echo $_SESSION['flash_message']; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <?php 
+            unset($_SESSION['flash_message']);
+            unset($_SESSION['flash_message_type']);
+        endif; 
+    ?>
 
     <div class="card">
       <form id="uploadForm" action="" method="POST" enctype="multipart/form-data">
@@ -104,7 +173,6 @@ if ($tahun_result) {
                     <option value="" disabled>Belum ada data anggaran</option>
                   <?php endif; ?>
                 </select>
-                
               </div>
               <div class="form-group col-md-6">
                 <label for="bulan">Bulan Realisasi</label>
@@ -126,21 +194,11 @@ if ($tahun_result) {
         </div>
         
         <hr>
-        <button type="submit" class="btn btn-primary btn-lg">
+        <button type="submit" class="btn btn-primary btn-lg" id="btnSubmit">
           <i class="fas fa-upload mr-2"></i>Upload dan Proses
         </button>
 
       </form>
-                  <?php if (isset($_SESSION['flash_message'])) : ?>
-    <div class="alert alert-<?php echo $_SESSION['flash_message_type']; ?> alert-dismissible fade show" role="alert">
-        <?php echo $_SESSION['flash_message']; ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-<?php 
-    unset($_SESSION['flash_message']);
-    unset($_SESSION['flash_message_type']);
-endif; 
-?>
     </div>
   </div>
 </main>
@@ -149,36 +207,37 @@ endif;
 document.addEventListener('DOMContentLoaded', function() {
     const uploadForm = document.getElementById('uploadForm');
     const uploadTypeRadios = document.querySelectorAll('input[name="upload_type"]');
-    
     const anggaranFields = document.getElementById('form-anggaran-fields');
     const realisasiFields = document.getElementById('form-realisasi-fields');
     
+    // Input elements
     const tahunAnggaranInput = document.getElementById('tahun_anggaran');
     const tahunRealisasiSelect = document.getElementById('tahun_realisasi');
     const bulanSelect = document.getElementById('bulan');
+    const fileInput = document.getElementById('file_excel');
+    
+    // Loading elements
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const btnSubmit = document.getElementById('btnSubmit');
 
     function toggleFormFields() {
         const selectedType = document.querySelector('input[name="upload_type"]:checked').value;
 
         if (selectedType === 'realisasi') {
-            // Tampilkan form Realisasi
             uploadForm.action = '../proses/proses_realisasi.php';
             anggaranFields.style.display = 'none';
             realisasiFields.style.display = 'block';
             
-            // Atur input mana yang wajib diisi
-            tahunAnggaranInput.name = ''; // Kosongkan nama agar tidak terkirim
+            tahunAnggaranInput.name = ''; 
             tahunRealisasiSelect.name = 'tahun';
             bulanSelect.required = true;
             tahunRealisasiSelect.required = true;
 
-        } else { // Anggaran
-            // Tampilkan form Anggaran
+        } else { 
             uploadForm.action = '../proses/proses_tambah_data_master.php';
             anggaranFields.style.display = 'block';
             realisasiFields.style.display = 'none';
             
-            // Atur input mana yang wajib diisi
             tahunAnggaranInput.name = 'tahun';
             tahunRealisasiSelect.name = '';
             bulanSelect.required = false;
@@ -186,18 +245,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Tambahkan listener ke setiap radio button
     uploadTypeRadios.forEach(radio => {
         radio.addEventListener('change', toggleFormFields);
     });
 
-    // Panggil fungsi saat halaman pertama kali dimuat
     toggleFormFields();
 
-    // Skrip untuk menampilkan nama file
+    // Nama File
     document.querySelector('.custom-file-input').addEventListener('change', function(e) {
         var fileName = e.target.files[0].name;
         e.target.nextElementSibling.innerText = fileName;
+    });
+
+    // --- LOGIKA UNTUK MEMUNCULKAN LOADING ANIMASI ---
+    uploadForm.addEventListener('submit', function(e) {
+        // Cek apakah file sudah dipilih
+        if (fileInput.files.length === 0) {
+            e.preventDefault(); // Jangan submit jika kosong (biarkan validasi HTML jalan)
+            alert('Silakan pilih file Excel terlebih dahulu.');
+            return;
+        }
+
+        // Jika valid, munculkan overlay
+        loadingOverlay.style.display = 'flex';
+        
+        // Opsional: Ubah teks tombol agar user tahu sedang diproses
+        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Mengupload...';
+        btnSubmit.disabled = true; // Cegah klik ganda
+        
+        // Form akan lanjut submit secara normal ke backend
     });
 });
 </script>

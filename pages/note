@@ -1,8 +1,11 @@
-
-
-
-
-
+CREATE TABLE rpd_sakti (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    kode_unik_item VARCHAR(255) NOT NULL,
+    bulan TINYINT UNSIGNED NOT NULL COMMENT '1=Jan ... 12=Des',
+    jumlah DECIMAL(18,2) DEFAULT 0,
+    tahun YEAR NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- 3. Buat tabel pivot baru penghubung Mitra <-> Tim
 CREATE TABLE mitra_tim (

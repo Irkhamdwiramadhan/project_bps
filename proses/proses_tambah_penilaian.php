@@ -8,69 +8,90 @@ if ($_SERVER["REQUEST_METHOD"] != "POST") {
     exit;
 }
 
+// Inisialisasi variabel redirect default (jika terjadi error fatal di awal)
+$redirect_params = "";
+
 try {
-    // Tangkap data dari form dengan validasi dasar
-    $mitra_survey_id = filter_input(INPUT_POST, 'mitra_survey_id', FILTER_VALIDATE_INT);
-    $penilai_id = filter_input(INPUT_POST, 'penilai_id', FILTER_VALIDATE_INT);
+    // 1. Tangkap Data Wajib
+    $mitra_survey_id = isset($_POST['mitra_survey_id']) ? intval($_POST['mitra_survey_id']) : 0;
+    $penilai_id      = isset($_POST['penilai_id']) ? intval($_POST['penilai_id']) : 0;
 
-    // ==========================================================
-    // REVISI: beban_kerja boleh kosong, maka gunakan FILTER_DEFAULT
-    // ==========================================================
-    $beban_kerja_input = $_POST['beban_kerja'] ?? null;
-    $beban_kerja = ($beban_kerja_input !== '' && $beban_kerja_input !== null) 
-        ? filter_var($beban_kerja_input, FILTER_VALIDATE_INT)
-        : null;
+    // 2. Tangkap Data Nilai
+    $kualitas        = isset($_POST['kualitas']) ? intval($_POST['kualitas']) : 0;
+    $volume          = isset($_POST['volume_pemasukan']) ? intval($_POST['volume_pemasukan']) : 0;
+    $perilaku        = isset($_POST['perilaku']) ? intval($_POST['perilaku']) : 0;
+    $keterangan      = isset($_POST['keterangan']) ? trim($_POST['keterangan']) : '';
+    
+    // Beban kerja (Opsional/Boleh Null)
+    $beban_kerja     = !empty($_POST['beban_kerja']) ? intval($_POST['beban_kerja']) : null;
 
-    $kualitas = filter_input(INPUT_POST, 'kualitas', FILTER_VALIDATE_INT);
-    $volume_pemasukan = filter_input(INPUT_POST, 'volume_pemasukan', FILTER_VALIDATE_INT);
-    $perilaku = filter_input(INPUT_POST, 'perilaku', FILTER_VALIDATE_INT);
-    $keterangan = filter_input(INPUT_POST, 'keterangan', FILTER_SANITIZE_STRING);
+    // =======================================================================
+    // LANGKAH 1: AMBIL INFO CONTEXT (TIM & TAHUN) UNTUK REDIRECT
+    // =======================================================================
+    // Kita perlu tahu mitra ini ada di Tim mana dan Tahun berapa
+    // agar setelah simpan, kita kembalikan user ke halaman filter yang benar.
+    $sql_context = "SELECT ms.tim_id, hm.tahun_pembayaran 
+                    FROM mitra_surveys ms
+                    JOIN honor_mitra hm ON ms.id = hm.mitra_survey_id
+                    WHERE ms.id = ?";
+    $stmt_ctx = $koneksi->prepare($sql_context);
+    $stmt_ctx->bind_param("i", $mitra_survey_id);
+    $stmt_ctx->execute();
+    $res_ctx = $stmt_ctx->get_result();
+    $ctx_data = $res_ctx->fetch_assoc();
+    $stmt_ctx->close();
 
-    // ==========================================================
-    // Validasi wajib isi (beban_kerja tidak termasuk)
-    // ==========================================================
-    if ($mitra_survey_id === false || $penilai_id === false || 
-        $kualitas === false || $volume_pemasukan === false || $perilaku === false) {
-        throw new Exception("Data penilaian tidak lengkap atau tidak valid. Pastikan semua kolom wajib terisi dengan benar.");
+    if ($ctx_data) {
+        // Set parameter agar user kembali ke filter yang sama
+        $redirect_params = "&tim_id=" . $ctx_data['tim_id'] . "&tahun=" . $ctx_data['tahun_pembayaran'];
     }
 
-    // Cek apakah sudah ada penilaian untuk mitra_survey_id ini
-    $sql_check = "SELECT COUNT(*) FROM mitra_penilaian_kinerja WHERE mitra_survey_id = ?";
+    // =======================================================================
+    // LANGKAH 2: VALIDASI INPUT
+    // =======================================================================
+    if ($mitra_survey_id === 0 || $penilai_id === 0) {
+        throw new Exception("ID Data tidak valid.");
+    }
+    if ($kualitas < 1 || $volume < 1 || $perilaku < 1) {
+        throw new Exception("Nilai Kualitas, Volume, dan Perilaku wajib diisi (Skala 1-4).");
+    }
+
+    // =======================================================================
+    // LANGKAH 3: CEK DUPLIKASI
+    // =======================================================================
+    $sql_check = "SELECT id FROM mitra_penilaian_kinerja WHERE mitra_survey_id = ?";
     $stmt_check = $koneksi->prepare($sql_check);
-    if (!$stmt_check) {
-        throw new Exception("Gagal menyiapkan statement cek: " . $koneksi->error);
-    }
-
     $stmt_check->bind_param("i", $mitra_survey_id);
     $stmt_check->execute();
-    $stmt_check->bind_result($count);
-    $stmt_check->fetch();
+    $stmt_check->store_result();
+    
+    if ($stmt_check->num_rows > 0) {
+        $stmt_check->close();
+        throw new Exception("Pekerjaan mitra ini sudah dinilai sebelumnya.");
+    }
     $stmt_check->close();
 
-    if ($count > 0) {
-        throw new Exception("Pekerjaan untuk mitra ini sudah pernah dinilai sebelumnya.");
-    }
-
-    // ==========================================================
-    // INSERT: kolom beban_kerja boleh NULL
-    // ==========================================================
+    // =======================================================================
+    // LANGKAH 4: INSERT DATA
+    // =======================================================================
     $sql_insert = "INSERT INTO mitra_penilaian_kinerja 
-                   (mitra_survey_id, penilai_id, beban_kerja, kualitas, volume_pemasukan, perilaku, keterangan) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?)";
+                  (mitra_survey_id, penilai_id, beban_kerja, kualitas, volume_pemasukan, perilaku, keterangan, tanggal_penilaian) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
 
     $stmt_insert = $koneksi->prepare($sql_insert);
     if (!$stmt_insert) {
-        throw new Exception("Gagal menyiapkan statement insert: " . $koneksi->error);
+        throw new Exception("Gagal prepare: " . $koneksi->error);
     }
 
-    // Bind param (beban_kerja bisa null, jadi pastikan pakai 'i' dan nilai null diganti null literal)
+    // Bind param (iiiiiis): 
+    // id, id, int(null), int, int, int, string
     $stmt_insert->bind_param(
         "iiiiiis",
         $mitra_survey_id,
         $penilai_id,
-        $beban_kerja,
+        $beban_kerja, // Bisa null
         $kualitas,
-        $volume_pemasukan,
+        $volume,
         $perilaku,
         $keterangan
     );
@@ -78,17 +99,19 @@ try {
     if ($stmt_insert->execute()) {
         $stmt_insert->close();
         $koneksi->close();
-        header('Location: ../pages/penilaian_mitra.php?status=success&message=' . urlencode('Penilaian kinerja berhasil ditambahkan.'));
+        
+        // REDIRECT SUKSES (Kembali ke halaman tambah dengan filter aktif)
+        header("Location: ../pages/tambah_penilaian_mitra.php?status=success&message=" . urlencode('Penilaian berhasil disimpan.') . $redirect_params);
         exit;
     } else {
-        throw new Exception("Gagal menambahkan penilaian kinerja: " . $stmt_insert->error);
+        throw new Exception("Gagal menyimpan ke database: " . $stmt_insert->error);
     }
 
 } catch (Exception $e) {
-    if (isset($koneksi) && $koneksi->ping()) {
-        $koneksi->close();
-    }
-    header('Location: ../pages/tambah_penilaian_mitra.php?status=error&message=' . urlencode($e->getMessage()));
+    if (isset($koneksi)) $koneksi->close();
+    
+    // REDIRECT ERROR (Tetap pertahankan filter tim/tahun jika ada)
+    header("Location: ../pages/tambah_penilaian_mitra.php?status=error&message=" . urlencode($e->getMessage()) . $redirect_params);
     exit;
 }
 ?>

@@ -1,364 +1,384 @@
 <?php
-// Mulai sesi
 session_start();
-
-// TODO: Tambahkan pengecekan peran pengguna di sini jika diperlukan
-// if (!isset($_SESSION['user_role']) || !in_array('pegawai', $_SESSION['user_role'])) {
-//     header('Location: /login.php');
-//     exit();
-// }
-
-// Include file-file lain
 include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Inisialisasi variabel untuk penilai otomatis
-$penilai_nama_otomatis = $_SESSION['user_nama'] ?? null;
-$penilai_id_otomatis = $_SESSION['user_id'] ?? null;
-
-// =========================================================================
-// KUERI DROPDOWN SESUAI LOGIKA ANDA YANG BENAR
-// =========================================================================
-$sql_mitra_kegiatan_item = "
-    SELECT DISTINCT
-        ms.id,
-        m.nama_lengkap AS nama_mitra,
-        mk.nama AS nama_kegiatan,
-        (SELECT mi.nama_item FROM master_item mi WHERE mi.kode_unik LIKE CONCAT(hm.item_kode_unik, '%') LIMIT 1) AS nama_item
-    FROM honor_mitra hm
-    INNER JOIN mitra_surveys ms ON hm.mitra_survey_id = ms.id
-    INNER JOIN mitra m ON ms.mitra_id = m.id
-    LEFT JOIN master_kegiatan mk ON ms.kegiatan_id = mk.kode
-    WHERE hm.item_kode_unik IS NOT NULL AND hm.item_kode_unik != ''
-    ORDER BY m.nama_lengkap, mk.nama ASC
-";
-
-$result_mitra_kegiatan = $koneksi->query($sql_mitra_kegiatan_item);
-
-$mitra_kegiatan_list = [];
-if ($result_mitra_kegiatan) {
-    while ($row = $result_mitra_kegiatan->fetch_assoc()) {
-        // Gabungkan nama kegiatan dan nama item untuk tampilan yang lebih jelas
-        $pekerjaan = $row['nama_kegiatan'];
-        if (!empty($row['nama_item']) && $row['nama_item'] !== $row['nama_kegiatan']) {
-            $pekerjaan .= ' - ' . $row['nama_item'];
-        }
-        $row['pekerjaan_lengkap'] = $pekerjaan;
-        $mitra_kegiatan_list[] = $row;
-    }
+// Ambil daftar TIM
+$sql_tim = "SELECT id, nama_tim FROM tim ORDER BY nama_tim ASC";
+$result_tim = $koneksi->query($sql_tim);
+$tim_list = [];
+if ($result_tim) {
+    while ($row = $result_tim->fetch_assoc()) $tim_list[] = $row;
 }
 
-// =========================================================================
-// KUERI RIWAYAT PENILAIAN YANG DIPERBAIKI
-// =========================================================================
-$sql_penilaian_history = "
-    SELECT 
-        DISTINCT p.id,
-        p.tanggal_penilaian,
-        p.beban_kerja,
-        p.kualitas,
-        p.volume_pemasukan,
-        p.perilaku,
-        p.keterangan,
-        m.nama_lengkap AS nama_mitra,
-        mk.nama AS nama_kegiatan,
-        peg.nama AS nama_penilai,
-        ms.id AS mitra_survey_id
-    FROM mitra_penilaian_kinerja p
-    INNER JOIN mitra_surveys ms ON p.mitra_survey_id = ms.id
-    INNER JOIN mitra m ON ms.mitra_id = m.id
-    INNER JOIN pegawai peg ON p.penilai_id = peg.id
-    LEFT JOIN master_kegiatan mk 
-        ON ms.kegiatan_id = mk.kode 
-        AND mk.tahun = YEAR(p.tanggal_penilaian)
-    ORDER BY p.tanggal_penilaian DESC
-";
-
-
-
-$result_penilaian_history = $koneksi->query($sql_penilaian_history);
-
-$penilaian_history_list = [];
-if ($result_penilaian_history && $result_penilaian_history->num_rows > 0) {
-    while ($row = $result_penilaian_history->fetch_assoc()) {
-        $penilaian_history_list[] = $row;
-    }
+// Ambil Daftar Tahun
+$sql_tahun = "SELECT DISTINCT tahun_pembayaran FROM honor_mitra ORDER BY tahun_pembayaran DESC";
+$result_tahun = $koneksi->query($sql_tahun);
+$tahun_list = [];
+if ($result_tahun) {
+    while ($row = $result_tahun->fetch_assoc()) $tahun_list[] = $row['tahun_pembayaran'];
 }
+if(empty($tahun_list)) $tahun_list[] = date('Y');
+
+// Tangkap Parameter URL (Auto Filter)
+$selected_tim_id = isset($_GET['tim_id']) ? $_GET['tim_id'] : '';
+$selected_tahun  = isset($_GET['tahun']) ? $_GET['tahun'] : date('Y');
+
+$penilai_nama = $_SESSION['user_nama'] ?? 'Admin';
+$penilai_id   = $_SESSION['user_id'] ?? 0;
 ?>
 
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    body { background-color: #f3f4f6; font-family: 'Poppins', sans-serif; }
+    .main-content { padding: 2rem; }
+    .card { background: #fff; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 2rem; margin-bottom: 2rem; }
     
-    body { font-family: 'Poppins', sans-serif; background: #eef2f5; }
-    .content-wrapper { padding: 1rem; transition: margin-left 0.3s ease; }
-    @media (min-width: 640px) { .content-wrapper { margin-left: 16rem; padding-top: 2rem; } }
-    .card { background-color: #ffffff; border-radius: 1rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
-    .form-label { font-weight: 500; color: #4b5563; }
-    .form-input, .form-select, .form-textarea {
-        display: block;
-        width: 100%;
-        padding: 0.75rem 1rem;
-        border: 1px solid #d1d5db;
-        border-radius: 0.5rem;
-        font-size: 1rem;
-        margin-top: 0.5rem;
-        transition: border-color 0.2s, box-shadow 0.2s;
+    /* --- FILTER SECTION --- */
+    .filter-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .form-label { font-weight: 600; color: #374151; display: block; margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .form-select { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background-color: #fff; }
+    
+    /* --- TABLE STYLES --- */
+    .table-responsive { overflow-x: auto; margin-top: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; }
+    .custom-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .custom-table th { background: #f9fafb; padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+    .custom-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; color: #4b5563; vertical-align: middle; background: #fff; }
+    .custom-table tr:hover td { background: #f0f9ff; }
+    
+    /* --- BADGES & BUTTONS --- */
+    .badge { padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef9c3; color: #854d0e; }
+    .btn-nilai { background: #2563eb; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; font-weight: 500; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); }
+    .btn-nilai:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-nilai:disabled { background: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* --- MODAL FULLSCREEN CENTERING --- */
+    .modal-overlay {
+        display: none; /* Hidden by default */
+        position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+        background-color: rgba(0, 0, 0, 0.6); /* Black w/ opacity */
+        backdrop-filter: blur(4px);
+        overflow-y: auto; /* Enable scroll if modal is tall */
+        padding: 20px;
+        align-items: center; justify-content: center;
     }
-    .form-input:focus, .form-select:focus, .form-textarea:focus {
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        outline: none;
+    
+    /* --- MODAL BOX (THE CARD) --- */
+    .modal-box {
+        background-color: #fefefe;
+        margin: auto;
+        border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        width: 95%;
+        max-width: 1100px; /* Lebar maksimal besar */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        animation: modalFadeIn 0.3s ease-out;
     }
-    .form-input[readonly] {
-        background-color: #f3f4f6;
-        cursor: not-allowed;
+
+    @keyframes modalFadeIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
     }
-    .btn-primary { background-color: #2563eb; color: #fff; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; transition: background-color 0.2s; border:none; }
-    .btn-primary:hover { background-color: #1d4ed8; }
-    .btn-secondary { background-color: #6b7280; color: #fff; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; transition: background-color 0.2s; border:none; }
-    .btn-secondary:hover { background-color: #4b5563; }
-    .select-search-container {
-        position: relative;
-        width: 100%;
+
+    /* --- MODAL HEADER --- */
+    .modal-header {
+        background: #2563eb; color: white; padding: 1.5rem;
+        display: flex; justify-content: space-between; align-items: flex-start;
     }
-    .search-input {
-        width: 100%;
-        padding: 0.75rem 1rem;
-        border: 1px solid #d1d5db;
-        border-radius: 0.5rem;
-        font-size: 1rem;
-        margin-top: 0.5rem;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        box-sizing: border-box;
+    .modal-title h3 { margin: 0; font-size: 1.25rem; font-weight: 700; }
+    .modal-subtitle { font-size: 0.9rem; opacity: 0.9; margin-top: 4px; }
+    .close-btn { color: white; font-size: 2rem; font-weight: bold; cursor: pointer; line-height: 0.8; opacity: 0.7; transition: 0.2s; }
+    .close-btn:hover { opacity: 1; }
+
+    /* --- MODAL BODY (SPLIT LAYOUT) --- */
+    .modal-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr; /* Kiri Form, Kanan Panduan */
+        gap: 0; /* Border separator handling */
+        background: #fff;
     }
-    .select-dropdown {
-        width: 100%;
-        max-height: 200px;
+    
+    @media (max-width: 768px) {
+        .modal-body { grid-template-columns: 1fr; } /* Stack on mobile */
+    }
+
+    /* --- COLUMN LEFT: FORM --- */
+    .col-form { padding: 2rem; }
+    .input-group { margin-bottom: 1.5rem; }
+    .input-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    .form-control { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 1rem; transition: 0.2s; }
+    .form-control:focus { border-color: #2563eb; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    
+    /* --- COLUMN RIGHT: GUIDE --- */
+    .col-guide {
+        background: #f8fafc;
+        padding: 2rem;
+        border-left: 1px solid #e2e8f0;
+        font-size: 0.85rem;
+        max-height: 600px; /* Scrollable if too long */
         overflow-y: auto;
-        border: 1px solid #d1d5db;
-        border-top: none;
-        border-radius: 0 0 0.5rem 0.5rem;
-        position: absolute;
-        z-index: 10;
-        background-color: #fff;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        display: none;
     }
-    .select-dropdown-item {
-        padding: 0.75rem 1rem;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-    .select-dropdown-item:hover {
-        background-color: #f3f4f6;
-    }
-    .select-dropdown-item.hidden {
-        display: none;
-    }
-    .table-container {
-        overflow-x: auto;
-        margin-top: 2rem;
-    }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    th, td {
-        padding: 12px 15px;
-        text-align: left;
-        border-bottom: 1px solid #e5e7eb;
-    }
-    th {
-        background-color: #f3f4f6;
-        color: #4b5563;
-        font-weight: 600;
-    }
-    tr:nth-child(even) {
-        background-color: #f9fafb;
+    .guide-title { font-weight: 700; color: #475569; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.8rem; }
+    .guide-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; background: white; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; }
+    .guide-table th { background: #e0e7ff; color: #3730a3; padding: 6px 10px; text-align: left; font-weight: 600; }
+    .guide-table td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    .guide-table tr:last-child td { border-bottom: none; }
+    .val-bad { color: #dc2626; font-weight: 600; }
+    .val-good { color: #166534; font-weight: 600; }
+
+    /* --- MODAL FOOTER --- */
+    .modal-footer {
+        padding: 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0;
+        display: flex; justify-content: flex-end; gap: 1rem;
     }
 </style>
 
-<div class="content-wrapper">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 class="text-3xl font-bold text-gray-800 mb-8">Tambah Penilaian Kinerja Mitra</h1>
-        <div class="card">
-            <form action="../proses/proses_tambah_penilaian.php" method="POST">
-                
-                <div class="mb-6">
-                    <label for="mitra_survey_id" class="form-label">Nama Mitra & Pekerjaan</label>
-                    <div class="select-search-container">
-                        <input type="text" class="search-input" placeholder="Cari nama mitra atau pekerjaan..." id="mitra-kegiatan-search-input">
-                        
-                        <div id="mitra-kegiatan-dropdown" class="select-dropdown">
-                            <?php foreach ($mitra_kegiatan_list as $item) : ?>
-                                <div class="select-dropdown-item" 
-                                     data-id="<?= htmlspecialchars($item['id']) ?>"
-                                     data-search-text="<?= htmlspecialchars(strtolower($item['nama_mitra'] . ' ' . $item['pekerjaan_lengkap'])) ?>">
-                                     <?= htmlspecialchars($item['nama_mitra']) ?> - <?= htmlspecialchars($item['pekerjaan_lengkap']) ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <input type="hidden" id="mitra_survey_id" name="mitra_survey_id" required>
-                    </div>
-                </div>
-
-                <div class="mb-6">
-                    <label for="penilai_nama" class="form-label">Nama Penilai</label>
-                    <input type="text" 
-                           class="form-input" 
-                           id="penilai_nama" 
-                           value="<?= htmlspecialchars($penilai_nama_otomatis) ?>" 
-                           readonly>
-                    <input type="hidden" 
-                           id="penilai_id" 
-                           name="penilai_id" 
-                           value="<?= htmlspecialchars($penilai_id_otomatis) ?>" 
-                           required>
-                </div>
-                
-                <hr class="my-8">
-            
-                
-             
-
-                <h3 class="text-xl font-semibold text-gray-700 mb-4">Kategori Penilaian (Skala 1-4)</h3>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                        <label for="kualitas" class="form-label">Kualitas</label>
-                        <input type="number" id="kualitas" name="kualitas" class="form-input" min="1" max="4" required>
-                    </div>
-                    <div>
-                        <label for="volume_pemasukan" class="form-label">Volume Pemasukan</label>
-                        <input type="number" id="volume_pemasukan" name="volume_pemasukan" class="form-input" min="1" max="4" required>
-                    </div>
-                    <div>
-                        <label for="perilaku" class="form-label">Perilaku</label>
-                        <input type="number" id="perilaku" name="perilaku" class="form-input" min="1" max="4" required>
-                    </div>
-                </div>
-
-                <div class="mb-6">
-                    <label for="keterangan" class="form-label">Keterangan</label>
-                    <textarea id="keterangan" name="keterangan" class="form-textarea" rows="4"></textarea>
-                </div>
-                
-                <div class="flex justify-end space-x-4 mt-8">
-                    <a href="penilaian_mitra.php" class="btn-secondary">Batal</a>
-                    <button type="submit" class="btn-primary">Simpan Penilaian</button>
-                </div>
-            </form>
+<div class="main-content">
+    
+    <div class="card">
+        <div style="margin-bottom: 1.5rem;">
+            <h2 class="text-2xl font-bold text-gray-800">Input Penilaian Kinerja</h2>
+            <p class="text-gray-500 text-sm">Pilih Tim dan Tahun untuk memunculkan daftar mitra.</p>
         </div>
 
-        <div id="history-section" class="card mt-8" style="display: none;">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Riwayat Penilaian</h2>
-            <div class="table-container">
-                <table id="history-table">
-                    <thead>
-                        <tr>
-                            <th>Tanggal</th>
-                            <th>Penilai</th>
-                            <th>Kegiatan yang Dinilai</th>
-                          
-                            <th>Kualitas</th>
-                            <th>Volume</th>
-                            <th>Perilaku</th>
-                            <th>Keterangan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
+        <div class="filter-grid">
+            <div class="form-group">
+                <label class="form-label">Pilih Tim Pelaksana:</label>
+                <select id="filter_tim" class="form-select">
+                    <option value="">-- Pilih Tim --</option>
+                    <?php foreach ($tim_list as $tim): ?>
+                        <option value="<?= $tim['id'] ?>" <?= ($tim['id'] == $selected_tim_id) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($tim['nama_tim']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tahun:</label>
+                <select id="filter_tahun" class="form-select">
+                    <?php foreach ($tahun_list as $thn): ?>
+                        <option value="<?= $thn ?>" <?= ($thn == $selected_tahun) ? 'selected' : '' ?>>
+                            <?= $thn ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+
+        <div id="loading-indicator" style="display:none; text-align:center; padding:30px; color:#6b7280;">
+            <svg style="width:24px; height:24px; animation:spin 1s linear infinite; margin-bottom:10px;" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <br>Memuat data...
+        </div>
+        <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+
+        <div id="error-message" style="display:none; text-align:center; padding:15px; color:#dc2626; background:#fee2e2; border-radius:8px; margin-top:10px;"></div>
+
+        <div id="mitra-list-container" class="table-responsive" style="display:none;">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Nama Mitra</th>
+                        <th>Pekerjaan / Kegiatan</th>
+                        <th>Periode</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="mitra-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<div id="modalPenilaian" class="modal-overlay">
+    <div class="modal-box">
+        
+        <div class="modal-header">
+            <div class="modal-title">
+                <h3 id="modal_nama_mitra">Nama Mitra</h3>
+                <div id="modal_detail_tugas" class="modal-subtitle">Detail Tugas...</div>
+            </div>
+            <span class="close-btn" onclick="tutupModal()">&times;</span>
+        </div>
+
+        <div class="modal-body">
+            
+            <div class="col-form">
+                <form action="../proses/proses_tambah_penilaian.php" method="POST" id="formPenilaian">
+                    <input type="hidden" name="mitra_survey_id" id="input_mitra_survey_id" required>
+                    <input type="hidden" name="penilai_id" value="<?= $penilai_id ?>">
+                    
+                    <div class="input-group">
+                        <label class="form-label" style="font-size:1.1rem; margin-bottom:1rem; color:#1e40af;">Input Nilai (1 - 4)</label>
+                        <div class="input-row">
+                            <div>
+                                <label class="form-label">Kualitas</label>
+                                <input type="number" name="kualitas" class="form-control" min="1" max="4" required>
+                            </div>
+                            <div>
+                                <label class="form-label">Volume</label>
+                                <input type="number" name="volume_pemasukan" class="form-control" min="1" max="4" required>
+                            </div>
+                            <div>
+                                <label class="form-label">Perilaku</label>
+                                <input type="number" name="perilaku" class="form-control" min="1" max="4" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="form-label">Catatan / Keterangan (Opsional)</label>
+                        <textarea name="keterangan" class="form-control" rows="4" placeholder="Contoh: Pekerjaan sangat rapi, tapi sedikit terlambat..."></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <div class="col-guide">
+                <div class="guide-title">ℹ️ Panduan: Kualitas</div>
+                <table class="guide-table">
+                    <tr><th width="40">4</th><td><span class="val-good">Sangat Baik</span> (Benar 100%)</td></tr>
+                    <tr><th>3</th><td>Baik (Benar 70% - 90%, Sebagian Salah)</td></tr>
+                    <tr><th>2</th><td>Cukup (Benar 50% - 60%, Banyak Salah)</td></tr>
+                    <tr><th>1</th><td><span class="val-bad">Kurang</span> (Di bawah 50%, Tidak Layak)</td></tr>
+                </table>
+
+                <div class="guide-title">ℹ️ Panduan: Volume / Ketepatan Waktu</div>
+                <table class="guide-table">
+                    <tr><th width="40">4</th><td><span class="val-good">2 Hari Sebelum Deadline</span></td></tr>
+                    <tr><th>3</th><td>Tepat di Hari Deadline</td></tr>
+                    <tr><th>2</th><td>Terlambat (Volume Sesuai)</td></tr>
+                    <tr><th>1</th><td><span class="val-bad">Terlambat (Volume Tidak Sesuai)</span></td></tr>
+                </table>
+
+                <div class="guide-title">ℹ️ Panduan: Perilaku</div>
+                <table class="guide-table">
+                    <tr><th width="40">4</th><td><span class="val-good">Sangat Memuaskan</span> (Kooperatif, Sopan, Disiplin)</td></tr>
+                    <tr><th>3</th><td>Memuaskan (Cukup Kooperatif)</td></tr>
+                    <tr><th>2</th><td>Kurang (Pernah menolak perintah/konflik)</td></tr>
+                    <tr><th>1</th><td><span class="val-bad">Tidak Memuaskan</span> (Sering menolak, konflik, bolos)</td></tr>
                 </table>
             </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" onclick="tutupModal()" class="btn-nilai" style="background:#9ca3af;">Batal</button>
+            <button type="button" onclick="document.getElementById('formPenilaian').submit()" class="btn-nilai" style="background:#22c55e; font-size:1rem; padding: 0.75rem 2rem;">Simpan Penilaian</button>
         </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const status = urlParams.get('status');
-        const message = urlParams.get('message');
+document.addEventListener('DOMContentLoaded', function() {
+    const filterTim = document.getElementById('filter_tim');
+    const filterTahun = document.getElementById('filter_tahun');
+    const listContainer = document.getElementById('mitra-list-container');
+    const tableBody = document.getElementById('mitra-table-body');
+    const loading = document.getElementById('loading-indicator');
+    const errorMsg = document.getElementById('error-message');
 
-        if (status && message) {
-            if (status === 'error') {
-                alert('Error: ' + decodeURIComponent(message).replace(/\+/g, ' '));
-            } else if (status === 'success') {
-                alert('Success: ' + decodeURIComponent(message).replace(/\+/g, ' '));
-            }
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    });
+    // Elemen Modal
+    const modal = document.getElementById('modalPenilaian');
+    const modalNama = document.getElementById('modal_nama_mitra');
+    const modalDetail = document.getElementById('modal_detail_tugas');
+    const inputSurveyId = document.getElementById('input_mitra_survey_id');
+    const formPenilaian = document.getElementById('formPenilaian');
 
-    const penilaianHistory = <?= json_encode($penilaian_history_list); ?>;
-    
-    const searchInput = document.getElementById('mitra-kegiatan-search-input');
-    const dropdown = document.getElementById('mitra-kegiatan-dropdown');
-    const hiddenInput = document.getElementById('mitra_survey_id');
-    const dropdownItems = dropdown.querySelectorAll('.select-dropdown-item');
+    function loadDataMitra() {
+        const timId = filterTim.value;
+        const tahun = filterTahun.value;
 
-    // Fungsionalitas pencarian
-    searchInput.addEventListener('focus', () => { dropdown.style.display = 'block'; });
-    searchInput.addEventListener('blur', () => { setTimeout(() => { dropdown.style.display = 'none'; }, 200); });
-    searchInput.addEventListener('keyup', () => {
-        const filter = searchInput.value.toLowerCase();
-        dropdownItems.forEach(item => {
-            const searchText = item.getAttribute('data-search-text');
-            if (searchText.includes(filter)) {
-                item.classList.remove('hidden');
-            } else {
-                item.classList.add('hidden');
-            }
-        });
-    });
-    
-    dropdownItems.forEach(item => {
-        item.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            const id = item.getAttribute('data-id');
-            const fullText = item.textContent.trim();
-            searchInput.value = fullText;
-            hiddenInput.value = id;
-            dropdown.style.display = 'none';
-            displayHistory(id); // Panggil fungsi riwayat
-        });
-    });
+        listContainer.style.display = 'none';
+        errorMsg.style.display = 'none';
+        tableBody.innerHTML = '';
 
-    function displayHistory(mitraSurveyId) {
-        const historyTableBody = document.querySelector('#history-table tbody');
-        const historySection = document.getElementById('history-section');
-        historyTableBody.innerHTML = ''; // Kosongkan tabel
-        
-        const filteredHistory = penilaianHistory.filter(item => item.mitra_survey_id == mitraSurveyId);
+        if (!timId) return;
 
-        if (filteredHistory.length > 0) {
-            filteredHistory.forEach(item => {
-                const row = document.createElement('tr');
-                // Update isi baris sesuai dengan data baru dari kueri riwayat
-                row.innerHTML = `
-                    <td>${item.tanggal_penilaian}</td>
-                    <td>${item.nama_penilai}</td>
-                    <td>${item.nama_kegiatan || 'N/A'}</td> 
-                    <td>${item.kualitas}</td>
-                    <td>${item.volume_pemasukan}</td>
-                    <td>${item.perilaku}</td>
-                    <td>${item.keterangan || '-'}</td>
-                `;
-                historyTableBody.appendChild(row);
+        loading.style.display = 'block';
+
+        fetch(`get_status_penilaian_tim.php?tim_id=${timId}&tahun=${tahun}&_=${Date.now()}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                loading.style.display = 'none';
+                listContainer.style.display = 'block';
+
+                if (data.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Tidak ada mitra/kegiatan untuk Tim dan Tahun ini.</td></tr>';
+                    return;
+                }
+
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    let statusBadge = item.penilaian_id 
+                        ? `<span class="badge badge-success">Sudah Dinilai (Skor: ${item.skor_akhir})</span>` 
+                        : `<span class="badge badge-warning">Belum Dinilai</span>`;
+                    
+                    let btnAction = item.penilaian_id 
+                        ? `<button class="btn-nilai" disabled style="opacity:0.5; background:#64748b;">Selesai</button>` 
+                        : `<button class="btn-nilai" onclick="bukaModal('${item.survey_id}', '${escapeHtml(item.nama_lengkap)}', '${escapeHtml(item.pekerjaan_lengkap)}', '${item.label_periode}')">Nilai</button>`;
+
+                    row.innerHTML = `
+                        <td><strong>${item.nama_lengkap}</strong></td>
+                        <td>${item.pekerjaan_lengkap}</td>
+                        <td>${item.label_periode}</td>
+                        <td>${statusBadge}</td>
+                        <td>${btnAction}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                loading.style.display = 'none';
+                errorMsg.textContent = "Gagal memuat data: " + err.message;
+                errorMsg.style.display = 'block';
             });
-            historySection.style.display = 'block';
-        } else {
-            // Jika tidak ada riwayat, sembunyikan tabel
-            historySection.style.display = 'none';
+    }
+
+    filterTim.addEventListener('change', loadDataMitra);
+    filterTahun.addEventListener('change', loadDataMitra);
+
+    window.escapeHtml = function(text) {
+        if (!text) return '';
+        return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    // --- FUNGSI MODAL ---
+    window.bukaModal = function(surveyId, nama, pekerjaan, periode) {
+        inputSurveyId.value = surveyId;
+        modalNama.textContent = nama;
+        modalDetail.textContent = `${pekerjaan} (${periode})`;
+        
+        // Reset Form
+        formPenilaian.reset();
+        
+        // Tampilkan Modal dengan Flex
+        modal.style.display = 'flex';
+    }
+
+    window.tutupModal = function() {
+        modal.style.display = 'none';
+    }
+
+    // Tutup modal jika klik di luar box
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            tutupModal();
         }
     }
+
+    // Auto-trigger jika ada parameter di URL
+    if (filterTim.value) {
+        loadDataMitra();
+    }
+});
 </script>
 
-<?php 
-// Tutup koneksi dan result set
-if ($result_mitra_kegiatan) $result_mitra_kegiatan->close();
-if ($result_penilaian_history) $result_penilaian_history->close();
-$koneksi->close();
-include '../includes/footer.php'; 
-?>
+<?php include '../includes/footer.php'; ?>

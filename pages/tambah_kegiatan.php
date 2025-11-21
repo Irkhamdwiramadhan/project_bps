@@ -377,6 +377,65 @@ if ($result_tim && $result_tim->num_rows > 0) {
         transform: translateY(-50%);
         color: #94a3b8;
     }
+
+    /* --- STYLE BARU: LAYOUT 2 KOLOM --- */
+    .date-grid-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        /* Bagi 2 kolom sama besar */
+        gap: 2rem;
+        margin-bottom: 1.5rem;
+        background-color: #f8fafc;
+        /* Warna latar sedikit beda biar fokus */
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+    }
+
+    .date-column {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .date-header {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1e293b;
+        border-bottom: 2px solid #cbd5e1;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* STYLE CHECKBOX GRID (Agar rapi 3 kolom per baris) */
+    .checkbox-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        background: white;
+        padding: 6px;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+
+    .checkbox-item:hover {
+        border-color: #3b82f6;
+        background-color: #eff6ff;
+    }
+
+    .checkbox-item input {
+        margin-right: 8px;
+        cursor: pointer;
+    }
 </style>
 
 <div class="main-content">
@@ -409,62 +468,11 @@ if ($result_tim && $result_tim->num_rows > 0) {
 
                 </div>
 
-                <div class="form-group">
-                    <label for="trigger_periode">Jenis Periode Laporan</label>
-                    <select id="trigger_periode" name="periode_jenis" class="form-select">
-                        <option value="">-- Tidak Ada Periode Khusus --</option>
-                        <option value="bulanan">Bulanan</option>
-                        <option value="triwulan">Triwulan</option>
-                        <option value="subron">Sub-Round (Caturwulan)</option>
-                        <option value="tahunan">Tahunan</option>
-                    </select>
 
-                </div>
 
-                <div class="form-group" id="periode-bulanan-wrapper" style="display: none;">
-                    <label for="periode-bulanan">Pilih Bulan Laporan</label>
-                    <select id="periode-bulanan" name="periode_nilai_bulanan" class="form-select periode-input">
-                        <option value="">-- Pilih Bulan --</option>
-                        <option value="01">Januari</option>
-                        <option value="02">Februari</option>
-                        <option value="03">Maret</option>
-                        <option value="04">April</option>
-                        <option value="05">Mei</option>
-                        <option value="06">Juni</option>
-                        <option value="07">Juli</option>
-                        <option value="08">Agustus</option>
-                        <option value="09">September</option>
-                        <option value="10">Oktober</option>
-                        <option value="11">November</option>
-                        <option value="12">Desember</option>
-                    </select>
-                </div>
 
-                <div class="form-group" id="periode-triwulan-wrapper" style="display: none;">
-                    <label for="periode-triwulan">Pilih Triwulan</label>
-                    <select id="periode-triwulan" name="periode_nilai_triwulan" class="form-select periode-input">
-                        <option value="">-- Pilih Triwulan --</option>
-                        <option value="1">Triwulan 1 (Jan-Mar)</option>
-                        <option value="2">Triwulan 2 (Apr-Jun)</option>
-                        <option value="3">Triwulan 3 (Jul-Sep)</option>
-                        <option value="4">Triwulan 4 (Okt-Des)</option>
-                    </select>
-                </div>
 
-                <div class="form-group" id="periode-subron-wrapper" style="display: none;">
-                    <label for="periode-subron">Pilih Sub-Round</label>
-                    <select id="periode-subron" name="periode_nilai_subron" class="form-select periode-input">
-                        <option value="">-- Pilih Sub-Round --</option>
-                        <option value="1">Subron 1 (Jan-Apr)</option>
-                        <option value="2">Subron 2 (Mei-Ags)</option>
-                        <option value="3">Subron 3 (Sep-Des)</option>
-                    </select>
-                </div>
 
-                <div class="form-group" id="periode-tahunan-wrapper" style="display: none;">
-                    <label for="periode-tahunan">Masukkan Tahun Laporan</label>
-                    <input type="number" id="periode-tahunan" name="periode_nilai_tahunan" class="form-input periode-input" placeholder="Contoh: 2025" value="<?= date('Y') ?>">
-                </div>
 
                 <div class="form-group">
                     <label for="tahun_anggaran">Tahun Anggaran</label>
@@ -503,42 +511,107 @@ if ($result_tim && $result_tim->num_rows > 0) {
                 <div class="form-group"><label>Item</label><select id="item_id" name="item_id" class="form-select" disabled required>
                         <option value="">-- Pilih Item --</option>
                     </select></div>
+                <div class="form-group">
+                    <label for="harga_per_satuan">Harga Honor (Otomatis dari Item)</label>
+                    <input type="number" id="harga_per_satuan" name="harga_per_satuan" class="form-input" readonly required>
+                    
+                </div>
+                <div class="form-group">
+                        <label for="satuan_item">Satuan</label>
+                        <input type="text" id="satuan_item" class="form-input" readonly placeholder="Satuan dari master_item">
+                    </div>
             </div>
 
-            <div class="form-group">
-                <label for="harga_per_satuan">Harga Honor (Otomatis dari Item)</label>
-                <input type="number" id="harga_per_satuan" name="harga_per_satuan" class="form-input" readonly required>
-            </div>
 
-            <div class="form-group">
-                <label for="satuan_item">Satuan</label>
-                <input type="text" id="satuan_item" class="form-input" readonly placeholder="Satuan dari master_item">
-            </div>
 
-            <div class="form-group">
-                <label>Bulan dan Tahun Pembayaran</label>
-                <div class="bulan-tahun-input">
-                    <div class="input-wrapper-bulan">
-                        <select name="bulan_pembayaran" id="bulan_pembayaran" class="form-select" required>
-                            <option value="">-- Pilih Bulan --</option>
-                            <option value="01">Januari</option>
-                            <option value="02">Februari</option>
-                            <option value="03">Maret</option>
-                            <option value="04">April</option>
-                            <option value="05">Mei</option>
-                            <option value="06">Juni</option>
-                            <option value="07">Juli</option>
-                            <option value="08">Agustus</option>
-                            <option value="09">September</option>
-                            <option value="10">Oktober</option>
-                            <option value="11">November</option>
-                            <option value="12">Desember</option>
+
+
+            <div class="date-grid-container">
+
+                <div class="date-column">
+                    <div class="date-header">📅 1. Waktu Pelaksanaan</div>
+
+                    <div class="form-group">
+                        <label class="small-muted">Tipe Periode:</label>
+                        <select id="trigger_periode" name="periode_jenis" class="form-select" required>
+                            <option value="">-- Pilih Tipe --</option>
+                            <option value="bulanan">Bulanan (Multi)</option>
+                            <option value="triwulan">Triwulan</option>
+                            <option value="subron">Sub-Round</option>
+                            <option value="tahunan">Tahunan</option>
                         </select>
                     </div>
-                    <div class="input-wrapper-tahun">
-                        <input type="number" id="tahun_pembayaran" name="tahun_pembayaran" class="form-input" placeholder="Tahun" value="<?= date('Y') ?>" required>
+
+                    <div id="periode-bulanan-wrapper" style="display:none;">
+                        <label class="small-muted">Centang Bulan Pelaksanaan:</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="01"> Jan</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="02"> Feb</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="03"> Mar</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="04"> Apr</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="05"> Mei</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="06"> Jun</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="07"> Jul</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="08"> Ags</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="09"> Sep</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="10"> Okt</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="11"> Nov</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_bulanan[]" value="12"> Des</label>
+                        </div>
+                    </div>
+
+                    <div id="periode-triwulan-wrapper" style="display:none;">
+                        <label class="small-muted">Centang Triwulan:</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_triwulan[]" value="1"> TW 1</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_triwulan[]" value="2"> TW 2</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_triwulan[]" value="3"> TW 3</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_triwulan[]" value="4"> TW 4</label>
+                        </div>
+                    </div>
+
+                    <div id="periode-subron-wrapper" style="display:none;">
+                        <label class="small-muted">Centang Sub-Round:</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_subron[]" value="1"> SR 1</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_subron[]" value="2"> SR 2</label>
+                            <label class="checkbox-item"><input type="checkbox" name="periode_nilai_subron[]" value="3"> SR 3</label>
+                        </div>
+                    </div>
+
+                    <div id="periode-tahunan-wrapper" style="display:none;">
+                        <label class="small-muted">Tahun:</label>
+                        <input type="number" name="periode_nilai_tahunan" class="form-input" value="<?= date('Y') ?>">
                     </div>
                 </div>
+
+                <div class="date-column">
+                    <div class="date-header">💰 2. Waktu Pembayaran</div>
+                    <div class="form-group">
+                        <label class="small-muted">Tahun Bayar:</label>
+                        <input type="number" id="tahun_pembayaran" name="tahun_pembayaran" class="form-input" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="small-muted">Centang Bulan Pencairan:</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="01"> Jan</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="02"> Feb</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="03"> Mar</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="04"> Apr</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="05"> Mei</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="06"> Jun</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="07"> Jul</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="08"> Ags</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="09"> Sep</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="10"> Okt</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="11"> Nov</label>
+                            <label class="checkbox-item"><input type="checkbox" name="bulan_pembayaran[]" value="12"> Des</label>
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="form-group" style="margin-bottom:1rem;">
@@ -675,7 +748,7 @@ if ($result_tim && $result_tim->num_rows > 0) {
 
         const mitraId = mitraIdEl.value;
         const jumlahSatuan = jumlahSatuanEl.value;
-        const bulanPembayaran = document.getElementById('bulan_pembayaran').value;
+        const bulanPembayaran = getSelectedPaymentMonth();
         const tahunPembayaran = document.getElementById('tahun_pembayaran').value;
         const hargaPerSatuan = parseFloat(document.getElementById('harga_per_satuan').value) || 0;
         const isSensus = document.getElementById('is_sensus').checked;
@@ -734,6 +807,12 @@ if ($result_tim && $result_tim->num_rows > 0) {
             });
     }
 
+    function getSelectedPaymentMonth() {
+        const checkboxes = document.querySelectorAll('input[name="bulan_pembayaran[]"]:checked');
+        if (checkboxes.length > 0) return checkboxes[0].value; // Ambil yg pertama buat validasi
+        return '';
+    }
+
     function addMitraInput() {
         const container = document.getElementById('mitra-container');
         const newMitraGroup = document.createElement('div');
@@ -773,6 +852,16 @@ if ($result_tim && $result_tim->num_rows > 0) {
         }
         container.remove();
     }
+    // Helper untuk mengambil satu bulan pembayaran (hanya untuk keperluan validasi honor sederhana di JS)
+    function getSelectedPaymentMonth() {
+        // Ambil semua checkbox bulan pembayaran yang dicentang
+        const checkboxes = document.querySelectorAll('input[name="bulan_pembayaran[]"]:checked');
+        if (checkboxes.length > 0) {
+            // Kembalikan nilai pertama saja agar validasi JS tidak error
+            return checkboxes[0].value;
+        }
+        return ''; // Kosong jika tidak ada yang dicentang
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
         const tahunSelect = document.getElementById('tahun_anggaran');
@@ -801,6 +890,13 @@ if ($result_tim && $result_tim->num_rows > 0) {
         const mitraOtomatisList = document.getElementById('mitra-otomatis-list');
         const filterInputOtomatis = document.getElementById('filter-mitra-otomatis');
         const countDisplay = document.getElementById('count-mitra-otomatis');
+        // Tambahkan di dalam DOMContentLoaded
+        document.querySelectorAll('input[name="bulan_pembayaran[]"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                // Trigger validasi ulang (bisa pakai revalidateAutomaticList() atau manual)
+                if (typeof revalidateAutomaticList === 'function') revalidateAutomaticList();
+            });
+        });
 
         const manualInputFields = document.querySelectorAll('.manual-input');
         const periodeWrappers = {

@@ -59,3 +59,21 @@ ADD PRIMARY KEY (id);
 
 ALTER TABLE honor_mitra
 MODIFY id INT(11) NOT NULL AUTO_INCREMENT;
+
+
+
+
+-- 1. Kosongkan dulu tabel agar tidak error saat setting unique (opsional jika data masih tes)
+TRUNCATE TABLE rpd_setting_waktu;
+
+-- 2. Ubah struktur tabel agar ID auto increment dan TAHUN menjadi UNIQUE
+ALTER TABLE `rpd_setting_waktu`
+  CHANGE `id` `id` INT(11) NOT NULL AUTO_INCREMENT,
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_tahun` (`tahun`);
+
+
+1. menghilangkan nilai null 
+SELECT * FROM `honor_mitra` WHERE mitra_survey_id=821;
+
+

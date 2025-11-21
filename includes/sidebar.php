@@ -499,10 +499,11 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                             if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
                                 echo '<li><a href="upload.php"><i class="fas fa-upload"></i> Upload</a></li>';
                             }
-                            if (is_array($role_tampil) && array_intersect($allowed_roles, $role_tampil)) {
-                                echo '<li><a href="cetak.php"><i class="fas fa-print"></i> Cetak</a></li>';
-                            }
                             ?>
+                            
+                            <li><a href="cetak.php"><i class="fas fa-print"></i> Cetak</a></li>
+
+                            
 
 
 
@@ -567,15 +568,15 @@ $foto_user = $_SESSION['user_foto'] ?? null;
 
                             <li><a href="kegiatan.php"><i class="fas fa-calendar-check"></i> Kegiatan</a></li>
 
-<li><a href="jenis_surveys.php"><i class="fas fa-list-alt"></i> Jenis Survey</a></li>
+                            <li><a href="jenis_surveys.php"><i class="fas fa-list-alt"></i> Jenis Survey</a></li>
 
-<li><a href="penilaian_mitra.php"><i class="fas fa-award"></i> Penilaian Mitra</a></li>
+                            <li><a href="penilaian_mitra.php"><i class="fas fa-award"></i> Penilaian Mitra</a></li>
 
-<li><a href="rekap_honor.php"><i class="fas fa-money-check-alt"></i> Rekap Honor</a></li>
+                            <li><a href="rekap_honor.php"><i class="fas fa-money-check-alt"></i> Rekap Honor</a></li>
 
-<li><a href="kelola_jenis_mitra.php"><i class="fas fa-users-cog"></i> Kelola Tim</a></li>
+                            <li><a href="kelola_jenis_mitra.php"><i class="fas fa-users-cog"></i> Kelola Tim</a></li>
 
-<li><a href="form_rekap_cetak_kegiatan.php"><i class="fas fa-print"></i> Cetak Data</a></li>
+                            <li><a href="form_rekap_cetak_kegiatan.php"><i class="fas fa-print"></i> Cetak Data</a></li>
 
 
                         </ul>

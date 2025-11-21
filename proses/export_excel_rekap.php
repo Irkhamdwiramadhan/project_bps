@@ -25,69 +25,24 @@ $tim_ids_clean = array_map('intval', $tim_ids);
 $tim_clause = implode(',', $tim_ids_clean);
 
 // ==========================================================================
-// LANGKAH 3: SIAPKAN DATA
+// LANGKAH 3: SIAPKAN STRUKTUR HEADER (TIM -> KEGIATAN -> ITEM)
 // ==========================================================================
 
-// A. HEADER KOLOM (REVISI: AMBIL NAMA ITEM, BUKAN NAMA KEGIATAN)
 $sql_header = "
     SELECT 
-        mk.kode,
-        -- REVISI: Ambil Nama Item untuk Header
-        -- Menggunakan Subquery dengan LIMIT 1 agar mendapat 1 nama item per Kode Kegiatan
-        (
-            SELECT mi.nama_item 
-            FROM master_item mi 
-            WHERE mi.kode_unik LIKE CONCAT(hm.item_kode_unik, '%') 
-              AND mi.tahun = hm.tahun_pembayaran
-            ORDER BY LENGTH(mi.kode_unik) DESC 
-            LIMIT 1
-        ) as nama_header_item
-        
-    FROM honor_mitra hm
-    JOIN mitra_surveys ms ON hm.mitra_survey_id = ms.id
-    JOIN master_kegiatan mk ON ms.kegiatan_id = mk.kode AND mk.tahun = hm.tahun_pembayaran
-    
-    WHERE hm.bulan_pembayaran = '$bulan' 
-      AND hm.tahun_pembayaran = '$tahun'
-      AND ms.tim_id IN ($tim_clause)
-      
-    GROUP BY mk.kode -- Satu kolom per Kode Kegiatan
-    ORDER BY mk.kode ASC
-";
-
-$res_header = $koneksi->query($sql_header);
-$kegiatan_headers = [];
-while ($row = $res_header->fetch_assoc()) {
-    // Fallback jika nama item kosong
-    if (empty($row['nama_header_item'])) {
-        $row['nama_header_item'] = 'Item Tidak Ditemukan';
-    }
-    $kegiatan_headers[] = $row; 
-}
-
-// B. DATA UTAMA (Pivot)
-$sql_data = "
-    SELECT 
-        m.nama_lengkap,
-        m.norek, 
-        m.bank,
+        t.id as tim_id,
         t.nama_tim,
-        mk.kode AS kode_kegiatan,
-        
-        -- Ambil Nama Item (Untuk isi cell, jika perlu ditampilkan lagi)
+        mk.kode as kode_kegiatan,
+        hm.item_kode_unik,
         (
             SELECT mi.nama_item 
             FROM master_item mi 
-            WHERE mi.kode_unik LIKE CONCAT(hm.item_kode_unik, '%') 
+            WHERE mi.kode_unik = hm.item_kode_unik 
               AND mi.tahun = hm.tahun_pembayaran
-            ORDER BY LENGTH(mi.kode_unik) DESC 
             LIMIT 1
-        ) AS nama_item,
+        ) as nama_item
         
-        SUM(hm.total_honor) as subtotal_honor
-
     FROM honor_mitra hm
-    JOIN mitra m ON hm.mitra_id = m.id
     JOIN mitra_surveys ms ON hm.mitra_survey_id = ms.id
     JOIN tim t ON ms.tim_id = t.id
     JOIN master_kegiatan mk ON ms.kegiatan_id = mk.kode AND mk.tahun = hm.tahun_pembayaran
@@ -96,40 +51,90 @@ $sql_data = "
       AND hm.tahun_pembayaran = '$tahun'
       AND ms.tim_id IN ($tim_clause)
       
-    GROUP BY m.id, t.id, t.nama_tim, mk.kode, hm.item_kode_unik
-    ORDER BY t.nama_tim ASC, m.nama_lengkap ASC
+    -- REVISI UTAMA DI SINI: Grouping mencakup Item Unik agar tidak tertumpuk
+    GROUP BY t.id, t.nama_tim, mk.kode, hm.item_kode_unik
+    ORDER BY t.nama_tim ASC, mk.kode ASC, hm.item_kode_unik ASC
+";
+
+$res_header = $koneksi->query($sql_header);
+
+// Kita susun Hierarki Header untuk memudahkan looping Excel nanti
+// Struktur: $hierarki[Nama_Tim][Kode_Kegiatan][] = ['kode_item' => ..., 'nama_item' => ...]
+$hierarki_header = [];
+$flat_columns = []; // Untuk mapping saat isi data (O(1) access)
+
+while ($row = $res_header->fetch_assoc()) {
+    $nama_item = !empty($row['nama_item']) ? $row['nama_item'] : 'Item Tidak Diketahui';
+    
+    // Susun Hierarki
+    $hierarki_header[$row['nama_tim']][$row['kode_kegiatan']][] = [
+        'item_kode' => $row['item_kode_unik'],
+        'item_nama' => $nama_item
+    ];
+
+    // Simpan referensi kolom datar (kombinasi Tim + Item)
+    // Kita pakai kunci: ID_TIM_KODE_ITEM
+    $flat_key = $row['tim_id'] . '_' . $row['item_kode_unik'];
+    $flat_columns[] = $flat_key; // Nanti index array ini menentukan kolom ke berapa di Excel
+}
+
+// ==========================================================================
+// LANGKAH 4: AMBIL DATA UTAMA (PIVOT)
+// ==========================================================================
+
+$sql_data = "
+    SELECT 
+        m.id as mitra_id,
+        m.nama_lengkap,
+        m.norek, 
+        m.bank,
+        t.id as tim_id,
+        hm.item_kode_unik,
+        SUM(hm.total_honor) as subtotal_honor
+
+    FROM honor_mitra hm
+    JOIN mitra_surveys ms ON hm.mitra_survey_id = ms.id
+    JOIN mitra m ON hm.mitra_id = m.id 
+    JOIN tim t ON ms.tim_id = t.id
+    
+    WHERE hm.bulan_pembayaran = '$bulan' 
+      AND hm.tahun_pembayaran = '$tahun'
+      AND ms.tim_id IN ($tim_clause)
+      
+    -- Grouping data per Mitra, per Tim, per Item
+    GROUP BY m.id, t.id, hm.item_kode_unik
+    ORDER BY m.nama_lengkap ASC
 ";
 
 $res_data = $koneksi->query($sql_data);
 $rows = [];
 
 while ($row = $res_data->fetch_assoc()) {
-    // Key Unik: Nama + Tim
-    $key = $row['nama_lengkap'] . "_" . $row['nama_tim'];
+    $mitra_id = $row['mitra_id'];
     
-    if (!isset($rows[$key])) {
-        $rows[$key] = [
-            'nama' => $row['nama_lengkap'],
-            'norek' => $row['norek'],
-            'bank' => $row['bank'],
-            'tim' => $row['nama_tim'],
-            'kegiatan' => []
+    // Inisialisasi data mitra jika belum ada
+    if (!isset($rows[$mitra_id])) {
+        $rows[$mitra_id] = [
+            'info' => [
+                'nama' => $row['nama_lengkap'],
+                'norek' => $row['norek'],
+                'bank' => $row['bank']
+            ],
+            'values' => [] // Menyimpan nilai honor berdasarkan key unik (Tim_Item)
         ];
     }
     
-    if (!isset($rows[$key]['kegiatan'][$row['kode_kegiatan']])) {
-        $rows[$key]['kegiatan'][$row['kode_kegiatan']] = [
-            'honor' => 0, 
-            'item' => []
-        ];
-    }
+    // Key unik untuk mapping nilai ke kolom yang tepat
+    $col_key = $row['tim_id'] . '_' . $row['item_kode_unik'];
     
-    $rows[$key]['kegiatan'][$row['kode_kegiatan']]['honor'] += $row['subtotal_honor'];
-    $rows[$key]['kegiatan'][$row['kode_kegiatan']]['item'][] = $row['nama_item'];
+    if (!isset($rows[$mitra_id]['values'][$col_key])) {
+        $rows[$mitra_id]['values'][$col_key] = 0;
+    }
+    $rows[$mitra_id]['values'][$col_key] += $row['subtotal_honor'];
 }
 
 // ==========================================================================
-// LANGKAH 4: GENERATE EXCEL
+// LANGKAH 5: GENERATE EXCEL
 // ==========================================================================
 
 $spreadsheet = new Spreadsheet();
@@ -137,138 +142,186 @@ $sheet = $spreadsheet->getActiveSheet();
 $sheet->setTitle('Rekap Honor');
 
 // --- Styles ---
-$styleHeader = [
-    'font' => ['bold' => true, 'color' => ['rgb' => '000000']],
-    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D1E7DD']],
+$styleHeaderTim = [
+    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0d6efd']], // Biru
     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
 ];
+
+$styleHeaderKeg = [
+    'font' => ['bold' => true],
+    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'cfe2ff']], // Biru Muda
+    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+];
+
+$styleHeaderItem = [
+    'font' => ['bold' => true, 'size' => 9],
+    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'f8f9fa']], // Abu-abu
+    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+];
+
 $styleTotal = [
     'font' => ['bold' => true],
-    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF3CD']],
+    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'fff3cd']], // Kuning
     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
 ];
-$styleBorder = [
-    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-];
+$styleBorder = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]];
 
-// --- Judul ---
+// --- Judul Laporan ---
 $sheet->setCellValue('A1', 'REKAP HONOR MITRA BPS');
 $sheet->setCellValue('A2', "Bulan: $bulan | Tahun: $tahun");
-$sheet->mergeCells('A1:F1');
-$sheet->mergeCells('A2:F2');
 $sheet->getStyle('A1:A2')->getFont()->setBold(true)->setSize(14);
 
-// --- Header Tabel ---
-$headerRow1 = 4;
-$headerRow2 = 5;
+// ==========================================
+// RENDER HEADER TABEL (3 TINGKAT)
+// ==========================================
+// Baris 4: Nama Tim
+// Baris 5: Kode Kegiatan
+// Baris 6: Nama Item
 
-// Kolom Statis
-$fixedCols = ['A' => 'NO', 'B' => 'NAMA MITRA', 'C' => 'NO. REKENING', 'D' => 'BANK', 'E' => 'TIM PELAKSANA'];
+$rowTim = 4;
+$rowKeg = 5;
+$rowItem = 6;
+
+// 1. Kolom Statis (Kiri) - Merge Vertikal 3 Baris
+$fixedCols = ['A' => 'NO', 'B' => 'NAMA MITRA', 'C' => 'NO. REKENING', 'D' => 'BANK'];
 foreach ($fixedCols as $col => $text) {
-    $sheet->setCellValue($col . $headerRow1, $text);
-    $sheet->mergeCells($col . $headerRow1 . ':' . $col . $headerRow2);
+    $sheet->setCellValue($col . $rowTim, $text);
+    $sheet->mergeCells($col . $rowTim . ':' . $col . $rowItem);
+    $sheet->getColumnDimension($col)->setAutoSize(true);
+}
+// Style Header Kiri
+$sheet->getStyle("A{$rowTim}:D{$rowItem}")->applyFromArray([
+    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+    'font' => ['bold' => true],
+    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
+]);
+
+// 2. Kolom Dinamis (Kanan)
+$colIndex = 5; // Mulai kolom E (1=A, 5=E)
+
+// Loop Hierarki untuk print Header
+foreach ($hierarki_header as $nama_tim => $kegiatans) {
+    // Simpan posisi awal kolom Tim untuk merge nanti
+    $startColTim = $colIndex;
+    
+    foreach ($kegiatans as $kode_kegiatan => $items) {
+        // Simpan posisi awal kolom Kegiatan untuk merge nanti
+        $startColKeg = $colIndex;
+        
+        foreach ($items as $item) {
+            $colString = Coordinate::stringFromColumnIndex($colIndex);
+            
+            // Tulis Nama Item di Baris 6
+            $sheet->setCellValue($colString . $rowItem, $item['item_nama']);
+            $sheet->getColumnDimension($colString)->setWidth(25); // Lebar fix agar rapi
+            
+            $colIndex++;
+        }
+        
+        // MERGE KEGIATAN (Baris 5)
+        $endColKeg = $colIndex - 1;
+        $startStr = Coordinate::stringFromColumnIndex($startColKeg);
+        $endStr = Coordinate::stringFromColumnIndex($endColKeg);
+        
+        $sheet->mergeCells("{$startStr}{$rowKeg}:{$endStr}{$rowKeg}");
+        $sheet->setCellValue("{$startStr}{$rowKeg}", "Keg: " . $kode_kegiatan);
+    }
+    
+    // MERGE TIM (Baris 4)
+    $endColTim = $colIndex - 1;
+    $startStr = Coordinate::stringFromColumnIndex($startColTim);
+    $endStr = Coordinate::stringFromColumnIndex($endColTim);
+    
+    $sheet->mergeCells("{$startStr}{$rowTim}:{$endStr}{$rowTim}");
+    $sheet->setCellValue("{$startStr}{$rowTim}", strtoupper($nama_tim));
 }
 
-// Kolom Dinamis (Kegiatan)
-$colIndex = 6; // Mulai kolom F
-foreach ($kegiatan_headers as $keg) {
-    $colString = Coordinate::stringFromColumnIndex($colIndex);
-    
-    // Baris 4: Kode Kegiatan
-    $sheet->setCellValue($colString . $headerRow1, $keg['kode']); 
-    
-    // Baris 5: Nama ITEM (Bukan Nama Kegiatan) [REVISI]
-    $sheet->setCellValue($colString . $headerRow2, $keg['nama_header_item']); 
-    
-    $colIndex++;
-}
+// Kolom TOTAL TERIMA (Paling Kanan)
+$colStringTotal = Coordinate::stringFromColumnIndex($colIndex);
+$sheet->setCellValue($colStringTotal . $rowTim, 'TOTAL TERIMA');
+$sheet->mergeCells($colStringTotal . $rowTim . ':' . $colStringTotal . $rowItem);
+$sheet->getColumnDimension($colStringTotal)->setWidth(15);
+$sheet->getStyle($colStringTotal . $rowTim . ':' . $colStringTotal . $rowItem)->applyFromArray($styleHeaderTim);
 
-// Kolom Total
-$lastColString = Coordinate::stringFromColumnIndex($colIndex);
-$sheet->setCellValue($lastColString . $headerRow1, 'TOTAL TERIMA');
-$sheet->mergeCells($lastColString . $headerRow1 . ':' . $lastColString . $headerRow2);
+// Terapkan Style Warna Header
+$lastColStr = Coordinate::stringFromColumnIndex($colIndex);
+// Style Tim (Row 4)
+$sheet->getStyle("E{$rowTim}:{$lastColStr}{$rowTim}")->applyFromArray($styleHeaderTim);
+// Style Keg (Row 5)
+$sheet->getStyle("E{$rowKeg}:" . Coordinate::stringFromColumnIndex($colIndex - 1) . $rowKeg)->applyFromArray($styleHeaderKeg);
+// Style Item (Row 6)
+$sheet->getStyle("E{$rowItem}:" . Coordinate::stringFromColumnIndex($colIndex - 1) . $rowItem)->applyFromArray($styleHeaderItem);
 
-// Terapkan Style Header
-$fullHeaderRange = "A{$headerRow1}:{$lastColString}{$headerRow2}";
-$sheet->getStyle($fullHeaderRange)->applyFromArray($styleHeader);
 
-// Lebar Kolom
-$sheet->getColumnDimension('A')->setWidth(5);
-$sheet->getColumnDimension('B')->setWidth(30);
-$sheet->getColumnDimension('C')->setWidth(20);
-$sheet->getColumnDimension('D')->setWidth(15);
-$sheet->getColumnDimension('E')->setWidth(25);
-for ($i = 6; $i <= $colIndex; $i++) {
-    // Lebar kolom dinamis sedikit diperlebar agar nama item muat
-    $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($i))->setWidth(35);
-}
+// ==========================================
+// ISI DATA BARIS
+// ==========================================
 
-// --- Isi Data ---
-$rowNum = 6;
+$currentRow = 7;
 $no = 1;
 $grandTotalSemua = 0;
 
-foreach ($rows as $mitra) {
-    $sheet->setCellValue('A' . $rowNum, $no++);
-    $sheet->setCellValue('B' . $rowNum, $mitra['nama']);
-    $sheet->setCellValueExplicit('C' . $rowNum, $mitra['norek'] ?? '-', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-    $sheet->setCellValue('D' . $rowNum, $mitra['bank'] ?? '-');
-    $sheet->setCellValue('E' . $rowNum, $mitra['tim']);
-
-    $colIndex = 6;
-    $totalPerMitra = 0;
-
-    foreach ($kegiatan_headers as $header) {
-        $kode = $header['kode'];
-        $colString = Coordinate::stringFromColumnIndex($colIndex);
+foreach ($rows as $mitra_id => $data) {
+    // Kolom Statis
+    $sheet->setCellValue('A' . $currentRow, $no++);
+    $sheet->setCellValue('B' . $currentRow, $data['info']['nama']);
+    $sheet->setCellValueExplicit('C' . $currentRow, $data['info']['norek'] ?? '-', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+    $sheet->setCellValue('D' . $currentRow, $data['info']['bank'] ?? '-');
+    
+    // Kolom Dinamis
+    $colCheck = 5; // Reset ke kolom E
+    $totalRow = 0;
+    
+    // Kita loop berdasarkan $flat_columns (Mapping urutan kolom header)
+    foreach ($flat_columns as $key_col) {
+        $colStr = Coordinate::stringFromColumnIndex($colCheck);
         
-        if (isset($mitra['kegiatan'][$kode])) {
-            $dataSel = $mitra['kegiatan'][$kode];
-            $amount = $dataSel['honor'];
-            
-            // [OPSIONAL] Anda bisa menghapus nama item di dalam cell ini
-            // karena sudah ada di header. Tapi jika dalam 1 kode kegiatan
-            // ada banyak item berbeda, tetap menampilkannya di sini berguna.
-            // Di sini saya tetap menampilkannya untuk detail.
-         $sheet->setCellValue($colString . $rowNum, $amount);
-            
-            // Format sel menjadi angka dengan pemisah ribuan
-            $sheet->getStyle($colString . $rowNum)->getNumberFormat()->setFormatCode('#,##0');
-            
-            $totalPerMitra += $amount;
+        if (isset($data['values'][$key_col])) {
+            $val = $data['values'][$key_col];
+            $sheet->setCellValue($colStr . $currentRow, $val);
+            $sheet->getStyle($colStr . $currentRow)->getNumberFormat()->setFormatCode('#,##0');
+            $totalRow += $val;
         } else {
-            $sheet->setCellValue($colString . $rowNum, '-');
-            $sheet->getStyle($colString . $rowNum)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->setCellValue($colStr . $currentRow, '-');
+            $sheet->getStyle($colStr . $currentRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
-        $colIndex++;
+        
+        $colCheck++;
     }
-
-    // Total Baris
-    $sheet->setCellValue($lastColString . $rowNum, $totalPerMitra);
-    $sheet->getStyle($lastColString . $rowNum)->getNumberFormat()->setFormatCode('#,##0');
-    $sheet->getStyle($lastColString . $rowNum)->applyFromArray($styleTotal);
-
-    $grandTotalSemua += $totalPerMitra;
-    $rowNum++;
+    
+    // Kolom Total Per Baris
+    $colStrTotal = Coordinate::stringFromColumnIndex($colCheck);
+    $sheet->setCellValue($colStrTotal . $currentRow, $totalRow);
+    $sheet->getStyle($colStrTotal . $currentRow)->getNumberFormat()->setFormatCode('#,##0');
+    $sheet->getStyle($colStrTotal . $currentRow)->applyFromArray($styleTotal);
+    
+    $grandTotalSemua += $totalRow;
+    $currentRow++;
 }
 
-// --- Footer ---
-$sheet->setCellValue('A' . $rowNum, 'GRAND TOTAL');
-$sheet->mergeCells("A{$rowNum}:" . Coordinate::stringFromColumnIndex($colIndex - 1) . $rowNum);
-$sheet->getStyle("A{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+// ==========================================
+// FOOTER TOTAL
+// ==========================================
+$sheet->setCellValue('A' . $currentRow, 'GRAND TOTAL');
+$sheet->mergeCells("A{$currentRow}:" . Coordinate::stringFromColumnIndex($colIndex - 1) . $currentRow);
+$sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+$sheet->getStyle("A{$currentRow}")->getFont()->setBold(true);
 
-$sheet->setCellValue($lastColString . $rowNum, $grandTotalSemua);
-$sheet->getStyle($lastColString . $rowNum)->getNumberFormat()->setFormatCode('#,##0');
-$sheet->getStyle("A{$rowNum}:{$lastColString}{$rowNum}")->applyFromArray($styleTotal);
+// Nilai Grand Total
+$colStrFinal = Coordinate::stringFromColumnIndex($colIndex);
+$sheet->setCellValue($colStrFinal . $currentRow, $grandTotalSemua);
+$sheet->getStyle($colStrFinal . $currentRow)->getNumberFormat()->setFormatCode('#,##0');
+$sheet->getStyle("A{$currentRow}:{$colStrFinal}{$currentRow}")->applyFromArray($styleTotal);
 
-// Styling Akhir
-$sheet->getStyle("A6:{$lastColString}" . ($rowNum))->applyFromArray($styleBorder);
-$sheet->getStyle("A4:{$lastColString}{$rowNum}")->getAlignment()->setWrapText(true);
-$sheet->getStyle("A4:{$lastColString}{$rowNum}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+// Border Seluruh Data
+$sheet->getStyle("A{$rowItem}:{$colStrFinal}{$currentRow}")->applyFromArray($styleBorder);
 
 // Output
-$filename = "Rekap_Honor_Bulan_{$bulan}_{$tahun}.xlsx";
+$filename = "Rekap_Honor_Gabungan_{$bulan}_{$tahun}.xlsx";
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 header('Content-Disposition: attachment;filename="' . $filename . '"');
 header('Cache-Control: max-age=0');

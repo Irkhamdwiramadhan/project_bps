@@ -5,9 +5,34 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// =========================================================================
-// REVISI: Tangkap parameter 'mitra_id' (bukan 'id')
-// =========================================================================
+// --- FUNGSI HELPER: Format Periode ---
+function formatPeriodeDetail($jenis, $nilai, $tahun) {
+    $jenis = ucfirst($jenis);
+    if (empty($nilai)) return "$jenis $tahun";
+
+    $nama_bulan = [
+        1=>'Januari', '01'=>'Januari', 2=>'Februari', '02'=>'Februari',
+        3=>'Maret', '03'=>'Maret', 4=>'April', '04'=>'April',
+        5=>'Mei', '05'=>'Mei', 6=>'Juni', '06'=>'Juni',
+        7=>'Juli', '07'=>'Juli', 8=>'Agustus', '08'=>'Agustus',
+        9=>'September', '09'=>'September', 10=>'Oktober', 11=>'November', 12=>'Desember'
+    ];
+
+    $periodeStr = "";
+    if (strtolower($jenis) == 'bulanan') {
+        $periodeStr = $nama_bulan[$nilai] ?? $nilai;
+    } elseif (strtolower($jenis) == 'triwulan') {
+        $periodeStr = "Triwulan $nilai";
+    } elseif (strtolower($jenis) == 'subron') {
+        $periodeStr = "Sub-Round $nilai";
+    } else {
+        $periodeStr = "$jenis $nilai";
+    }
+
+    return "$periodeStr $tahun";
+}
+
+// Ambil ID mitra dari URL
 $mitra_id = isset($_GET['mitra_id']) ? intval($_GET['mitra_id']) : 0;
 
 if ($mitra_id === 0) {
@@ -19,7 +44,9 @@ if ($mitra_id === 0) {
 $user_role = $_SESSION['user_role'] ?? '';
 
 try {
-    // Kueri ini sudah benar (mencari berdasarkan mitra_id)
+    // =========================================================================
+    // REVISI QUERY: Tambah Periode & Tahun
+    // =========================================================================
     $sql_details = "
     SELECT DISTINCT
         mpk.id,
@@ -29,28 +56,43 @@ try {
         mpk.volume_pemasukan,
         mpk.perilaku,
         mpk.keterangan,
+        
         m.nama_lengkap AS nama_mitra,
         m.foto AS foto_mitra,
+        
         p.nama AS nama_penilai,
+        
         mk.nama AS nama_pekerjaan,
+        
+        -- DATA PERIODE BARU
+        ms.periode_jenis,
+        ms.periode_nilai,
+        hm.tahun_pembayaran,
+        
         (mpk.kualitas + mpk.volume_pemasukan + mpk.perilaku) / 3 AS rata_rata_penilaian
+
     FROM mitra_penilaian_kinerja AS mpk
-    JOIN mitra_surveys AS ms 
-        ON mpk.mitra_survey_id = ms.id
-    JOIN mitra AS m 
-        ON ms.mitra_id = m.id
-    LEFT JOIN pegawai AS p -- Diganti LEFT JOIN agar data tetap tampil meski penilai dihapus
-        ON mpk.penilai_id = p.id
+    JOIN mitra_surveys AS ms ON mpk.mitra_survey_id = ms.id
+    JOIN mitra AS m ON ms.mitra_id = m.id
+    
+    -- Join ke Honor untuk ambil Tahun Kegiatan yang Valid
+    JOIN honor_mitra AS hm ON ms.id = hm.mitra_survey_id
+    
+    LEFT JOIN pegawai AS p ON mpk.penilai_id = p.id
+    
+    -- Join Kegiatan menggunakan tahun dari honor (lebih akurat)
     LEFT JOIN master_kegiatan AS mk 
         ON ms.kegiatan_id = mk.kode
-        AND mk.tahun = YEAR(mpk.tanggal_penilaian)
-    WHERE m.id = ? -- Filter berdasarkan ID Mitra
+        AND mk.tahun = hm.tahun_pembayaran
+        
+    WHERE m.id = ? 
     ORDER BY mpk.tanggal_penilaian DESC
-";
+    ";
 
     $stmt_details = $koneksi->prepare($sql_details);
 
     if (!$stmt_details) {
+        // Perbaikan Syntax Error (tambah titik)
         throw new Exception("Gagal menyiapkan statement: " . $koneksi->error);
     }
     
@@ -66,16 +108,14 @@ try {
         $res_check = $check_mitra->get_result();
         if ($res_check->num_rows > 0) {
             $mitra_info = $res_check->fetch_assoc();
-            // Jika mitra ada tapi belum dinilai, kita bisa tetap tampilkan halaman profilnya
             $first_row = ['nama_mitra' => $mitra_info['nama_lengkap'], 'foto_mitra' => $mitra_info['foto']];
         } else {
             header('Location: penilaian_mitra.php?status=error&message=Data_mitra_tidak_ditemukan');
             exit;
         }
     } else {
-        // Ambil data pertama untuk info mitra
         $first_row = $result_details->fetch_assoc();
-        $result_details->data_seek(0); // Kembali ke awal hasil untuk perulangan
+        $result_details->data_seek(0); 
     }
 
 } catch (Exception $e) {
@@ -86,7 +126,6 @@ try {
 ?>
 
 <style>
-    /* CSS Anda yang sudah ada di sini, tidak perlu diubah */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Poppins', sans-serif; background: #eef2f5; }
     .content-wrapper { padding: 1rem; transition: margin-left 0.3s ease; margin-left: 0; }
@@ -94,13 +133,14 @@ try {
     .card-detail { background-color: #fff; border-radius: 1rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); margin-bottom: 2rem; }
     .profile-header { display: flex; align-items: center; margin-bottom: 2rem; gap: 2rem; }
     .profile-photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; }
-    .profile-info h1 { font-size: 2.5rem; font-weight:  700; color: #1f2937; }
+    .profile-info h1 { font-size: 2.5rem; font-weight: 700; color: #1f2937; }
     .table-container { overflow-x: auto; }
     .table-details { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
     .table-details th, .table-details td { padding: 1rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
     .table-details th { background-color: #f3f4f6; font-weight: 600; color: #4b5563; white-space: nowrap; }
     .table-details tbody tr:last-child td { border-bottom: none; }
-    .rating-cell { font-weight: 600; color: #1f2937; }
+    .rating-cell { font-weight: 600; color: #1f2937; text-align: center; }
+    .center-text { text-align: center; }
     .btn-delete { background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 500; transition: background-color 0.2s; white-space: nowrap; }
     .btn-delete:hover { background-color: #dc2626; }
 </style>
@@ -132,29 +172,35 @@ try {
                     <thead>
                         <tr>
                             <th>Penilai</th>
-                            <th>Tanggal</th>
-                            <th>Pekerjaan yang Dinilai</th>
-                            <th>Kualitas</th>
-                            <th>Volume</th>
-                            <th>Perilaku</th>
+                            <th>Tgl Nilai</th> <th>Pekerjaan / Kegiatan</th>
+                            <th>Periode Pelaksanaan</th> <th class="center-text">Kualitas</th>
+                            <th class="center-text">Volume</th>
+                            <th class="center-text">Perilaku</th>
                             <th>Keterangan</th>
-                            <th>Rata-rata (1-4)</th>
+                            <th class="center-text">Rata-rata</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if ($result_details->num_rows > 0 && isset($first_row['id'])): // Cek jika ada penilaian ?>
-                            <?php $result_details->data_seek(0); // Kembalikan pointer ke awal ?>
+                        <?php if ($result_details->num_rows > 0 && isset($first_row['id'])): ?>
+                            <?php $result_details->data_seek(0); ?>
                             <?php while ($row = $result_details->fetch_assoc()) : ?>
                                 <tr>
                                     <td><?= htmlspecialchars($row['nama_penilai'] ?? 'N/A'); ?></td>
-                                    <td><?= date('d-m-Y', strtotime($row['tanggal_penilaian'])); ?></td>
+                                    <td><?= date('d/m/Y', strtotime($row['tanggal_penilaian'])); ?></td>
                                     <td><?= htmlspecialchars($row['nama_pekerjaan'] ?? 'N/A'); ?></td>
+                                    
+                                    <td>
+                                        <span class="text-gray-700 font-medium">
+                                            <?= htmlspecialchars(formatPeriodeDetail($row['periode_jenis'], $row['periode_nilai'], $row['tahun_pembayaran'])); ?>
+                                        </span>
+                                    </td>
+
                                     <td class="rating-cell"><?= htmlspecialchars($row['kualitas']); ?></td>
                                     <td class="rating-cell"><?= htmlspecialchars($row['volume_pemasukan']); ?></td>
                                     <td class="rating-cell"><?= htmlspecialchars($row['perilaku']); ?></td>
                                     <td><?= htmlspecialchars($row['keterangan'] ?? '-'); ?></td>
-                                    <td class="rating-cell"><?= number_format($row['rata_rata_penilaian'], 2); ?></td>
+                                    <td class="rating-cell" style="color:#2563eb;"><?= number_format($row['rata_rata_penilaian'], 2); ?></td>
                                     <td>
                                         <a href="../proses/delete_penilaian.php?id=<?= htmlspecialchars($row['id']) ?>"
                                            class="btn-delete"
@@ -164,7 +210,7 @@ try {
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="9" style="text-align: center; padding: 2rem; color: #6b7280;">
+                                <td colspan="10" style="text-align: center; padding: 2rem; color: #6b7280;">
                                     Belum ada riwayat penilaian untuk mitra ini.
                                 </td>
                             </tr>

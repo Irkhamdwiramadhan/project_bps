@@ -500,10 +500,10 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                                 echo '<li><a href="upload.php"><i class="fas fa-upload"></i> Upload</a></li>';
                             }
                             ?>
-                            
+
                             <li><a href="cetak.php"><i class="fas fa-print"></i> Cetak</a></li>
 
-                            
+
 
 
 
@@ -608,6 +608,30 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                         </ul>
                     </details>
                 </li>
+                <li class="has-sub">
+                    <details>
+                        <summary class="nav-item">
+                            <img src="../assets/img/logo/sikepo.png" alt="sapa Icon" class="menu-icon" style="width:30px; height:30px;">
+                            <span class="nav-text">SIKEPO</span>
+                            <i class="fas fa-chevron-right caret"></i>
+                        </summary>
+
+                        <ul class="sub-menu">
+                            <li>
+                                <a href="kegiatan_pegawai.php">
+                                    <i class="fas fa-users menu-icon"></i> Kegiatan Tim
+                                </a>
+                            </li>
+                            <li>
+                                <a href="kegiatan_saya.php">
+                                    <i class="fas fa-user menu-icon"></i> Kegiatan Pegawai
+                                </a>
+                            </li>
+                        </ul>
+
+                    </details>
+                </li>
+
 
             </ul>
         </nav>

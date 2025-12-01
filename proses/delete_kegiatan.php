@@ -2,77 +2,137 @@
 session_start();
 include '../includes/koneksi.php';
 
-// 1. Validasi ID
-if (!isset($_GET['id']) || empty($_GET['id'])) {
-    header('Location: ../pages/kegiatan.php?status=error&message=' . urlencode('ID tidak ditemukan.'));
+// Cek hak akses dasar (Sesuaikan dengan kebutuhan Anda)
+$user_roles = $_SESSION['user_role'] ?? [];
+$allowed_roles = ['super_admin', 'ketua_tim'];
+$is_allowed = false;
+foreach ($user_roles as $role) {
+    if (in_array($role, $allowed_roles)) {
+        $is_allowed = true;
+        break;
+    }
+}
+
+if (!$is_allowed) {
+    echo "<script>alert('Akses Ditolak!'); window.history.back();</script>";
     exit;
 }
 
-$id_honor = (int)$_GET['id'];
+// 1. Tangkap Data (Bisa dari POST array atau GET single)
+$ids_to_delete = [];
+
+if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+    // Jika dari Checkbox (Bulk Delete)
+    $ids_to_delete = $_POST['ids'];
+} elseif (isset($_GET['id']) && !empty($_GET['id'])) {
+    // Jika dari Tombol Hapus Satuan
+    $ids_to_delete = [$_GET['id']];
+}
+
+// Ambil URL Redirect (Jika ada dikirim dari form, prioritas utama)
+$redirect_url = $_POST['redirect_url'] ?? ($_SERVER['HTTP_REFERER'] ?? '../pages/rekap_kegiatan_tim.php');
+
+// Validasi jika kosong
+if (empty($ids_to_delete)) {
+    header('Location: ' . $redirect_url . (strpos($redirect_url, '?') ? '&' : '?') . 'status=error&message=' . urlencode('Tidak ada data yang dipilih.'));
+    exit;
+}
 
 try {
-    // 2. Mulai Transaksi (Penting agar data aman)
+    // 2. Mulai Transaksi
     $koneksi->begin_transaction();
 
-    // 3. Ambil informasi relasi sebelum menghapus (mitra_survey_id dan mitra_id)
-    // Kita butuh mitra_id untuk redirect kembali ke halaman detail yang benar
-    $sql_info = "SELECT mitra_survey_id, mitra_id FROM honor_mitra WHERE id = ?";
-    $stmt_info = $koneksi->prepare($sql_info);
-    $stmt_info->bind_param("i", $id_honor);
-    $stmt_info->execute();
-    $result_info = $stmt_info->get_result();
-    $data = $result_info->fetch_assoc();
-    $stmt_info->close();
+    // Persiapan variabel untuk query dinamis (WHERE IN (?,?,?))
+    $count = count($ids_to_delete);
+    $placeholders = implode(',', array_fill(0, $count, '?'));
+    $types = str_repeat('i', $count);
 
-    if (!$data) {
-        throw new Exception("Data kegiatan tidak ditemukan.");
+    // -----------------------------------------------------------------
+    // 3. Ambil ID Parent (mitra_survey_id) sebelum menghapus anaknya
+    //    Kita perlu array mitra_survey_id untuk dihapus juga
+    // -----------------------------------------------------------------
+    $sql_get_parents = "SELECT mitra_survey_id FROM honor_mitra WHERE id IN ($placeholders)";
+    $stmt_get = $koneksi->prepare($sql_get_parents);
+    $stmt_get->bind_param($types, ...$ids_to_delete);
+    $stmt_get->execute();
+    $result_parents = $stmt_get->get_result();
+    
+    $parent_ids = [];
+    while ($row = $result_parents->fetch_assoc()) {
+        if (!empty($row['mitra_survey_id'])) {
+            $parent_ids[] = $row['mitra_survey_id'];
+        }
+    }
+    $stmt_get->close();
+
+    if (empty($parent_ids) && empty($ids_to_delete)) {
+        throw new Exception("Data tidak ditemukan.");
     }
 
-    $id_mitra_survey = $data['mitra_survey_id'];
-    $mitra_id_redirect = $data['mitra_id'];
-
-    // 4. Hapus data Honor (Anak)
-    $sql_del_honor = "DELETE FROM honor_mitra WHERE id = ?";
+    // -----------------------------------------------------------------
+    // 4. Hapus Data Honor (Anak)
+    // -----------------------------------------------------------------
+    $sql_del_honor = "DELETE FROM honor_mitra WHERE id IN ($placeholders)";
     $stmt_del_honor = $koneksi->prepare($sql_del_honor);
-    $stmt_del_honor->bind_param("i", $id_honor);
+    $stmt_del_honor->bind_param($types, ...$ids_to_delete);
+    
     if (!$stmt_del_honor->execute()) {
         throw new Exception("Gagal menghapus data honor.");
     }
     $stmt_del_honor->close();
 
-    // 5. Hapus data Survey (Induk)
-    // Kita hapus ini juga agar tidak jadi data sampah di tabel mitra_surveys
-    if (!empty($id_mitra_survey)) {
-        $sql_del_survey = "DELETE FROM mitra_surveys WHERE id = ?";
+    // -----------------------------------------------------------------
+    // 5. Hapus Data Survey (Induk)
+    //    Hanya jika ada parent ID yang ditemukan
+    // -----------------------------------------------------------------
+    if (!empty($parent_ids)) {
+        // Karena parent_ids mungkin ada duplikat (satu survey punya banyak honor?), kita unikkan
+        $parent_ids = array_unique($parent_ids);
+        
+        $count_p = count($parent_ids);
+        $placeholders_p = implode(',', array_fill(0, $count_p, '?'));
+        $types_p = str_repeat('i', $count_p);
+
+        $sql_del_survey = "DELETE FROM mitra_surveys WHERE id IN ($placeholders_p)";
         $stmt_del_survey = $koneksi->prepare($sql_del_survey);
-        $stmt_del_survey->bind_param("i", $id_mitra_survey);
+        $stmt_del_survey->bind_param($types_p, ...$parent_ids);
+        
         if (!$stmt_del_survey->execute()) {
             throw new Exception("Gagal menghapus data survey.");
         }
         $stmt_del_survey->close();
     }
 
-    // 6. Commit Transaksi (Simpan Perubahan)
+    // 6. Commit Transaksi
     $koneksi->commit();
 
-    // 7. Redirect kembali ke Halaman Detail Mitra
-    // Menggunakan mitra_id yang kita ambil di langkah 3
-    header("Location: ../pages/detail_rekap_kegiatan_tim.php?id=" . $mitra_id_redirect . "&status=success&message=" . urlencode('Kegiatan berhasil dihapus.'));
+    // Bersihkan URL redirect dari parameter status lama agar tidak menumpuk
+    $redirect_url = strtok($redirect_url, '?');
+    
+    // Tambahkan query string yang ada sebelumnya (misal: tim_id, bulan, tahun)
+    $query_string = parse_url($_POST['redirect_url'] ?? $_SERVER['HTTP_REFERER'], PHP_URL_QUERY);
+    if ($query_string) {
+        $redirect_url .= '?' . $query_string;
+    }
+
+    // Tambahkan status success
+    $separator = (strpos($redirect_url, '?') !== false) ? '&' : '?';
+    header("Location: " . $redirect_url . $separator . "status=success&message=" . urlencode("$count data berhasil dihapus."));
     exit;
 
 } catch (Exception $e) {
-    // Jika ada error, batalkan semua perubahan
+    // Rollback jika error
     $koneksi->rollback();
-    
-    // Kembalikan ke halaman referer atau default
-    $redirect_url = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '../pages/kegiatan.php';
-    
-    // Bersihkan URL dari parameter status lama agar tidak menumpuk
-    $redirect_url = strtok($redirect_url, '?'); 
+
+    // Handling Redirect Error
+    $redirect_url = $_POST['redirect_url'] ?? ($_SERVER['HTTP_REFERER'] ?? '../pages/rekap_kegiatan_tim.php');
+    $redirect_url = strtok($redirect_url, '?'); // Bersih-bersih URL
     
     header("Location: " . $redirect_url . "?status=error&message=" . urlencode($e->getMessage()));
     exit;
 } finally {
-    $koneksi->close();
+    if (isset($koneksi)) {
+        $koneksi->close();
+    }
 }
 ?>

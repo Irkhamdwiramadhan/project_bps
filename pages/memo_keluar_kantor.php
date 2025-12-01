@@ -16,7 +16,7 @@ if (!empty($tgl_mulai) && !empty($tgl_selesai)) {
     $where = "WHERE ms.tanggal BETWEEN '$tgl_mulai' AND '$tgl_selesai'";
 }
 
-// Query utama — kelompokkan memo yang memiliki tanggal, keperluan, petugas, dan foto yang sama
+// Query utama — mempertahankan logic asli Anda
 $query = "
     SELECT 
         MAX(ms.id) AS id,
@@ -34,7 +34,6 @@ $query = "
     GROUP BY ms.tanggal, ms.keperluan, p2.nama, ms.foto
     ORDER BY ms.tanggal DESC
 ";
-
 
 $result = mysqli_query($koneksi, $query);
 ?>
@@ -98,7 +97,7 @@ body.sidebar-collapse .content-wrapper { margin-left: 80px; }
 .memo-card .card-header {
     background: linear-gradient(90deg, #182c41ff, #174270ff);
     color: #fff;
-    padding: 15px 20px;
+    padding: 12px 20px;
     font-weight: 600;
 }
 .memo-card .card-body { padding: 25px; text-align: center; }
@@ -116,6 +115,29 @@ body.sidebar-collapse .content-wrapper { margin-left: 80px; }
     border-top: 1px solid #ddd;
 }
 .badge { padding: 6px 10px; border-radius: 8px; font-size: 0.85rem; }
+
+/* --- TAMBAHAN STYLE TOMBOL EDIT --- */
+.btn-edit-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffc107; /* Kuning */
+    color: #fff;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border: 2px solid rgba(255,255,255,0.2);
+    font-size: 12px;
+    margin-left: 10px;
+}
+.btn-edit-circle:hover {
+    background-color: #e0a800;
+    color: #fff;
+    transform: scale(1.1);
+}
 
 @media (max-width: 991px) {
     .content-wrapper { margin-left: 0 !important; padding: 20px; }
@@ -161,15 +183,31 @@ body.sidebar-collapse .content-wrapper { margin-left: 80px; }
                 <div class="grid-container">
                     <?php while ($row = mysqli_fetch_assoc($result)): ?>
                         <div class="card memo-card">
+                            <!-- CARD HEADER dengan Tombol Edit -->
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0"><?= htmlspecialchars($row['nama_pegawai']) ?></h5>
-                                <small><?= date('d M Y', strtotime($row['tanggal'])) ?></small>
+                                <div style="flex: 1; min-width: 0; margin-right: 10px;">
+                                    <h5 class="mb-0 text-truncate" title="<?= htmlspecialchars($row['nama_pegawai']) ?>">
+                                        <?= htmlspecialchars($row['nama_pegawai']) ?>
+                                    </h5>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <small class="me-1" style="opacity: 0.9; white-space: nowrap;">
+                                        <?= date('d M Y', strtotime($row['tanggal'])) ?>
+                                    </small>
+                                    
+                                    <!-- TOMBOL EDIT -->
+                                    <a href="edit_memo_keluar.php?id=<?= $row['id'] ?>" class="btn-edit-circle" title="Edit Data">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                </div>
                             </div>
+
                             <div class="card-body text-center">
                                 <img src="<?= (!empty($row['foto']) && file_exists('../' . $row['foto'])) 
                                     ? '../' . htmlspecialchars($row['foto']) 
                                     : '../assets/img/no-image.png' ?>" 
                                     alt="Foto Memo" class="memo-photo mb-3">
+                                
                                 <p class="mb-1"><strong>Keperluan:</strong> <?= htmlspecialchars($row['keperluan']) ?></p>
                                 <p class="mb-1"><strong>Petugas:</strong> <?= htmlspecialchars($row['nama_petugas'] ?? '-') ?></p>
 

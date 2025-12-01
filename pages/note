@@ -76,4 +76,49 @@ ALTER TABLE `rpd_setting_waktu`
 1. menghilangkan nilai null 
 SELECT * FROM `honor_mitra` WHERE mitra_survey_id=821;
 
+2. menambahkan kolom baru di tabel kegiatan_tim
+ALTER TABLE kegiatan_anggota 
+ADD COLUMN realisasi_anggota DECIMAL(10,2) DEFAULT 0 AFTER target_anggota;
 
+
+senin
+CREATE TABLE `kegiatan_pegawai` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `aktivitas` varchar(255) NOT NULL,
+  `jenis_aktivitas` varchar(50) NOT NULL, -- Dinas Luar, Transport Lokal, Cuti, dll
+  `tanggal` date NOT NULL,
+  `waktu_mulai` time NOT NULL,
+  `waktu_selesai` time NOT NULL,
+  `tempat` varchar(100) DEFAULT NULL,
+  `tim_kerja_id` int(11) DEFAULT NULL, -- Relasi ke tabel tim
+  `jumlah_peserta` int(11) DEFAULT 0,
+  `peserta_ids` text, -- Menyimpan ID pegawai: "1,5,10"
+  `dibuat_pada` timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE kegiatan_pegawai MODIFY waktu_selesai VARCHAR(20);
+
+-- 1. Ubah tim_kerja_id dari INT menjadi VARCHAR agar bisa simpan nama tim manual
+ALTER TABLE kegiatan_pegawai MODIFY tim_kerja_id VARCHAR(255) NULL;
+
+-- 2. Ubah peserta_ids menjadi TEXT (jika belum) agar muat banyak nama
+ALTER TABLE kegiatan_pegawai MODIFY peserta_ids TEXT NULL;
+
+Rabu
+CREATE TABLE `kegiatan_harian` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `pegawai_id` int(11) NOT NULL, -- ID Pegawai yang login
+  `tanggal` date NOT NULL,
+  `jenis_kegiatan` varchar(50) NOT NULL, -- Dinas Luar, Rapat, WFH, dll
+  `uraian` text NOT NULL,
+  `jam_mulai` time NOT NULL,
+  `jam_selesai` time NOT NULL,
+  `tempat` varchar(100) DEFAULT NULL,
+  `tim_kerja` varchar(100) DEFAULT NULL, -- Nama Tim
+  `peserta` text DEFAULT NULL, -- Daftar nama peserta lain
+  `output` varchar(255) DEFAULT NULL, -- Hasil/Output kegiatan (Opsional)
+  `progress` int(3) DEFAULT 100, -- Persentase (0-100)
+  `dibuat_pada` timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

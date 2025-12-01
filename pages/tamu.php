@@ -91,7 +91,7 @@ body.sidebar-collapse .content-wrapper {
 .tamu-card .card-header {
     background: linear-gradient(90deg, #0f2236ff, #0f3c6dff);
     color: #fff;
-    padding: 5px 20px;
+    padding: 10px 20px; /* Sedikit diperbesar agar tombol muat */
     font-weight: 900;
 }
 
@@ -129,6 +129,26 @@ body.sidebar-collapse .content-wrapper {
     border-radius: 10px;
 }
 
+/* Tombol Edit Bulat */
+.btn-edit-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffc107;
+    color: #fff;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.btn-edit-circle:hover {
+    background-color: #e0a800;
+    color: #fff;
+    transform: scale(1.1);
+}
+
 /* Responsif */
 @media (max-width: 991px) {
     .content-wrapper {
@@ -141,19 +161,16 @@ body.sidebar-collapse .content-wrapper {
 <div class="content-wrapper">
     <section class="content-header d-flex justify-content-between align-items-center mb-4">
         <h1><i class="fas fa-user-friends me-2"></i> Daftar Tamu</h1>
-        <a href="tambah_tamu.php" class="btn btn-primary shadow-sm">
-            <i class="fas fa-plus"></i> Tambah Tamu
-        </a>
-       
-    <a href="../proses/proses_download_tamu.php<?= $filter_tanggal ? '?tanggal=' . urlencode($filter_tanggal) : '' ?>" 
-       class="btn btn-success btn-sm shadow-sm">
-        <i class="fas fa-file-excel"></i> Download Excel
-    </a>
-
+        <div>
+            <a href="tambah_tamu.php" class="btn btn-primary shadow-sm me-2">
+                <i class="fas fa-plus"></i> Tambah Tamu
+            </a>
+            <a href="../proses/proses_download_tamu.php<?= $filter_tanggal ? '?tanggal=' . urlencode($filter_tanggal) : '' ?>" 
+               class="btn btn-success btn-sm shadow-sm" style="padding: 10px 15px; border-radius: 10px;">
+                <i class="fas fa-file-excel"></i> Excel
+            </a>
+        </div>
     </section>
-    <!-- Tombol Download Excel -->
-
-
 
     <!-- Filter Tanggal -->
     <form method="GET" class="filter-form d-flex align-items-center gap-2 mb-4">
@@ -171,9 +188,22 @@ body.sidebar-collapse .content-wrapper {
                 <div class="grid-container">
                     <?php while ($row = mysqli_fetch_assoc($result)): ?>
                         <div class="card tamu-card">
+                            
+                            <!-- Header dengan Nama, Tanggal, dan Tombol Edit -->
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0"><?= htmlspecialchars($row['nama']) ?></h5>
-                                <small><?= date('d M Y', strtotime($row['tanggal'])) ?></small>
+                                <div style="flex: 1; min-width: 0; margin-right: 10px;">
+                                    <h5 class="mb-0 text-truncate" title="<?= htmlspecialchars($row['nama']) ?>">
+                                        <?= htmlspecialchars($row['nama']) ?>
+                                    </h5>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                             <small><?= date('d M Y', strtotime($row['tanggal'])) ?></small>
+                                    
+                                    <!-- TOMBOL EDIT -->
+                                    <a href="edit_tamu.php?id=<?= $row['id'] ?>" class="btn-edit-circle" title="Edit Data">
+                                        <i class="fas fa-pen" style="font-size: 12px;"></i>
+                                    </a>
+                                </div>
                             </div>
 
                             <div class="card-body text-center">

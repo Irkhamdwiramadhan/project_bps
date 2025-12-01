@@ -11,8 +11,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_simpedu'];
-if (count(array_intersect($allowed_roles, (array)$user_roles)) === 0) {
+$allowed_roles = ['super_admin', 'ketua_tim'];
+$has_access = false;
+foreach ($user_roles as $role) {
+    if (in_array($role, $allowed_roles)) {
+        $has_access = true;
+        break;
+    }
+}
+
+if (!$has_access) {
     $_SESSION['error_message'] = "Anda tidak memiliki izin untuk melakukan aksi ini.";
     header('Location: ../pages/kegiatan_tim.php');
     exit;
@@ -30,33 +38,28 @@ $satuan          = trim($_POST['satuan']);
 $batas_waktu     = $_POST['batas_waktu'];
 $keterangan      = trim($_POST['keterangan'] ?? '');
 
-$anggota_ids     = $_POST['anggota_id'] ?? [];
-$target_anggotas = $_POST['target_anggota'] ?? [];
+// Data Array Anggota
+$anggota_ids        = $_POST['anggota_id'] ?? [];
+$target_anggotas    = $_POST['target_anggota'] ?? [];
+$realisasi_anggotas = $_POST['realisasi_anggota'] ?? []; // <-- REVISI: Tangkap realisasi per anggota
 
 // ===================================================================
 // VALIDASI DASAR
 // ===================================================================
-if (
-    empty($kegiatan_id) ||
-    empty($nama_kegiatan) ||
-    empty($tim_id) ||
-    empty($satuan) ||
-    empty($batas_waktu) ||
-    empty($anggota_ids)
-) {
+if (empty($kegiatan_id) || empty($nama_kegiatan) || empty($tim_id) || empty($satuan) || empty($batas_waktu) || empty($anggota_ids)) {
     $_SESSION['error_message'] = "Semua field wajib diisi, dan minimal harus ada satu anggota.";
     header("Location: ../pages/edit_kegiatan_tim.php?id=" . $kegiatan_id);
     exit;
 }
 
 // ===================================================================
-// TRANSAKSI DATABASE UNTUK MENJAGA KONSISTENSI DATA
+// TRANSAKSI DATABASE
 // ===================================================================
 $koneksi->begin_transaction();
 
 try {
     // ===============================================================
-    // LANGKAH 1: Update data utama di tabel `kegiatan` (termasuk realisasi)
+    // LANGKAH 1: Update data utama di tabel `kegiatan`
     // ===============================================================
     $stmt_kegiatan = $koneksi->prepare("
         UPDATE kegiatan SET 
@@ -66,7 +69,8 @@ try {
             realisasi = ?, 
             satuan = ?, 
             batas_waktu = ?, 
-            keterangan = ?
+            keterangan = ?,
+            updated_at = NOW()  -- Update waktu perubahan
         WHERE id = ?
     ");
 
@@ -98,14 +102,19 @@ try {
     }
     $stmt_delete->close();
 
+    // REVISI: Insert data anggota dengan target DAN realisasi individu
     $stmt_insert = $koneksi->prepare("
-        INSERT INTO kegiatan_anggota (kegiatan_id, anggota_id, target_anggota) 
-        VALUES (?, ?, ?)
+        INSERT INTO kegiatan_anggota (kegiatan_id, anggota_id, target_anggota, realisasi_anggota) 
+        VALUES (?, ?, ?, ?)
     ");
 
     foreach ($anggota_ids as $key => $anggota_id) {
         $target_individu = (float) ($target_anggotas[$key] ?? 0);
-        $stmt_insert->bind_param("iid", $kegiatan_id, $anggota_id, $target_individu);
+        $realisasi_individu = (float) ($realisasi_anggotas[$key] ?? 0); // Ambil realisasi individu
+        
+        // Bind param: iidd (int, int, double, double)
+        $stmt_insert->bind_param("iidd", $kegiatan_id, $anggota_id, $target_individu, $realisasi_individu);
+        
         if (!$stmt_insert->execute()) {
             throw new Exception("Gagal menyimpan data anggota baru: " . $stmt_insert->error);
         }
@@ -123,6 +132,8 @@ try {
     // Jika salah satu langkah gagal, rollback semua perubahan
     $koneksi->rollback();
     $_SESSION['error_message'] = "Terjadi kesalahan: " . $e->getMessage();
+    header("Location: ../pages/edit_kegiatan_tim.php?id=" . $kegiatan_id);
+    exit;
 } finally {
     $koneksi->close();
 }

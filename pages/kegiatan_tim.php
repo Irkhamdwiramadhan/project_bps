@@ -179,7 +179,7 @@ body {
                     <select name="bulan" id="bulan" class="form-select">
                         <?php 
                         $nama_bulan_arr = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-                                          "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+                                           "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
                         for ($i = 1; $i <= 12; $i++) { 
                             $selected = ($i == $filter_bulan) ? 'selected' : ''; 
                             echo "<option value='$i' $selected>{$nama_bulan_arr[$i-1]}</option>"; 
@@ -234,7 +234,9 @@ body {
                                     <td><?= number_format($row['realisasi'], 2, ',', '.') ?></td>
                                     <td><?= htmlspecialchars($row['satuan']) ?></td>
                                     <td><?= date('d M Y', strtotime($row['batas_waktu'])) ?></td>
-                                    <td><?= $row['tgl_realisasi'] ? date('d M Y', strtotime($row['tgl_realisasi'])) : '-' ?></td>
+                                    
+                                    <td><?= !empty($row['updated_at']) ? date('d M Y', strtotime($row['updated_at'])) : '-' ?></td>
+                                    
                                     <td><?= htmlspecialchars($row['keterangan'] ?? '-') ?></td>
                                     <td>
                                         <div class="btn-action-group">

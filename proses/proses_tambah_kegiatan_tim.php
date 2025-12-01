@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_simpedu'];
+$allowed_roles = ['super_admin', 'ketua_tim'];
 if (!array_intersect($allowed_roles, $user_roles)) {
     $_SESSION['error_message'] = "Anda tidak memiliki izin untuk melakukan aksi ini.";
     header('Location: ../pages/kegiatan_tim.php');

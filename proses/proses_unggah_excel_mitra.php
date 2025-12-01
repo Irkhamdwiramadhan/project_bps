@@ -107,7 +107,22 @@ try {
         $pekerjaan      = trim($row['I'] ?? '');
         $desc_pekerjaan = trim($row['J'] ?? '');
         $npwp           = trim($row['K'] ?? '');
-        $no_telp        = trim($row['L'] ?? '');
+        // Ambil data mentah
+$no_telp_raw = trim($row['L'] ?? '');
+
+// Tips: Kadang PhpSpreadsheet membaca angka panjang sebagai float. 
+// Kita paksa jadi string dulu.
+$no_telp_str = (string)$no_telp_raw;
+
+// Bersihkan karakter aneh (hapus spasi, strip, kurung) agar database bersih
+// Hanya sisakan angka. (Opsional: Jika ingin +62, sesuaikan regex)
+// Contoh ini mengubah "+62 822-2336-0848" menjadi "6282223360848"
+$no_telp = preg_replace('/[^0-9]/', '', $no_telp_str);
+
+// OPSIONAL: Jika ingin format 08...
+if (substr($no_telp, 0, 2) == '62') {
+    $no_telp = '0' . substr($no_telp, 2);
+}
         $email          = trim($row['M'] ?? '');
 
         if (empty($nama_lengkap) || empty($email)) {

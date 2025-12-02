@@ -619,7 +619,7 @@ $foto_user = $_SESSION['user_foto'] ?? null;
                         <ul class="sub-menu">
                             <li>
                                 <a href="kegiatan_pegawai.php">
-                                    <i class="fas fa-users menu-icon"></i> Kegiatan Tim
+                                    <i class="fas fa-users menu-icon"></i> Meeting Pegawai
                                 </a>
                             </li>
                             <li>

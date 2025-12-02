@@ -2,83 +2,106 @@
 session_start();
 include '../includes/koneksi.php';
 
-// Cek method post
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: ../admin/kegiatan/kegiatan_pegawai.php');
-    exit;
-}
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    
+    // 1. Ambil Data Input
+    $aktivitas       = trim($_POST['aktivitas']);
+    $jenis_aktivitas = $_POST['jenis_aktivitas'];
+    $tanggal         = $_POST['tanggal'];
+    $waktu_mulai     = $_POST['waktu_mulai'];
+    
+    // Logic Waktu Selesai
+    if (isset($_POST['is_selesai']) && $_POST['is_selesai'] == '1') {
+        $waktu_selesai = '23:59:00'; // Set max time untuk logika bentrok
+        // Opsional: Jika di database kolomnya VARCHAR, bisa simpan string "Selesai"
+        // Tapi untuk validasi SQL (waktu), kita butuh format Time.
+        // Kita simpan 23:59 agar validasi berjalan.
+    } else {
+        $waktu_selesai = $_POST['waktu_selesai'];
+    }
 
-// 1. Ambil Data dari Form (Gunakan ?? '' agar tidak error jika input tidak ada)
-$tanggal         = $_POST['tanggal'] ?? '';
-$jenis_aktivitas = trim($_POST['jenis_aktivitas'] ?? '');
-$aktivitas       = trim($_POST['aktivitas'] ?? '');
-$waktu_mulai     = $_POST['waktu_mulai'] ?? '';
-$waktu_selesai   = $_POST['waktu_selesai'] ?? '';
-$tempat          = trim($_POST['tempat'] ?? '');
-$nama_tim        = trim($_POST['nama_tim'] ?? '');      
-$nama_peserta    = trim($_POST['nama_peserta'] ?? '');  
-$jumlah_peserta  = isset($_POST['jumlah_peserta']) ? (int)$_POST['jumlah_peserta'] : 1;
+    $tim_kerja       = $_POST['tim_kerja_id'];
+    $jumlah_peserta  = (int)$_POST['jumlah_peserta'];
+    $peserta         = trim($_POST['peserta_ids']);
+    
+    // Logic Tempat
+    $tempat = '';
+    if ($jenis_aktivitas == 'Pertemuan Dalam Kantor') {
+        $tempat = $_POST['tempat_internal'];
+    } else {
+        $tempat = $_POST['tempat_external'];
+    }
 
-// 2. Validasi Detail (Agar Anda tahu kolom mana yang kosong)
-$errors = [];
-if (empty($tanggal)) $errors[] = "Tanggal";
-if (empty($jenis_aktivitas)) $errors[] = "Jenis Aktivitas";
-if (empty($aktivitas)) $errors[] = "Nama Aktivitas";
-if (empty($waktu_mulai)) $errors[] = "Waktu Mulai";
-if (empty($nama_tim)) $errors[] = "Nama Tim";
-if (empty($nama_peserta)) $errors[] = "Daftar Peserta";
+    // Validasi Dasar
+    if (empty($aktivitas) || empty($jenis_aktivitas) || empty($tanggal) || empty($waktu_mulai)) {
+         header("Location: ../pages/tambah_kegiatan_pegawai.php?status=error&message=" . urlencode("Data wajib tidak lengkap!"));
+         exit;
+    }
 
-if (!empty($errors)) {
-    $list_error = implode(", ", $errors);
-    echo "<script>
-            alert('Gagal! Kolom berikut wajib diisi: $list_error.\\n\\nPastikan Anda sudah memperbarui file formulir (tambah_kegiatan.php) agar sesuai dengan kode proses baru.'); 
-            window.history.back();
-          </script>";
-    exit;
-}
+    // Validasi Jam (Hanya jika bukan "Selesai")
+    if (!isset($_POST['is_selesai']) && $waktu_mulai >= $waktu_selesai) {
+        header("Location: ../pages/tambah_kegiatan_pegawai.php?status=error&message=" . urlencode("Jam selesai harus lebih besar dari jam mulai."));
+        exit;
+    }
 
-/* === PENTING: UPDATE STRUKTUR DATABASE ===
-   Pastikan kolom DB sudah diubah tipenya menjadi VARCHAR/TEXT:
-   1. tim_kerja_id -> VARCHAR(255)
-   2. peserta_ids -> TEXT
-   3. waktu_selesai -> VARCHAR(20)
-*/
+    // ============================================================
+    // LOGIKA CEK BENTROK (Hanya jika Dalam Kantor)
+    // ============================================================
+    if ($jenis_aktivitas == 'Pertemuan Dalam Kantor') {
+        // Cek overlap waktu di ruangan yang sama pada tanggal yang sama
+        $sql_cek = "SELECT aktivitas, waktu_mulai, waktu_selesai 
+                    FROM kegiatan_pegawai 
+                    WHERE tanggal = ? 
+                    AND tempat = ? 
+                    AND (
+                        (waktu_mulai < ? AND waktu_selesai > ?) 
+                    )";
+        
+        $stmt_cek = $koneksi->prepare($sql_cek);
+        // Parameter: Tanggal, Tempat, Selesai_Baru, Mulai_Baru
+        $stmt_cek->bind_param("ssss", $tanggal, $tempat, $waktu_selesai, $waktu_mulai);
+        $stmt_cek->execute();
+        $res_cek = $stmt_cek->get_result();
+        
+        if ($res_cek->num_rows > 0) {
+            $bentrok = $res_cek->fetch_assoc();
+            $jam_b = substr($bentrok['waktu_mulai'], 0, 5) . "-" . substr($bentrok['waktu_selesai'], 0, 5);
+            
+            $msg = "Gagal! Ruangan '$tempat' sudah dibooking untuk kegiatan: '" . $bentrok['aktivitas'] . "' ($jam_b).";
+            header("Location: ../pages/tambah_kegiatan_pegawai.php?status=error&message=" . urlencode($msg));
+            exit;
+        }
+        $stmt_cek->close();
+    }
 
-// 3. Query Insert
-$query = "INSERT INTO kegiatan_pegawai 
-          (aktivitas, jenis_aktivitas, tanggal, waktu_mulai, waktu_selesai, tempat, tim_kerja_id, jumlah_peserta, peserta_ids) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    // ============================================================
+    // SIMPAN DATA
+    // ============================================================
+    // Catatan: Jika Anda ingin menyimpan kata "Selesai" di DB (bukan 23:59),
+    // pastikan kolom waktu_selesai tipe datanya VARCHAR. Jika TIME, harus jam.
+    // Di sini saya asumsikan simpan jam (23:59) agar aman.
+    
+    $query = "INSERT INTO kegiatan_pegawai 
+              (tanggal, waktu_mulai, waktu_selesai, aktivitas, jenis_aktivitas, tempat, tim_kerja_id, jumlah_peserta, peserta_ids) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $stmt = $koneksi->prepare($query);
+    $stmt->bind_param("sssssssis", 
+        $tanggal, $waktu_mulai, $waktu_selesai, 
+        $aktivitas, $jenis_aktivitas, $tempat, 
+        $tim_kerja, $jumlah_peserta, $peserta
+    );
+    
+    if ($stmt->execute()) {
+        header("Location: ../pages/kegiatan_pegawai.php?status=success&message=" . urlencode("Kegiatan berhasil diajukan!"));
+    } else {
+        header("Location: ../pages/tambah_kegiatan_pegawai.php?status=error&message=" . urlencode("Database Error: " . $stmt->error));
+    }
+    $stmt->close();
+    $koneksi->close();
 
-$stmt = $koneksi->prepare($query);
-
-// Bind Parameter
-$stmt->bind_param("sssssssis", 
-    $aktivitas, 
-    $jenis_aktivitas, 
-    $tanggal, 
-    $waktu_mulai, 
-    $waktu_selesai, 
-    $tempat, 
-    $nama_tim,        
-    $jumlah_peserta, 
-    $nama_peserta     
-);
-
-// 4. Eksekusi & Redirect
-if ($stmt->execute()) {
-    $_SESSION['success'] = "Kegiatan berhasil ditambahkan!";
-    header('Location: ../pages/kegiatan_pegawai.php');
 } else {
-    // Tampilkan error database jika gagal
-    echo "<h3>Gagal Menyimpan Data ke Database!</h3>";
-    echo "Pesan Error SQL: " . $stmt->error;
-    echo "<br><br><b>Solusi:</b><br>";
-    echo "1. Pastikan kolom <code>waktu_selesai</code> di database bertipe <b>VARCHAR</b> (bukan TIME).<br>";
-    echo "2. Pastikan kolom <code>tim_kerja_id</code> bertipe <b>VARCHAR</b> (bukan INT).<br>";
-    echo "3. Pastikan kolom <code>peserta_ids</code> bertipe <b>TEXT</b>.<br>";
-    echo "<br><a href='javascript:history.back()'>Kembali ke Form</a>";
+    header("Location: ../pages/tambah_kegiatan_pegawai.php");
+    exit;
 }
-
-$stmt->close();
-$koneksi->close();
 ?>

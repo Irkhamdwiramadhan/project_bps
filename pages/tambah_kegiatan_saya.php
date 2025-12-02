@@ -1,5 +1,6 @@
 <?php
 session_start();
+include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
@@ -11,167 +12,106 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 ?>
 
 <style>
-    /* Tema Warna: Indigo Productivity */
-    :root { 
-        --primary-indigo: #4338ca; 
-        --light-indigo: #6366f1; 
-        --bg-color: #eef2ff;
-    }
-    
-    body { background: var(--bg-color); font-family: 'Poppins', sans-serif; }
-    
-    .content-wrapper { 
-        margin-left: 250px; padding: 40px; 
-        display: flex; justify-content: center; align-items: center; 
-        min-height: 100vh; 
-    }
+    body { background-color: #f8f9fa; font-family: 'Inter', sans-serif; }
+    .content-wrapper { min-height: 100vh; margin-left: 250px; padding: 30px; transition: 0.3s; }
     body.sidebar-collapse .content-wrapper { margin-left: 80px; }
-
-    /* Card Modern */
-    .modern-card {
-        background: #fff; border-radius: 24px; 
-        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-        width: 100%; max-width: 1100px; 
-        display: flex; overflow: hidden;
-    }
-
-    /* Panel Kiri (Visual) */
-    .left-panel {
-        flex: 1; 
-        background: linear-gradient(135deg, var(--primary-indigo) 0%, var(--light-indigo) 100%);
-        padding: 50px; color: white; 
-        display: flex; flex-direction: column; justify-content: center;
-        position: relative; min-width: 320px; text-align: center;
-    }
-    /* Dekorasi Lingkaran */
-    .left-panel::before { content:''; position:absolute; top:-60px; left:-60px; width:250px; height:250px; background:rgba(255,255,255,0.1); border-radius:50%; }
-    .left-panel::after { content:''; position:absolute; bottom:-40px; right:-40px; width:180px; height:180px; background:rgba(255,255,255,0.08); border-radius:50%; }
     
-    .left-panel h2 { font-weight: 800; font-size: 2.2rem; margin-bottom: 15px; }
-    .left-panel p { opacity: 0.9; font-size: 1rem; line-height: 1.6; }
-    .illustration { font-size: 4.5rem; margin-bottom: 25px; opacity: 0.95; }
-
-    /* Panel Kanan (Form) */
-    .right-panel { flex: 1.5; padding: 50px; background: #fff; }
-    
-    .form-header { 
-        display: flex; justify-content: space-between; align-items: center; 
-        margin-bottom: 30px; border-bottom: 1px solid #f3f4f6; padding-bottom: 15px; 
+    /* Card Styling */
+    .card { 
+        background: #fff; 
+        border-radius: 12px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+        border: 1px solid #e2e8f0; 
+        max-width: 600px; /* Lebar dibatasi agar enak dilihat */
+        margin: 0 auto; 
     }
-    .form-title { font-size: 1.4rem; font-weight: 700; color: #1e1b4b; }
+    .card-header { 
+        padding: 20px 30px; 
+        border-bottom: 1px solid #f1f5f9; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+    }
+    .card-body { padding: 30px; }
     
-    /* Styling Input */
-    .form-label { font-weight: 600; font-size: 0.85rem; color: #4b5563; margin-bottom: 6px; display: block; }
+    /* Form Elements */
+    .form-label { font-weight: 600; color: #374151; margin-bottom: 8px; display: block; font-size: 0.9rem; }
     .form-control, .form-select { 
-        border-radius: 12px; padding: 12px 16px; 
-        border: 1px solid #e0e7ff; background: #fafafe; 
-        font-size: 0.95rem; transition: 0.3s;
+        width: 100%; padding: 10px 15px; 
+        border: 1px solid #cbd5e1; border-radius: 8px; 
+        font-size: 0.95rem; transition: 0.2s; 
     }
-    .form-control:focus { 
-        background: #fff; border-color: var(--light-indigo); 
-        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); outline: none; 
+    .form-control:focus, .form-select:focus { 
+        border-color: #2563eb; 
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); 
+        outline: none; 
     }
     
-    textarea.form-control { resize: none; }
-
-    /* Tombol Simpan */
-    .btn-save {
-        background: var(--primary-indigo); color: white; width: 100%; 
-        padding: 14px; border-radius: 12px; font-weight: 700; 
-        border: none; transition: 0.3s; margin-top: 25px;
-        box-shadow: 0 4px 15px rgba(67, 56, 202, 0.3);
+    /* Buttons */
+    .btn-save { 
+        background-color: #2563eb; color: white; 
+        padding: 12px 25px; border-radius: 8px; 
+        font-weight: 600; border: none; cursor: pointer; 
+        width: 100%; margin-top: 20px; transition: 0.2s; 
     }
-    .btn-save:hover { background: #3730a3; transform: translateY(-2px); }
-
-    /* Checkbox Waktu Selesai */
-    .time-check-wrapper { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .btn-save:hover { background-color: #1d4ed8; }
     
-    @media (max-width: 991px) { 
-        .modern-card { flex-direction: column; } 
-        .content-wrapper { margin-left: 0; padding: 20px; } 
-        .left-panel { padding: 40px 20px; min-height: 220px; }
-        .right-panel { padding: 30px 20px; }
+    .btn-back { 
+        color: #64748b; text-decoration: none; 
+        font-weight: 600; display: flex; align-items: center; gap: 5px; 
     }
+    .btn-back:hover { color: #334155; }
+
+    /* Alert */
+    .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; }
+    .alert-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 </style>
 
 <div class="content-wrapper">
-    <div class="modern-card">
-        
-       
+    <div class="card">
+        <div class="card-header">
+            <h2 style="margin:0; font-size:1.5rem; font-weight:800; color:#1e293b;">Lapor Kegiatan</h2>
+            <a href="kegiatan_saya.php" class="btn-back"><i class="fas fa-arrow-left"></i> Kembali</a>
+        </div>
+        <div class="card-body">
 
-        <!-- KANAN: Form -->
-        <div class="right-panel">
-            <div class="form-header">
-                <div class="form-title">Isi Kegiatan Saya</div>
-                <a href="kegiatan_saya.php" class="text-muted text-decoration-none small fw-bold">
-                    <i class="fas fa-arrow-left me-1"></i> Kembali
-                </a>
-            </div>
+            <?php if (isset($_GET['status']) && $_GET['status'] == 'error'): ?>
+                <div class="alert alert-danger">
+                    <strong>Gagal:</strong> <?= htmlspecialchars($_GET['message']) ?>
+                </div>
+            <?php endif; ?>
 
             <form action="../proses/proses_tambah_kegiatan_saya.php" method="POST">
                 
-                <!-- Tanggal & Jenis -->
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label">Hari / Tanggal</label>
-                        <input type="date" name="tanggal" class="form-control" required value="<?= date('Y-m-d') ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Jenis Kegiatan</label>
-                        <input class="form-control" list="jenisOptions" name="jenis_kegiatan" placeholder="Pilih atau ketik..." required>
-                        <datalist id="jenisOptions">
-                            <option value="Sabtu - Minggu">
-                            <option value="Libur Nasional">
-                            <option value="Cuti Bersama">
-                            <option value="Cuti Pribadi">
-                            <option value="Izin Tidak Masuk">
-                            <option value="Sakit">
-                            <option value="Tanpa Keterangan">
-                            <option value="Rapat Dinas">
-                            <option value="Upacara">
-                            <option value="Pelatihan">
-                            <option value="Dinas Luar">
-                            <option value="Masuk Kerja">
-                              <option value="Tugas Belajar">
-                            <option value="KSA">
-                            <option value="susenas">
-                            <option value="sakernas">
-
-                        </datalist>
-                    </div>
+                <div class="mb-3" style="margin-bottom: 20px;">
+                    <label class="form-label">Tanggal</label>
+                    <input type="date" name="tanggal" class="form-control" value="<?= date('Y-m-d') ?>" required>
                 </div>
 
-                
+                <div class="mb-3" style="margin-bottom: 20px;">
+                    <label class="form-label">Jenis Kegiatan</label>
+                    <select name="jenis_kegiatan" class="form-select" required>
+                        <option value="">-- Pilih Jenis --</option>
+                        <option value="Cuti">Cuti</option>
+                        <option value="DL">DL (Dinas Luar)</option>
+                        <option value="Survey Rutin">Survey Rutin</option>
+                        <option value="Tugas Belajar">Tugas Belajar</option>
+                        <option value="Rapat">Rapat</option>
+                        <option value="Pelatihan">Pelatihan</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Deskripsi Kegiatan</label>
+                    <textarea name="uraian" class="form-control" rows="4" placeholder="Jelaskan detail kegiatan yang dilakukan..." required></textarea>
+                </div>
 
                 <button type="submit" class="btn-save">
-                    <i class="fas fa-save me-2"></i> Simpan Log Harian
+                    <i class="fas fa-paper-plane me-2"></i> Simpan Laporan
                 </button>
-
             </form>
         </div>
     </div>
 </div>
-
-<script>
-    function toggleSelesai() {
-        const check = document.getElementById('check_selesai');
-        const timeInput = document.getElementById('input_jam_selesai');
-        const textInput = document.getElementById('text_jam_selesai');
-
-        if (check.checked) {
-            timeInput.style.display = 'none';
-            timeInput.disabled = true;
-            textInput.style.display = 'block';
-            textInput.disabled = false;
-            textInput.name = 'jam_selesai';
-        } else {
-            timeInput.style.display = 'block';
-            timeInput.disabled = false;
-            textInput.style.display = 'none';
-            textInput.disabled = true;
-            textInput.name = '';
-        }
-    }
-</script>
 
 <?php include '../includes/footer.php'; ?>

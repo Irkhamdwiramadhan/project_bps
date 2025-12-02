@@ -2,45 +2,44 @@
 session_start();
 include '../includes/koneksi.php';
 
-
-
-// Ambil ID Pegawai dari Session
-// Sesuaikan 'user_id' dengan nama session ID user Anda (misal 'id' atau 'id_pegawai')
-$pegawai_id = $_SESSION['user_id'] ?? 0;
-
-// 1. Ambil Data
-$tanggal        = $_POST['tanggal'];
-$jenis_kegiatan = trim($_POST['jenis_kegiatan']);
-
-
-// 2. Validasi
-if ($pegawai_id == 0) {
-    die("Error: Session Pegawai hilang. Silakan login ulang.");
+// Cek Login
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+    header('Location: ../login.php');
+    exit;
 }
 
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    
+    $id_pegawai = $_SESSION['user_id'];
+    $tanggal = $_POST['tanggal'];
+    $jenis = $_POST['jenis_kegiatan'];
+    $uraian = trim($_POST['uraian']);
+    
+    // SET DEFAULT JAM (Karena form jam dihapus)
+    // Anda bisa mengubah ini menjadi 00:00:00 jika lebih suka kosong
+    $jam_mulai = "07:30:00"; 
+    $jam_selesai = "16:00:00";
 
+    if (empty($tanggal) || empty($jenis) || empty($uraian)) {
+        header("Location: ../pages/tambah_kegiatan_saya.php?status=error&message=" . urlencode("Semua kolom wajib diisi."));
+        exit;
+    }
 
-// 3. Insert Data
-$query = "INSERT INTO kegiatan_harian 
-          (pegawai_id, tanggal, jenis_kegiatan) 
-          VALUES (?, ?, ?)";
+    $query = "INSERT INTO kegiatan_harian (pegawai_id, tanggal, jam_mulai, jam_selesai, jenis_kegiatan, uraian) VALUES (?, ?, ?, ?, ?, ?)";
+    
+    $stmt = $koneksi->prepare($query);
+    $stmt->bind_param("isssss", $id_pegawai, $tanggal, $jam_mulai, $jam_selesai, $jenis, $uraian);
 
-$stmt = $koneksi->prepare($query);
-
-$stmt->bind_param("iss", 
-    $pegawai_id,
-    $tanggal,
-    $jenis_kegiatan,
-  
-);
-
-if ($stmt->execute()) {
-    $_SESSION['success'] = "Log harian berhasil disimpan!";
-    header('Location: ../pages/kegiatan_saya.php');
+    if ($stmt->execute()) {
+        header("Location: ../pages/kegiatan_saya.php?status=success");
+    } else {
+        header("Location: ../pages/tambah_kegiatan_saya.php?status=error&message=" . urlencode($stmt->error));
+    }
+    
+    $stmt->close();
+    $koneksi->close();
 } else {
-    echo "Error Database: " . $stmt->error;
+    header("Location: ../pages/tambah_kegiatan_saya.php");
+    exit;
 }
-
-$stmt->close();
-$koneksi->close();
 ?>

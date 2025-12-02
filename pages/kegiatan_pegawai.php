@@ -113,8 +113,8 @@ $result = mysqli_query($koneksi, $query);
     
     <div class="page-header">
         <div class="page-title">
-            <h2>Kegiatan Pegawai</h2>
-            <p>Rekapitulasi aktivitas harian tim organik BPS.</p>
+            <h2>Meeting pegawai</h2>
+            <p>Rekapitulasi aktivitas tim Bps Kab. Tegal.</p>
         </div>
         <div class="header-actions">
             <a href="../proses/proses_export_excel_kegiatan_pegawai.php?tgl_mulai=<?= $tgl_mulai ?>&tgl_selesai=<?= $tgl_selesai ?>" target="_blank" class="btn-action-header btn-export">
@@ -206,7 +206,11 @@ $result = mysqli_query($koneksi, $query);
                                 <?php if (!empty($row['peserta_ids'])): ?>
                                     <div class="info-sub" style="align-items: flex-start;">
                                         <i class="fas fa-user-friends text-success mt-1"></i> 
-                                        <span><?= htmlspecialchars($row['peserta_ids']) ?></span>
+                                        <span>
+                                            <strong>(<?= htmlspecialchars($row['jumlah_peserta']) ?> Orang)</strong><br>
+                                            
+                                            <?= htmlspecialchars($row['peserta_ids']) ?>
+                                        </span>
                                     </div>
                                 <?php else: ?>
                                     <span class="text-muted small">-</span>

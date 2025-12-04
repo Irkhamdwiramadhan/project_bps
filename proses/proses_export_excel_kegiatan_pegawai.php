@@ -14,39 +14,43 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     die("Akses Ditolak");
 }
 
-// Ambil Filter
-$tgl_mulai = isset($_GET['tgl_mulai']) ? $_GET['tgl_mulai'] : date('Y-m-01');
-$tgl_selesai = isset($_GET['tgl_selesai']) ? $_GET['tgl_selesai'] : date('Y-m-d');
+// ============================================================
+// 1. QUERY DATA (REVISI: SEMUA DATA)
+// ============================================================
+// Kita menghapus klausa WHERE ... BETWEEN ... agar semua data terambil.
+// Query tetap menggunakan LEFT JOIN untuk menangani nama tim.
 
-// QUERY REVISI (HYBRID DATA)
-// Kita gunakan LEFT JOIN ke tabel tim.
-// Jika tim_kerja_id berisi angka (ID), maka t.nama_tim akan ada isinya.
-// Jika tim_kerja_id berisi teks (Manual), maka t.nama_tim akan NULL (karena tidak cocok dengan ID).
 $query = "
     SELECT 
         kp.*,
         t.nama_tim as nama_tim_db
     FROM kegiatan_pegawai kp
     LEFT JOIN tim t ON kp.tim_kerja_id = t.id 
-    WHERE kp.tanggal BETWEEN '$tgl_mulai' AND '$tgl_selesai'
-    ORDER BY kp.tanggal ASC, kp.waktu_mulai ASC
-";
+    ORDER BY kp.tanggal DESC, kp.waktu_mulai ASC
+"; 
+// Note: Saya ubah ORDER BY tanggal menjadi DESC (Terbaru di atas) agar lebih rapi, 
+// atau kembalikan ke ASC jika ingin dari yang terlama.
+
 $result = mysqli_query($koneksi, $query);
 
-// Setup Spreadsheet
+// ============================================================
+// 2. SETUP EXCEL
+// ============================================================
 $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();
-$sheet->setTitle('Laporan Kegiatan');
+$sheet->setTitle('Laporan Kegiatan Full');
 
-// Header Judul
-$sheet->setCellValue('A1', 'LAPORAN KEGIATAN PEGAWAI');
-$sheet->setCellValue('A2', 'Periode: ' . date('d M Y', strtotime($tgl_mulai)) . ' s/d ' . date('d M Y', strtotime($tgl_selesai)));
+// --- HEADER JUDUL ---
+$sheet->setCellValue('A1', 'Laporan Seluruh Kegiatan Tim Kerja dan Penggunaan Ruang Rapat');
+// Ubah baris kedua menjadi Tanggal Cetak karena tidak ada filter periode
+$sheet->setCellValue('A2', 'Data per Tanggal: ' . date('d M Y')); 
+
 $sheet->mergeCells('A1:I1');
 $sheet->mergeCells('A2:I2');
 $sheet->getStyle('A1:A2')->getFont()->setBold(true)->setSize(12);
 $sheet->getStyle('A1:A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-// Header Tabel
+// --- HEADER TABEL ---
 $headers = [
     'A' => 'NO',
     'B' => 'TANGGAL',
@@ -64,27 +68,28 @@ foreach ($headers as $col => $val) {
     $sheet->setCellValue($col . $rowNum, $val);
 }
 
-// Style Header
+// Style Header (Hijau)
 $headerStyle = [
     'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '059669']], // Hijau
+    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '059669']], 
     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
 ];
 $sheet->getStyle("A4:I4")->applyFromArray($headerStyle);
 
-// Isi Data
+// ============================================================
+// 3. ISI DATA
+// ============================================================
 $rowNum = 5;
 $no = 1;
+
 if (mysqli_num_rows($result) > 0) {
     while ($row = mysqli_fetch_assoc($result)) {
         
-        // 1. Format Jam
+        // Format Jam
         $jam = date('H:i', strtotime($row['waktu_mulai'])) . ' - ' . $row['waktu_selesai'];
         
-        // 2. Logika Cerdas untuk Tim Kerja
-        // Jika hasil join (nama_tim_db) ada isinya, pakai itu (berarti data lama pakai ID).
-        // Jika tidak, pakai tim_kerja_id langsung (berarti data baru pakai input manual).
+        // Logika Tim Kerja (Hybrid: ID vs Manual)
         $tim_kerja_final = !empty($row['nama_tim_db']) ? $row['nama_tim_db'] : $row['tim_kerja_id'];
 
         // Tulis ke Excel
@@ -94,36 +99,43 @@ if (mysqli_num_rows($result) > 0) {
         $sheet->setCellValue('D' . $rowNum, $row['jenis_aktivitas']);
         $sheet->setCellValue('E' . $rowNum, $row['aktivitas']);
         $sheet->setCellValue('F' . $rowNum, $row['tempat']);
-        
-        // Kolom G (Tim Kerja)
-        $sheet->setCellValue('G' . $rowNum, $tim_kerja_final);
-        
+        $sheet->setCellValue('G' . $rowNum, $tim_kerja_final); // Pakai hasil logika di atas
         $sheet->setCellValue('H' . $rowNum, $row['jumlah_peserta']);
         $sheet->setCellValue('I' . $rowNum, $row['peserta_ids']); 
         
         $rowNum++;
     }
 } else {
-    $sheet->setCellValue('A5', 'Tidak ada data pada periode ini.');
+    $sheet->setCellValue('A5', 'Belum ada data sama sekali.');
     $sheet->mergeCells('A5:I5');
     $sheet->getStyle('A5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+    $rowNum++; // Increment agar border tetap tercetak di baris kosong
 }
 
-// Style Border & Auto Width
+// ============================================================
+// 4. FINAL STYLING
+// ============================================================
 $lastRow = $rowNum - 1;
 $styleData = [
     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-    'alignment' => ['vertical' => Alignment::VERTICAL_TOP]
+    'alignment' => ['vertical' => Alignment::VERTICAL_TOP] // Rata atas agar rapi
 ];
+
+// Terapkan border ke seluruh data (jika ada data)
 if ($lastRow >= 5) {
     $sheet->getStyle("A5:I{$lastRow}")->applyFromArray($styleData);
+    
+    // Center alignment khusus untuk kolom-kolom pendek
+    $sheet->getStyle("A5:C{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+    $sheet->getStyle("H5:H{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 }
 
-// Auto width sederhana
+// Auto width
 foreach (range('A', 'I') as $col) {
     $sheet->getColumnDimension($col)->setAutoSize(true);
 }
-// Fix width untuk kolom panjang
+
+// Fix width & Wrap Text untuk kolom Uraian (E) dan Peserta (I) agar tidak terlalu lebar
 $sheet->getColumnDimension('E')->setAutoSize(false);
 $sheet->getColumnDimension('E')->setWidth(40);
 $sheet->getStyle("E5:E{$lastRow}")->getAlignment()->setWrapText(true);
@@ -132,8 +144,9 @@ $sheet->getColumnDimension('I')->setAutoSize(false);
 $sheet->getColumnDimension('I')->setWidth(50);
 $sheet->getStyle("I5:I{$lastRow}")->getAlignment()->setWrapText(true);
 
-// Download
-$filename = 'Laporan_Kegiatan_' . date('Ymd') . '.xlsx';
+// Output File
+$filename = 'Laporan_Semua_Kegiatan_' . date('Ymd_His') . '.xlsx';
+
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 header('Content-Disposition: attachment;filename="' . $filename . '"');
 header('Cache-Control: max-age=0');

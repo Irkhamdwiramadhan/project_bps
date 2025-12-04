@@ -270,6 +270,18 @@ if (is_array($role_tampil) && in_array('admin', $role_tampil)) {
                                     </ul>
                                 </div>
                             </div>
+                            <div class="flex items-start gap-4">
+                                <div class="feature-icon bg-gray-200">
+                                    <img src="../assets/img/logo/sikepo.png" alt="Deskripsi Foto" class="w-full h-full object-cover rounded-xl">
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-800">Sikepo (Sistem Informasi Kegiatan Pegawai Organik)</p>
+                                    <ul class="list-disc list-inside text-sm text-gray-500 mt-1">
+                                        <li>Mencatat penggunaan ruang rapat oleh pegawai.</li>
+                                        <li>Merekam Kegiatan kedinasan pegawai (perjalanan dinas, penggunaan translok, dan lain-lain).</li>
+                                    </ul>
+                                </div>
+                            </div>
 
                         </div>
 

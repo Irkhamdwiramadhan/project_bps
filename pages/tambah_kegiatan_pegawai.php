@@ -133,10 +133,10 @@ if ($result_tim) {
                         <select name="tempat_internal" id="tempat_internal" class="form-select">
                             <option value="">-- Pilih Ruangan --</option>
                             <option value="Ruang Rapat Utama">Ruang Rapat Utama</option>
-                            <option value="Ruang Rapat Kecil">Ruang Rapat Kecil</option>
-                            <option value="Aula BPS">Aula BPS</option>
+                            <option value="Ruang Rapat Kecil">Ruang Rapat Kecil/garda</option>
+                            <option value="Aula BPS">Ruang kepala</option>
                             <option value="Ruang Teknis">Ruang Teknis</option>
-                            <option value="Ruang Garda">Ruang Garda</option>
+                            <option value="Ruang Garda">Ruang Multimedia</option>
                             <option value="Parkiran BPS">Parkiran BPS</option>
                         </select>
                         <div id="room-feedback" style="font-size: 0.85rem; margin-top: 5px;"></div>

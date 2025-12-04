@@ -1,6 +1,6 @@
 <?php
 session_start();
-require '../vendor/autoload.php'; // Pastikan path vendor benar
+require '../vendor/autoload.php'; 
 include '../includes/koneksi.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -8,6 +8,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Color;
 
 // 1. Cek Login
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
@@ -15,86 +16,153 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-// 2. Ambil Parameter Filter & ID Pegawai
 $id_pegawai = $_SESSION['user_id'] ?? 0;
-$bulan = isset($_GET['bulan']) ? (int)$_GET['bulan'] : date('m');
-$tahun = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date('Y');
+$user_roles = $_SESSION['user_role'] ?? [];
+$is_admin = in_array('super_admin', $user_roles) || in_array('admin_pegawai', $user_roles);
 
-// Nama Bulan untuk Judul File
-$nama_bulan_str = date('F', mktime(0, 0, 0, $bulan, 10));
+// 2. LOGIKA QUERY
+if ($is_admin) {
+    $where_clause = "1=1";
+} else {
+    $where_clause = "k.pegawai_id = '$id_pegawai'";
+}
 
-// 3. Query Data (Sesuai Permintaan: Nama, Tanggal, Jenis)
-$query = "SELECT k.tanggal, k.jenis_kegiatan, p.nama AS nama_pegawai 
+$query = "SELECT k.tanggal, k.jenis_kegiatan, k.uraian, p.nama AS nama_pegawai 
           FROM kegiatan_harian k
           JOIN pegawai p ON k.pegawai_id = p.id
-          WHERE k.pegawai_id = ? 
-          AND MONTH(k.tanggal) = ? AND YEAR(k.tanggal) = ?
-          ORDER BY k.tanggal DESC, k.jam_mulai DESC";
+          WHERE $where_clause
+          ORDER BY k.tanggal DESC, p.nama ASC";
 
-$stmt = $koneksi->prepare($query);
-$stmt->bind_param("iii", $id_pegawai, $bulan, $tahun);
-$stmt->execute();
-$result = $stmt->get_result();
+$result = mysqli_query($koneksi, $query);
 
-// 4. Setup Excel
+// 3. SETUP EXCEL
 $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();
 $sheet->setTitle('Laporan Kegiatan');
 
-// --- Styling ---
+// --- STYLE DEFINITIONS ---
+// Style Header Tabel (Biru Tua, Teks Putih, Bold)
 $styleHeader = [
-    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']], // Warna Biru
-    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
+    'font' => [
+        'bold' => true,
+        'color' => ['rgb' => 'FFFFFF'],
+        'size' => 11,
+        'name' => 'Arial'
+    ],
+    'alignment' => [
+        'horizontal' => Alignment::HORIZONTAL_CENTER,
+        'vertical' => Alignment::VERTICAL_CENTER,
+    ],
+    'fill' => [
+        'fillType' => Fill::FILL_SOLID,
+        'startColor' => ['rgb' => '1F4E78'], // Biru Profesional
+    ],
+    'borders' => [
+        'allBorders' => [
+            'borderStyle' => Border::BORDER_THIN,
+            'color' => ['rgb' => '000000'],
+        ],
+    ],
 ];
 
+// Style Isi Tabel (Border Tipis, Align Top)
 $styleData = [
-    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER]
+    'borders' => [
+        'allBorders' => [
+            'borderStyle' => Border::BORDER_THIN,
+            'color' => ['rgb' => '000000'],
+        ],
+    ],
+    'alignment' => [
+        'vertical' => Alignment::VERTICAL_TOP, // Agar teks panjang enak dibaca dari atas
+    ],
+    'font' => [
+        'name' => 'Arial',
+        'size' => 10
+    ]
 ];
 
-// --- Header Kolom ---
-$headers = ['NO', 'NAMA PEGAWAI', 'TANGGAL', 'JENIS KEGIATAN'];
-$colLetters = ['A', 'B', 'C', 'D'];
+// --- JUDUL LAPORAN (Row 1) ---
+$sheet->mergeCells('A1:F1');
+$sheet->setCellValue('A1', 'LAPORAN REKAPITULASI KEGIATAN HARIAN PEGAWAI');
+$sheet->getStyle('A1')->applyFromArray([
+    'font' => ['bold' => true, 'size' => 14, 'name' => 'Arial'],
+    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+]);
 
-// Set Header
+// --- HEADER KOLOM (Row 3) ---
+// Kita beri jarak 1 baris kosong di Row 2
+$rowHeader = 3;
+$headers = ['NO', 'NAMA PEGAWAI', 'BULAN', 'TANGGAL', 'JENIS KEGIATAN', 'URAIAN / DESKRIPSI'];
+$colLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+// Set Header Value
 foreach ($headers as $idx => $text) {
-    $cell = $colLetters[$idx] . '1';
+    $cell = $colLetters[$idx] . $rowHeader;
     $sheet->setCellValue($cell, $text);
 }
-$sheet->getStyle('A1:D1')->applyFromArray($styleHeader);
 
-// --- Isi Data ---
-$rowNum = 2;
+// Terapkan Style Header
+$sheet->getStyle("A$rowHeader:F$rowHeader")->applyFromArray($styleHeader);
+$sheet->getRowDimension($rowHeader)->setRowHeight(25); // Tinggi baris header
+
+// --- ISI DATA ---
+$rowNum = 4;
 $no = 1;
 
-while ($row = $result->fetch_assoc()) {
-    // Format Tanggal (Hanya Tanggal, Bulan, Tahun)
-    $tanggal_formatted = date('d-m-Y', strtotime($row['tanggal']));
+$bulan_indo = [
+    1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+    7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+];
 
-    $sheet->setCellValue('A' . $rowNum, $no++);
-    $sheet->setCellValue('B' . $rowNum, $row['nama_pegawai']);
-    $sheet->setCellValue('C' . $rowNum, $tanggal_formatted);
-    $sheet->setCellValue('D' . $rowNum, $row['jenis_kegiatan']);
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        $timestamp = strtotime($row['tanggal']);
+        $bulan_num = (int)date('m', $timestamp);
+        $nama_bulan_row = $bulan_indo[$bulan_num];
+        $tanggal_hari = date('d', $timestamp); // Ambil tanggal saja (01-31)
 
-    // Apply Style per baris
-    $sheet->getStyle("A$rowNum:D$rowNum")->applyFromArray($styleData);
+        $sheet->setCellValue('A' . $rowNum, $no++);
+        $sheet->setCellValue('B' . $rowNum, $row['nama_pegawai']);
+        $sheet->setCellValue('C' . $rowNum, $nama_bulan_row);
+        $sheet->setCellValue('D' . $rowNum, $tanggal_hari);
+        $sheet->setCellValue('E' . $rowNum, $row['jenis_kegiatan']);
+        $sheet->setCellValue('F' . $rowNum, $row['uraian']);
+        
+        $rowNum++;
+    }
+}
+
+// --- FINAL STYLING ---
+$lastRow = $rowNum - 1;
+
+if ($lastRow >= 4) {
+    // 1. Terapkan border ke seluruh data
+    $sheet->getStyle("A4:F$lastRow")->applyFromArray($styleData);
+
+    // 2. Alignment Khusus Kolom Tertentu
+    // Center: No (A), Bulan (C), Tanggal (D), Jenis (E)
+    $sheet->getStyle("A4:A$lastRow")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+    $sheet->getStyle("C4:E$lastRow")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
     
-    // Center alignment untuk No dan Tanggal
-    $sheet->getStyle("A$rowNum")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-    $sheet->getStyle("C$rowNum")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+    // Left: Nama (B), Uraian (F)
+    $sheet->getStyle("B4:B$lastRow")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+    $sheet->getStyle("F4:F$lastRow")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
 
-    $rowNum++;
+    // 3. WRAP TEXT untuk Uraian (PENTING)
+    $sheet->getStyle("F4:F$lastRow")->getAlignment()->setWrapText(true);
 }
 
-// Auto Size Columns
-foreach ($colLetters as $col) {
-    $sheet->getColumnDimension($col)->setAutoSize(true);
-}
+// --- ATUR LEBAR KOLOM ---
+$sheet->getColumnDimension('A')->setWidth(5);   // No
+$sheet->getColumnDimension('B')->setAutoSize(true); // Nama
+$sheet->getColumnDimension('C')->setWidth(15);  // Bulan
+$sheet->getColumnDimension('D')->setWidth(10);  // Tanggal
+$sheet->getColumnDimension('E')->setWidth(20);  // Jenis
+$sheet->getColumnDimension('F')->setWidth(60);  // Uraian (Fixed width agar wrap text bekerja rapi)
 
-// 5. Output File
-$filename = "Kegiatan_Saya_{$nama_bulan_str}_{$tahun}.xlsx";
+// 4. Output File
+$filename = "Laporan_Kegiatan_" . date('Y-m-d_H-i') . ".xlsx";
 
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 header('Content-Disposition: attachment;filename="' . $filename . '"');

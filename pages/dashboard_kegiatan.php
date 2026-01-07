@@ -31,8 +31,10 @@ $sql_tim_stats = "SELECT
                     ON t.id = k.tim_id 
                     AND MONTH(k.batas_waktu) = ? 
                     AND YEAR(k.batas_waktu) = ?
+                  WHERE t.is_active = 1  -- REVISI: Hanya ambil tim aktif
                   GROUP BY t.id
                   ORDER BY t.nama_tim ASC";
+
 $stmt1 = $koneksi->prepare($sql_tim_stats);
 $stmt1->bind_param("ii", $bulan, $tahun);
 $stmt1->execute();
@@ -73,7 +75,8 @@ $sql_anggota_raw = "
         JOIN tim t ON at.tim_id = t.id
         JOIN pegawai p ON at.member_id = p.id
         JOIN kegiatan k ON ka.kegiatan_id = k.id
-        WHERE LOWER(at.member_type) = 'pegawai' 
+        WHERE t.is_active = 1  -- REVISI: Filter Tim Aktif
+          AND LOWER(at.member_type) = 'pegawai' 
           AND MONTH(k.batas_waktu) = ? AND YEAR(k.batas_waktu) = ?
 
         UNION ALL
@@ -89,16 +92,19 @@ $sql_anggota_raw = "
         JOIN tim t ON at.tim_id = t.id
         JOIN mitra m ON at.member_id = m.id
         JOIN kegiatan k ON ka.kegiatan_id = k.id
-        WHERE LOWER(at.member_type) = 'mitra' 
+        WHERE t.is_active = 1  -- REVISI: Filter Tim Aktif
+          AND LOWER(at.member_type) = 'mitra' 
           AND MONTH(k.batas_waktu) = ? AND YEAR(k.batas_waktu) = ?
     ) as combined_data
     GROUP BY member_name, nama_tim
 ";
 
 $stmt3 = $koneksi->prepare($sql_anggota_raw);
-$stmt3->bind_param("iiii", $bulan, $tahun, $bulan, $tahun);
+// Parameter tetap 4 (bulan, tahun, bulan, tahun)
+$stmt3->bind_param("iiii", $bulan, $tahun, $bulan, $tahun); 
 $stmt3->execute();
 $res3 = $stmt3->get_result();
+
 
 $raw_data = [];
 $member_totals = []; 
@@ -245,7 +251,7 @@ $chart_width_px = max(1000, count($sorted_members) * 120);
             </div>
             <div class="chart-card">
                 <div class="chart-header">
-                    <div class="chart-title"><i class="bi bi-bar-chart-line text-primary me-2"></i>garfik Kinerja Tim target vs realisasi</div>
+                    <div class="chart-title"><i class="bi bi-bar-chart-line text-primary me-2"></i>grafik Kinerja Tim target vs realisasi</div>
                 </div>
                 <div style="height: 300px;">
                     <canvas id="chartTim"></canvas>
@@ -324,7 +330,7 @@ $chart_width_px = max(1000, count($sorted_members) * 120);
         }
     });
 
-    // 3. INDIVIDU (VERTIKAL + VALUES ON BAR)
+   // 3. INDIVIDU (VERTIKAL + VALUES ON BAR)
     <?php if (!empty($sorted_members)): ?>
     new Chart(document.getElementById('chartAnggota'), {
         type: 'bar',
@@ -338,7 +344,22 @@ $chart_width_px = max(1000, count($sorted_members) * 120);
             maintainAspectRatio: false,
             layout: { padding: { bottom: 30 } },
             scales: {
-                x: { stacked: true, grid: { display: false }, ticks: { autoSkip: false, maxRotation: 0, padding: 25, font: { weight: 'bold', size: 11 } } },
+                x: { 
+                    stacked: true, 
+                    grid: { display: false }, 
+                    ticks: { 
+                        autoSkip: false,
+                        // --- REVISI DI SINI ---
+                        maxRotation: 45,   // Maksimal kemiringan 45 derajat
+                        minRotation: 45,   // Minimal kemiringan 45 derajat (memaksa miring)
+                        padding: 10,       // Jarak label ke grafik
+                        font: { 
+                            weight: 'bold', 
+                            size: 9        // Ukuran font diperkecil (sebelumnya 11)
+                        }
+                        // ----------------------
+                    } 
+                },
                 y: { stacked: true, grid: { color: '#f3f4f6' } }
             },
             interaction: {
@@ -347,6 +368,7 @@ $chart_width_px = max(1000, count($sorted_members) * 120);
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    // ... (bagian tooltip biarkan tetap sama seperti sebelumnya) ...
                     filter: function(tooltipItem) { return tooltipItem.raw > 0; },
                     callbacks: {
                         title: function(tooltipItems) { return tooltipItems[0].label; },
@@ -376,17 +398,14 @@ $chart_width_px = max(1000, count($sorted_members) * 120);
                     },
                     backgroundColor: 'rgba(0,0,0,0.8)', padding: 12, cornerRadius: 8
                 },
-                // SETTING LABEL DI ATAS BATANG
                 datalabels: {
                     color: function(context) {
-                        // Target (Pudar) -> Teks Hitam
-                        // Realisasi (Solid) -> Teks Putih
                         return context.dataset.stack === 'stack_target' ? '#444' : '#fff';
                     },
                     anchor: 'center', 
                     align: 'center',
-                    formatter: (val) => val > 0 ? val : '', // Hanya muncul jika > 0
-                    font: { weight: 'bold', size: 11 }
+                    formatter: (val) => val > 0 ? val : '', 
+                    font: { weight: 'bold', size: 10 } // Ukuran font datalabels (angka di batang) juga bisa disesuaikan
                 }
             }
         }

@@ -14,7 +14,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 
 // Cek hak akses
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_simpedu'];
+$allowed_roles = ['super_admin', 'admin_simpedu', 'ketua_tim'];
 if (!array_intersect($allowed_roles, $user_roles)) {
     $_SESSION['error_message'] = "Anda tidak memiliki izin untuk mengakses halaman ini.";
     header('Location: halaman_tim.php');

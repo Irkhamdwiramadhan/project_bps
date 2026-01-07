@@ -1,110 +1,81 @@
 <?php
-// ../proses/proses_tambah_kegiatan.php (REVISI FINAL)
-
 session_start();
 include '../includes/koneksi.php';
 
-// Keamanan: Pastikan metode request adalah POST dan pengguna memiliki akses
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Method Not Allowed
-    die("Akses tidak sah.");
-}
+// Validasi Login & Method
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) { header('Location: ../login.php'); exit; }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { die("Akses ditolak."); }
 
-$user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'ketua_tim'];
-if (!array_intersect($allowed_roles, $user_roles)) {
-    $_SESSION['error_message'] = "Anda tidak memiliki izin untuk melakukan aksi ini.";
-    header('Location: ../pages/kegiatan_tim.php');
+// Ambil Data Utama
+$tim_id = $_POST['tim_id'];
+$kegiatan_list = $_POST['kegiatan'] ?? []; // Array dari form repeater
+
+if (empty($tim_id) || empty($kegiatan_list)) {
+    $_SESSION['error_message'] = "Data tidak lengkap.";
+    header("Location: ../pages/tambah_kegiatan_tim.php");
     exit;
 }
 
-// ===================================================================
-// PENGAMBILAN & PEMBERSIHAN DATA DARI FORMULIR
-// ===================================================================
-$nama_kegiatan = trim($_POST['nama_kegiatan']);
-$tim_id = (int)$_POST['tim_id'];
-$target = (float)$_POST['target'];
-$satuan = trim($_POST['satuan']);
-$batas_waktu = $_POST['batas_waktu'];
-$keterangan = trim($_POST['keterangan']);
-
-// Data anggota (akan berbentuk array)
-$anggota_ids = $_POST['anggota_id'] ?? [];
-$target_anggotas = $_POST['target_anggota'] ?? [];
-
-
-// ===================================================================
-// VALIDASI DATA
-// ===================================================================
-if (empty($nama_kegiatan) || empty($tim_id) || !isset($_POST['target']) || empty($satuan) || empty($batas_waktu) || empty($anggota_ids)) {
-    $_SESSION['error_message'] = "Semua field wajib diisi, dan minimal harus ada satu anggota.";
-    header('Location: ../pages/tambah_kegiatan_tim.php');
-    exit;
-}
-
-// Mulai Transaksi Database untuk memastikan integritas data
+// Mulai Transaksi
 $koneksi->begin_transaction();
 
 try {
-    // ===================================================================
-    // LANGKAH 1: SIMPAN DATA UTAMA KE TABEL `kegiatan`
-    // ===================================================================
-    $stmt_kegiatan = $koneksi->prepare(
-        "INSERT INTO kegiatan (nama_kegiatan, tim_id, target, satuan, batas_waktu, keterangan) 
-         VALUES (?, ?, ?, ?, ?, ?)"
-    );
-    // bind_param: s=string, i=integer, d=double
-    $stmt_kegiatan->bind_param("sidsss", $nama_kegiatan, $tim_id, $target, $satuan, $batas_waktu, $keterangan);
+    // Siapkan Prepared Statement (Supaya efisien di dalam loop)
+    
+    // 1. Insert ke tabel `kegiatan`
+    $stmt_kegiatan = $koneksi->prepare("INSERT INTO kegiatan (nama_kegiatan, tim_id, target, realisasi, satuan, batas_waktu, keterangan, created_at) VALUES (?, ?, ?, 0, ?, ?, ?, NOW())");
 
-    if (!$stmt_kegiatan->execute()) {
-        // Jika gagal, lemparkan error untuk memicu rollback
-        throw new Exception("Gagal menyimpan data kegiatan utama: " . $stmt_kegiatan->error);
-    }
+    // 2. Insert ke tabel `kegiatan_anggota`
+    $stmt_anggota = $koneksi->prepare("INSERT INTO kegiatan_anggota (kegiatan_id, anggota_id, target_anggota, realisasi_anggota) VALUES (?, ?, ?, 0)");
 
-    // Ambil ID dari kegiatan yang baru saja dibuat
-    $kegiatan_id = $koneksi->insert_id;
-    $stmt_kegiatan->close();
+    foreach ($kegiatan_list as $data) {
+        $nama   = trim($data['nama']);
+        $satuan = trim($data['satuan']);
+        $batas  = $data['batas_waktu'];
+        $ket    = trim($data['keterangan'] ?? '');
+        $targets = $data['targets'] ?? []; // Array [member_id => value]
 
+        // Hitung total target dari input anggota
+        $total_target = 0;
+        foreach($targets as $val) { $total_target += (float)$val; }
 
-    // ===================================================================
-    // LANGKAH 2: SIMPAN DATA ANGGOTA KE TABEL `kegiatan_anggota`
-    // ===================================================================
-    $stmt_anggota = $koneksi->prepare(
-        "INSERT INTO kegiatan_anggota (kegiatan_id, anggota_id, target_anggota) 
-         VALUES (?, ?, ?)"
-    );
+        if ($total_target <= 0) {
+            throw new Exception("Target total untuk kegiatan '$nama' harus lebih dari 0.");
+        }
 
-    // Looping untuk setiap anggota yang dikirim dari form
-    foreach ($anggota_ids as $key => $anggota_id) {
-        $target_individu = (float)$target_anggotas[$key];
+        // Eksekusi Insert Kegiatan
+        $stmt_kegiatan->bind_param("sidsss", $nama, $tim_id, $total_target, $satuan, $batas, $ket);
+        if (!$stmt_kegiatan->execute()) {
+            throw new Exception("Gagal menyimpan kegiatan: " . $stmt_kegiatan->error);
+        }
         
-        $stmt_anggota->bind_param("iid", $kegiatan_id, $anggota_id, $target_individu);
-        
-        if (!$stmt_anggota->execute()) {
-            // Jika salah satu anggota gagal disimpan, lemparkan error
-            throw new Exception("Gagal menyimpan data anggota: " . $stmt_anggota->error);
+        $kegiatan_id = $koneksi->insert_id;
+
+        // Eksekusi Insert Anggota
+        foreach ($targets as $member_id => $target_val) {
+            $val_float = (float)$target_val;
+            // Simpan semua anggota, meskipun targetnya 0 (agar muncul di list realisasi nanti)
+            // Atau Anda bisa membatasi: if($val_float > 0) { ... }
+            $stmt_anggota->bind_param("iid", $kegiatan_id, $member_id, $val_float);
+            if (!$stmt_anggota->execute()) {
+                throw new Exception("Gagal menyimpan target anggota.");
+            }
         }
     }
+
+    $stmt_kegiatan->close();
     $stmt_anggota->close();
 
-    // ===================================================================
-    // LANGKAH 3: JIKA SEMUA BERHASIL, COMMIT TRANSAKSI
-    // ===================================================================
     $koneksi->commit();
-    $_SESSION['success_message'] = "Kegiatan baru dan data anggota berhasil ditambahkan!";
+    $_SESSION['success_message'] = "Berhasil menambahkan " . count($kegiatan_list) . " kegiatan baru!";
 
 } catch (Exception $e) {
-    // ===================================================================
-    // JIKA ADA KEGAGALAN, ROLLBACK SEMUA PERUBAHAN
-    // ===================================================================
     $koneksi->rollback();
-    $_SESSION['error_message'] = "Terjadi kesalahan: " . $e->getMessage();
-} finally {
-    // Tutup koneksi
-    $koneksi->close();
+    $_SESSION['error_message'] = "Error: " . $e->getMessage();
+    header("Location: ../pages/tambah_kegiatan_tim.php");
+    exit;
 }
 
-// Alihkan kembali ke halaman utama kegiatan
-header('Location: ../pages/kegiatan_tim.php');
+header("Location: ../pages/kegiatan_tim.php");
 exit;
 ?>

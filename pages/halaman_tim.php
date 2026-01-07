@@ -16,7 +16,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 $user_roles = $_SESSION['user_role'] ?? [];
 
 // Tentukan peran yang diizinkan untuk melakukan aksi (tambah, edit, hapus)
-$allowed_roles_for_action = ['super_admin']; 
+$allowed_roles_for_action = ['super_admin', 'ketua_tim']; 
 
 // Periksa apakah pengguna memiliki hak akses
 $has_access_for_action = false;
@@ -159,36 +159,44 @@ body {
 }
 
 /* ====== BUTTON ACTION ====== */
+/* ====== BUTTON ACTION ====== */
 .btn-action-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 2px; /* REVISI: Dikecilkan dari 6px menjadi 2px agar lebih rapat */
+  align-items: center; /* Menjaga agar tombol sejajar vertikal */
 }
+
+/* Tambahan: Pastikan form di dalam grup tidak menambah jarak */
+.btn-action-group form {
+  margin: 0;
+  padding: 0;
+  display: flex; /* Agar tombol di dalam form pas */
+}
+
 .btn-action-group .btn {
-  width: 36px;
-  height: 36px;
+  width: 32px; /* Opsional: Sedikit dikecilkan dari 36px jika ingin lebih compact */
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 6px; /* Radius disesuaikan dengan ukuran baru */
   border: none;
   transition: all 0.3s ease;
-}
-.btn-action-group .btn:hover {
-  transform: translateY(-1px);
+  font-size: 0.85rem; /* Ukuran icon sedikit disesuaikan */
 }
 
-/* ====== TOGGLE STATUS BUTTON ====== */
 .btn-toggle-status {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
+    width: 32px; /* Samakan ukuran dengan tombol lain */
+    height: 32px;
+    /* ... style lainnya tetap sama ... */
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
 }
 .btn-toggle-status.active {
   background-color: #22c55e;
@@ -244,6 +252,7 @@ body {
     justify-content: flex-start;
   }
 }
+
 </style>
 
 
@@ -330,6 +339,13 @@ body {
 
                                 if ($has_access_for_action) {
                                     echo '<a href="edit_tim.php?id='.$id_tim.'" class="btn btn-warning btn-sm" title="Edit"><i class="fas fa-pencil-alt"></i></a>';
+                                    // --- Tombol Hapus (Icon disesuaikan) ---
+echo '<a href="../proses/proses_hapus_tim.php?id='.$id_tim.'" 
+        class="btn btn-danger btn-sm" 
+        title="Hapus" 
+        onclick="return confirm(\'Yakin ingin menghapus tim ini? Data anggota dan target kinerja terkait mungkin akan ikut terhapus atau kehilangan induknya.\');">
+        <i class="fas fa-trash-alt"></i>
+      </a>';
 
                                     // Tombol toggle status
                                     echo '<form action="../proses/proses_toggle_status_tim.php" method="POST" style="display:inline;">

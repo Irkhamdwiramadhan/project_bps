@@ -14,7 +14,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 
 // Logika Hak Akses (RBAC)
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles_for_action = ['super_admin', 'admin_simpedu'];
+$allowed_roles_for_action = ['super_admin', 'admin_simpedu', 'ketua_tim'];
 $has_access_for_action = false;
 foreach ($user_roles as $role) {
     if (in_array($role, $allowed_roles_for_action)) {

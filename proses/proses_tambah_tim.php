@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // RBAC: cek role
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles_for_action = ['super_admin', 'admin_simpedu'];
+$allowed_roles_for_action = ['super_admin', 'admin_simpedu', 'ketua_tim'];
 $has_access_for_action = false;
 foreach ((array)$user_roles as $role) {
     if (in_array($role, $allowed_roles_for_action)) {
@@ -21,7 +21,7 @@ foreach ((array)$user_roles as $role) {
 }
 if (!$has_access_for_action) {
     $_SESSION['error_message'] = "Anda tidak memiliki izin untuk melakukan aksi ini.";
-    header('Location: ../tim/halaman_tim.php');
+    header('Location: ../pages/halaman_tim.php');
     exit;
 }
 
@@ -34,7 +34,7 @@ $anggota_list = $_POST['anggota'] ?? [];
 // Validasi
 if ($nama_tim === '' || $ketua_tim_id <= 0) {
     $_SESSION['error_message'] = "Nama Tim dan Ketua Tim wajib diisi.";
-    header('Location: ../tim/tambah_tim.php');
+    header('Location: ../pages/tambah_tim.php');
     exit;
 }
 

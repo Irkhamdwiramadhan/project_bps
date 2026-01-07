@@ -3,31 +3,26 @@ session_start();
 include '../includes/koneksi.php';
 
 // ===================================================================
-// VALIDASI AKSES DAN METODE REQUEST
+// 1. CEK LOGIN & METODE REQUEST
 // ===================================================================
+
+// Pastikan user sudah login
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+    header('Location: ../login.php');
+    exit;
+}
+
+// Pastikan data dikirim via POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     die("Akses tidak sah.");
 }
 
-$user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'ketua_tim'];
-$has_access = false;
-foreach ($user_roles as $role) {
-    if (in_array($role, $allowed_roles)) {
-        $has_access = true;
-        break;
-    }
-}
-
-if (!$has_access) {
-    $_SESSION['error_message'] = "Anda tidak memiliki izin untuk melakukan aksi ini.";
-    header('Location: ../pages/kegiatan_tim.php');
-    exit;
-}
+// [HAK AKSES DIHAPUS] 
+// Sekarang semua pegawai yang login bisa lanjut ke proses di bawah ini.
 
 // ===================================================================
-// PENGAMBILAN DATA DARI FORMULIR
+// 2. PENGAMBILAN DATA DARI FORMULIR
 // ===================================================================
 $kegiatan_id     = (int) $_POST['id'];
 $nama_kegiatan   = trim($_POST['nama_kegiatan']);
@@ -41,10 +36,10 @@ $keterangan      = trim($_POST['keterangan'] ?? '');
 // Data Array Anggota
 $anggota_ids        = $_POST['anggota_id'] ?? [];
 $target_anggotas    = $_POST['target_anggota'] ?? [];
-$realisasi_anggotas = $_POST['realisasi_anggota'] ?? []; // <-- REVISI: Tangkap realisasi per anggota
+$realisasi_anggotas = $_POST['realisasi_anggota'] ?? []; 
 
 // ===================================================================
-// VALIDASI DASAR
+// 3. VALIDASI INPUT
 // ===================================================================
 if (empty($kegiatan_id) || empty($nama_kegiatan) || empty($tim_id) || empty($satuan) || empty($batas_waktu) || empty($anggota_ids)) {
     $_SESSION['error_message'] = "Semua field wajib diisi, dan minimal harus ada satu anggota.";
@@ -53,14 +48,14 @@ if (empty($kegiatan_id) || empty($nama_kegiatan) || empty($tim_id) || empty($sat
 }
 
 // ===================================================================
-// TRANSAKSI DATABASE
+// 4. TRANSAKSI DATABASE
 // ===================================================================
 $koneksi->begin_transaction();
 
 try {
-    // ===============================================================
-    // LANGKAH 1: Update data utama di tabel `kegiatan`
-    // ===============================================================
+    // ---------------------------------------------------------------
+    // LANGKAH A: Update data utama di tabel `kegiatan`
+    // ---------------------------------------------------------------
     $stmt_kegiatan = $koneksi->prepare("
         UPDATE kegiatan SET 
             nama_kegiatan = ?, 
@@ -70,11 +65,11 @@ try {
             satuan = ?, 
             batas_waktu = ?, 
             keterangan = ?,
-            updated_at = NOW()  -- Update waktu perubahan
+            updated_at = NOW()
         WHERE id = ?
     ");
 
-    // Tipe data: s=string, i=integer, d=double
+    // s=string, i=integer, d=double
     $stmt_kegiatan->bind_param(
         "siddsssi",
         $nama_kegiatan,
@@ -92,9 +87,11 @@ try {
     }
     $stmt_kegiatan->close();
 
-    // ===============================================================
-    // LANGKAH 2: Hapus data anggota lama dan masukkan yang baru
-    // ===============================================================
+    // ---------------------------------------------------------------
+    // LANGKAH B: Reset Anggota (Hapus lama, Insert baru)
+    // ---------------------------------------------------------------
+    
+    // Hapus data anggota lama
     $stmt_delete = $koneksi->prepare("DELETE FROM kegiatan_anggota WHERE kegiatan_id = ?");
     $stmt_delete->bind_param("i", $kegiatan_id);
     if (!$stmt_delete->execute()) {
@@ -102,17 +99,16 @@ try {
     }
     $stmt_delete->close();
 
-    // REVISI: Insert data anggota dengan target DAN realisasi individu
+    // Insert data anggota baru (termasuk target & realisasi individu)
     $stmt_insert = $koneksi->prepare("
         INSERT INTO kegiatan_anggota (kegiatan_id, anggota_id, target_anggota, realisasi_anggota) 
         VALUES (?, ?, ?, ?)
     ");
 
     foreach ($anggota_ids as $key => $anggota_id) {
-        $target_individu = (float) ($target_anggotas[$key] ?? 0);
-        $realisasi_individu = (float) ($realisasi_anggotas[$key] ?? 0); // Ambil realisasi individu
+        $target_individu    = (float) ($target_anggotas[$key] ?? 0);
+        $realisasi_individu = (float) ($realisasi_anggotas[$key] ?? 0);
         
-        // Bind param: iidd (int, int, double, double)
         $stmt_insert->bind_param("iidd", $kegiatan_id, $anggota_id, $target_individu, $realisasi_individu);
         
         if (!$stmt_insert->execute()) {
@@ -122,14 +118,14 @@ try {
 
     $stmt_insert->close();
 
-    // ===============================================================
-    // LANGKAH 3: Commit transaksi (simpan perubahan)
-    // ===============================================================
+    // ---------------------------------------------------------------
+    // LANGKAH C: Commit (Simpan Permanen)
+    // ---------------------------------------------------------------
     $koneksi->commit();
     $_SESSION['success_message'] = "Data kegiatan berhasil diperbarui!";
 
 } catch (Exception $e) {
-    // Jika salah satu langkah gagal, rollback semua perubahan
+    // Jika error, batalkan semua perubahan
     $koneksi->rollback();
     $_SESSION['error_message'] = "Terjadi kesalahan: " . $e->getMessage();
     header("Location: ../pages/edit_kegiatan_tim.php?id=" . $kegiatan_id);
@@ -138,7 +134,7 @@ try {
     $koneksi->close();
 }
 
-// Arahkan kembali ke halaman daftar kegiatan
+// Redirect Sukses
 header('Location: ../pages/kegiatan_tim.php');
 exit;
 ?>

@@ -10,10 +10,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $user_roles = $_SESSION['user_role'] ?? [];
-$allowed_roles = ['super_admin', 'admin_simpedu'];
+$allowed_roles = ['super_admin', 'admin_simpedu' , 'ketua_tim'];
 if (!array_intersect($allowed_roles, $user_roles)) {
     $_SESSION['error_message'] = "Anda tidak memiliki izin untuk melakukan aksi ini.";
-    header('Location: ../tim/halaman_tim.php');
+    header('Location: ../pages/halaman_tim.php');
     exit;
 }
 
@@ -27,7 +27,7 @@ $anggota_list = $_POST['anggota'] ?? [];
 // Validasi
 if (empty($tim_id) || empty($nama_tim) || empty($ketua_tim_id)) {
     $_SESSION['error_message'] = "Data tidak lengkap. Nama Tim dan Ketua Tim wajib diisi.";
-    header('Location: ../tim/edit_tim.php?id=' . $tim_id);
+    header('Location: ../pages/edit_tim.php?id=' . $tim_id);
     exit;
 }
 

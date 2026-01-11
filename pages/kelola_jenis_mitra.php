@@ -4,9 +4,10 @@ include '../includes/koneksi.php';
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// 1. Ambil daftar TIM
-$sql_tim = "SELECT id, nama_tim FROM tim ORDER BY nama_tim ASC";
+// 1. Ambil daftar TIM (Hanya yang Aktif)
+$sql_tim = "SELECT id, nama_tim FROM tim WHERE is_active = 1 ORDER BY nama_tim ASC";
 $result_tim = $koneksi->query($sql_tim);
+
 $tim_list = [];
 if ($result_tim && $result_tim->num_rows > 0) {
     while ($row = $result_tim->fetch_assoc()) {

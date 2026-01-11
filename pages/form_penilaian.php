@@ -29,7 +29,10 @@ $filter_tahun = isset($_GET['tahun']) ? intval($_GET['tahun']) : $current_year;
 
 
 
-// 🚫 Tambahkan pengecekan di sini
+// 🚫 Tambahkan pengecekan di sini (REVISI)
+$is_candidate = false;
+$candidate_label = '';
+
 if ($filter_jenis === 'pegawai_prestasi') {
     $stmt_check_calon = $koneksi->prepare("
         SELECT COUNT(*) AS count 
@@ -40,20 +43,39 @@ if ($filter_jenis === 'pegawai_prestasi') {
           AND tahun = ?
     ");
     $stmt_check_calon->bind_param("iii", $user_id, $filter_triwulan, $filter_tahun);
+    $candidate_label = 'pegawai berprestasi';
+} elseif ($filter_jenis === 'can') {
+    // Pengecekan CAN (Biasanya tahunan, jadi tidak cek triwulan)
+    $stmt_check_calon = $koneksi->prepare("
+        SELECT COUNT(*) AS count 
+        FROM calon_triwulan 
+        WHERE id_pegawai = ? 
+          AND jenis_penilaian = 'can' 
+          AND tahun = ?
+    ");
+    $stmt_check_calon->bind_param("ii", $user_id, $filter_tahun);
+    $candidate_label = 'pegawai CAN';
+}
+
+if (isset($stmt_check_calon)) {
     $stmt_check_calon->execute();
     $result_calon = $stmt_check_calon->get_result()->fetch_assoc();
     $stmt_check_calon->close();
 
     if ($result_calon['count'] > 0) {
-        echo "<main class='main-content'>
-                <div class='card card-access-denied'>
-                    <h2 class='text-center text-danger'>Akses Ditolak</h2>
-                    <p class='text-center'>Anda adalah calon pegawai berprestasi pada periode ini, sehingga tidak dapat melakukan penilaian pegawai prestasi.</p>
-                </div>
-              </main>";
-        include '../includes/footer.php';
-        exit;
+        $is_candidate = true;
     }
+}
+
+if ($is_candidate) {
+    echo "<main class='main-content'>
+            <div class='card card-access-denied'>
+                <h2 class='text-center text-danger'>Akses Ditolak</h2>
+                <p class='text-center'>Anda terdaftar sebagai calon <strong>" . htmlspecialchars($candidate_label) . "</strong> pada periode ini, sehingga tidak dapat melakukan penilaian.</p>
+            </div>
+          </main>";
+    include '../includes/footer.php';
+    exit;
 }
 
 

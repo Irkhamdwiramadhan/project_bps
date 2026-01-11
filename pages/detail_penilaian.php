@@ -20,7 +20,7 @@ function formatPeriodeDetail($jenis, $nilai, $tahun) {
 
     $periodeStr = "";
     if (strtolower($jenis) == 'bulanan') {
-        $periodeStr = $nama_bulan[$nilai] ?? $nilai;
+        $periodeStr = isset($nama_bulan[$nilai]) ? $nama_bulan[$nilai] : $nilai;
     } elseif (strtolower($jenis) == 'triwulan') {
         $periodeStr = "Triwulan $nilai";
     } elseif (strtolower($jenis) == 'subron') {
@@ -32,8 +32,9 @@ function formatPeriodeDetail($jenis, $nilai, $tahun) {
     return "$periodeStr $tahun";
 }
 
-// Ambil ID mitra dari URL
+// Ambil ID mitra dan TAHUN dari URL
 $mitra_id = isset($_GET['mitra_id']) ? intval($_GET['mitra_id']) : 0;
+$filter_tahun = isset($_GET['tahun']) ? $_GET['tahun'] : ''; // Tangkap filter tahun
 
 if ($mitra_id === 0) {
     header('Location: penilaian_mitra.php?status=error&message=ID_mitra_tidak_valid');
@@ -44,8 +45,19 @@ if ($mitra_id === 0) {
 $user_role = $_SESSION['user_role'] ?? '';
 
 try {
+    // Persiapkan Kondisi WHERE untuk Tahun
+    $year_condition = "";
+    $params = [$mitra_id];
+    $types = "i"; // Tipe data integer untuk mitra_id
+
+    if (!empty($filter_tahun)) {
+        $year_condition = " AND YEAR(mpk.tanggal_penilaian) = ? ";
+        $params[] = $filter_tahun;
+        $types .= "s"; // Tipe data string untuk tahun
+    }
+
     // =========================================================================
-    // REVISI QUERY: Tambah Periode & Tahun
+    // QUERY DETAIL PENILAIAN (Dengan Filter Tahun)
     // =========================================================================
     $sql_details = "
     SELECT DISTINCT
@@ -64,7 +76,7 @@ try {
         
         mk.nama AS nama_pekerjaan,
         
-        -- DATA PERIODE BARU
+        -- DATA PERIODE
         ms.periode_jenis,
         ms.periode_nilai,
         hm.tahun_pembayaran,
@@ -80,42 +92,52 @@ try {
     
     LEFT JOIN pegawai AS p ON mpk.penilai_id = p.id
     
-    -- Join Kegiatan menggunakan tahun dari honor (lebih akurat)
+    -- Join Kegiatan menggunakan tahun dari honor
     LEFT JOIN master_kegiatan AS mk 
         ON ms.kegiatan_id = mk.kode
         AND mk.tahun = hm.tahun_pembayaran
         
     WHERE m.id = ? 
+    $year_condition  -- SISIPKAN FILTER TAHUN DI SINI
     ORDER BY mpk.tanggal_penilaian DESC
     ";
 
     $stmt_details = $koneksi->prepare($sql_details);
 
     if (!$stmt_details) {
-        // Perbaikan Syntax Error (tambah titik)
         throw new Exception("Gagal menyiapkan statement: " . $koneksi->error);
     }
     
-    $stmt_details->bind_param("i", $mitra_id);
+    // Bind parameter secara dinamis (tergantung ada filter tahun atau tidak)
+    $stmt_details->bind_param($types, ...$params);
     $stmt_details->execute();
     $result_details = $stmt_details->get_result();
     
-    if ($result_details->num_rows === 0) {
-        // Cek apakah mitra ada tapi belum punya penilaian
+    // LOGIKA PENGAMBILAN DATA PROFIL MITRA
+    // Jika ada hasil penilaian, ambil data mitra dari baris pertama
+    if ($result_details->num_rows > 0) {
+        $first_row = $result_details->fetch_assoc();
+        $result_details->data_seek(0); // Reset pointer agar bisa di-loop ulang di tabel
+    } else {
+        // Jika tidak ada penilaian (kosong karena filter tahun atau memang belum dinilai),
+        // Kita harus tetap mengambil Info Mitra (Nama & Foto) secara terpisah agar header tidak error/kosong.
         $check_mitra = $koneksi->prepare("SELECT nama_lengkap, foto FROM mitra WHERE id = ?");
         $check_mitra->bind_param("i", $mitra_id);
         $check_mitra->execute();
         $res_check = $check_mitra->get_result();
+        
         if ($res_check->num_rows > 0) {
             $mitra_info = $res_check->fetch_assoc();
-            $first_row = ['nama_mitra' => $mitra_info['nama_lengkap'], 'foto_mitra' => $mitra_info['foto']];
+            $first_row = [
+                'nama_mitra' => $mitra_info['nama_lengkap'], 
+                'foto_mitra' => $mitra_info['foto'],
+                'id' => null // Penanda tidak ada data penilaian
+            ];
         } else {
+            // Jika ID Mitra memang tidak ada di DB
             header('Location: penilaian_mitra.php?status=error&message=Data_mitra_tidak_ditemukan');
             exit;
         }
-    } else {
-        $first_row = $result_details->fetch_assoc();
-        $result_details->data_seek(0); 
     }
 
 } catch (Exception $e) {
@@ -133,7 +155,8 @@ try {
     .card-detail { background-color: #fff; border-radius: 1rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); margin-bottom: 2rem; }
     .profile-header { display: flex; align-items: center; margin-bottom: 2rem; gap: 2rem; }
     .profile-photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; }
-    .profile-info h1 { font-size: 2.5rem; font-weight: 700; color: #1f2937; }
+    .profile-info h1 { font-size: 2.5rem; font-weight: 700; color: #1f2937; margin-bottom: 0.5rem; }
+    .profile-meta { color: #6b7280; font-size: 1rem; }
     .table-container { overflow-x: auto; }
     .table-details { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
     .table-details th, .table-details td { padding: 1rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
@@ -147,7 +170,7 @@ try {
 
 <div class="content-wrapper">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <a href="penilaian_mitra.php" class="text-blue-600 hover:text-blue-800 mb-4 inline-block font-medium">
+        <a href="penilaian_mitra.php?tahun=<?= htmlspecialchars($filter_tahun) ?>" class="text-blue-600 hover:text-blue-800 mb-4 inline-block font-medium">
             &larr; Kembali ke Daftar Penilaian
         </a>
         
@@ -160,12 +183,21 @@ try {
                 <img src="<?= htmlspecialchars($photo_path); ?>" alt="<?= htmlspecialchars($alt_text); ?>" class="profile-photo">
                 <div class="profile-info">
                     <h1><?= htmlspecialchars($first_row['nama_mitra']); ?></h1>
+                    <div class="profile-meta">
+                        Detail Riwayat Penilaian Kinerja
+                        <?php if(!empty($filter_tahun)): ?>
+                            <span class="bg-blue-100 text-blue-800 text-sm font-semibold px-2.5 py-0.5 rounded ml-2">Tahun <?= htmlspecialchars($filter_tahun) ?></span>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="card-detail">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Riwayat Penilaian</h2>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                Daftar Penilaian
+                <?php if(!empty($filter_tahun)) echo "($filter_tahun)"; ?>
+            </h2>
             
             <div class="table-container">
                 <table class="table-details">
@@ -182,8 +214,7 @@ try {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if ($result_details->num_rows > 0 && isset($first_row['id'])): ?>
-                            <?php $result_details->data_seek(0); ?>
+                        <?php if ($result_details->num_rows > 0): ?>
                             <?php while ($row = $result_details->fetch_assoc()) : ?>
                                 <tr>
                                     <td><?= htmlspecialchars($row['nama_penilai'] ?? 'N/A'); ?></td>
@@ -202,7 +233,7 @@ try {
                                     <td><?= htmlspecialchars($row['keterangan'] ?? '-'); ?></td>
                                     <td class="rating-cell" style="color:#2563eb;"><?= number_format($row['rata_rata_penilaian'], 2); ?></td>
                                     <td>
-                                        <a href="../proses/delete_penilaian.php?id=<?= htmlspecialchars($row['id']) ?>"
+                                        <a href="../proses/delete_penilaian.php?id=<?= htmlspecialchars($row['id']) ?>&mitra_id=<?= $mitra_id ?>&tahun=<?= $filter_tahun ?>"
                                            class="btn-delete"
                                            onclick="return confirm('Apakah Anda yakin ingin menghapus penilaian ini?');">Hapus</a>
                                     </td>
@@ -211,7 +242,8 @@ try {
                         <?php else: ?>
                             <tr>
                                 <td colspan="10" style="text-align: center; padding: 2rem; color: #6b7280;">
-                                    Belum ada riwayat penilaian untuk mitra ini.
+                                    Belum ada riwayat penilaian untuk mitra ini
+                                    <?= !empty($filter_tahun) ? "pada tahun $filter_tahun" : "" ?>.
                                 </td>
                             </tr>
                         <?php endif; ?>

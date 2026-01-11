@@ -73,37 +73,51 @@ switch ($type) {
         $stmt->bind_param("ii", $bulan, $tahun);
         break;
 
-    case 'individu': // GRAFIK 3: KINERJA INDIVIDU
+    case 'individu': // GRAFIK 3: KINERJA INDIVIDU (REVISI UNIVERSAL)
         $filename = "Kinerja_Individu_{$bulan}_{$tahun}.xlsx";
         $headers = ['NO', 'NAMA ANGGOTA', 'TIM', 'TARGET INDIVIDU', 'REALISASI INDIVIDU', 'CAPAIAN (%)'];
         
-        $query = "SELECT member_name, nama_tim, 
-                         COALESCE(SUM(target_individu), 0) as total_target,
-                         COALESCE(SUM(realisasi_individu), 0) as total_realisasi
+        // QUERY UNIVERSAL (SAMA DENGAN DASHBOARD)
+        // Menggunakan COALESCE untuk mengambil nama dari berbagai sumber (Anggota Tim / Pegawai Langsung / Mitra Langsung)
+        $query = "SELECT 
+                    member_name,
+                    nama_tim,
+                    COALESCE(SUM(target_individu), 0) as total_target,
+                    COALESCE(SUM(realisasi_individu), 0) as total_realisasi
                   FROM (
-                      SELECT p.nama as member_name, t.nama_tim, ka.target_anggota as target_individu, ka.realisasi_anggota as realisasi_individu
-                      FROM kegiatan_anggota ka
-                      JOIN anggota_tim at ON ka.anggota_id = at.id
-                      JOIN tim t ON at.tim_id = t.id
-                      JOIN pegawai p ON at.member_id = p.id
-                      JOIN kegiatan k ON ka.kegiatan_id = k.id
-                      WHERE t.is_active = 1 AND LOWER(at.member_type) = 'pegawai' 
-                      AND MONTH(k.batas_waktu) = ? AND YEAR(k.batas_waktu) = ?
-                      UNION ALL
-                      SELECT m.nama_lengkap as member_name, t.nama_tim, ka.target_anggota as target_individu, ka.realisasi_anggota as realisasi_individu
-                      FROM kegiatan_anggota ka
-                      JOIN anggota_tim at ON ka.anggota_id = at.id
-                      JOIN tim t ON at.tim_id = t.id
-                      JOIN mitra m ON at.member_id = m.id
-                      JOIN kegiatan k ON ka.kegiatan_id = k.id
-                      WHERE t.is_active = 1 AND LOWER(at.member_type) = 'mitra' 
-                      AND MONTH(k.batas_waktu) = ? AND YEAR(k.batas_waktu) = ?
+                    SELECT 
+                        -- Cek Nama: Dari Relasi Anggota Tim -> Pegawai Langsung -> Mitra Langsung
+                        COALESCE(p_rel.nama, m_rel.nama_lengkap, p_direct.nama, m_direct.nama_lengkap) as member_name,
+                        t.nama_tim,
+                        ka.target_anggota as target_individu, 
+                        ka.realisasi_anggota as realisasi_individu
+                    FROM kegiatan_anggota ka
+                    JOIN kegiatan k ON ka.kegiatan_id = k.id
+                    JOIN tim t ON k.tim_id = t.id
+                    
+                    -- JALUR 1: Via Anggota Tim (Old Logic)
+                    LEFT JOIN anggota_tim at ON ka.anggota_id = at.id
+                    LEFT JOIN pegawai p_rel ON at.member_id = p_rel.id AND at.member_type = 'pegawai'
+                    LEFT JOIN mitra m_rel ON at.member_id = m_rel.id AND at.member_type = 'mitra'
+                    
+                    -- JALUR 2: Via Pegawai Langsung (New Logic)
+                    LEFT JOIN pegawai p_direct ON ka.anggota_id = p_direct.id
+                    
+                    -- JALUR 3: Via Mitra Langsung (New Logic)
+                    LEFT JOIN mitra m_direct ON ka.anggota_id = m_direct.id
+                    
+                    WHERE t.is_active = 1 
+                      AND MONTH(k.batas_waktu) = ? 
+                      AND YEAR(k.batas_waktu) = ?
+                      AND ka.target_anggota > 0 -- Hanya export yang punya target
                   ) as combined_data
+                  WHERE member_name IS NOT NULL -- Hilangkan data hantu
                   GROUP BY member_name, nama_tim
                   ORDER BY total_target DESC";
         
         $stmt = $koneksi->prepare($query);
-        $stmt->bind_param("iiii", $bulan, $tahun, $bulan, $tahun);
+        // REVISI PARAMETER: Cukup 2 parameter (bulan, tahun) karena tidak pakai UNION lagi
+        $stmt->bind_param("ii", $bulan, $tahun);
         break;
 
     default:

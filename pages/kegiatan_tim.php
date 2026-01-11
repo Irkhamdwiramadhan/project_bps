@@ -16,12 +16,17 @@ foreach ($user_roles as $role) {
 }
 
 // 2. Ambil Parameter Filter
+// 1. Ambil Parameter Filter
 $filter_bulan = $_GET['bulan'] ?? date('m');
 $filter_tahun = $_GET['tahun'] ?? date('Y');
-$filter_tim   = $_GET['tim'] ?? ''; // Tambahan filter tim
+$filter_tim   = $_GET['tim'] ?? ''; 
 
-// 3. Susun WHERE Clause yang Fleksibel
+// 2. Susun WHERE Clause
 $conditions = [];
+
+// Filter Wajib: Hanya Tim Aktif
+// Pastikan di query utama nanti ada: JOIN tim t ON ...
+$conditions[] = "t.is_active = 1"; 
 
 if (!empty($filter_bulan)) {
     $conditions[] = "MONTH(k.batas_waktu) = " . intval($filter_bulan);
@@ -33,13 +38,14 @@ if (!empty($filter_tim)) {
     $conditions[] = "k.tim_id = " . intval($filter_tim);
 }
 
+// Gabungkan kondisi
 $where_clause = "";
 if (count($conditions) > 0) {
     $where_clause = "WHERE " . implode(" AND ", $conditions);
 }
 
-// 4. Ambil Daftar Tim untuk Dropdown
-$sql_tim = "SELECT id, nama_tim FROM tim ORDER BY nama_tim ASC";
+// Ambil Daftar Tim (Hanya yang Aktif)
+$sql_tim = "SELECT id, nama_tim FROM tim WHERE is_active = 1 ORDER BY nama_tim ASC";
 $result_tim = $koneksi->query($sql_tim);
 ?>
 
@@ -190,20 +196,31 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--background-co
                                     <td><?= !empty($row['updated_at']) ? date('d M Y', strtotime($row['updated_at'])) : '-' ?></td>
                                 
                                     <td>
-                                        <div class="btn-action-group">
-                                            <a href="detail_kegiatan_tim.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-info" title="Lihat Detail">
-                                                <i class="bi bi-eye-fill"></i>
-                                            </a>
-                                            <a href="edit_kegiatan_tim.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </a>
-                                            <?php if ($has_access_for_action): ?>
-                                                <a href="../proses/proses_hapus_kegiatan_tim.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" title="Hapus" onclick="return confirm('Anda yakin ingin menghapus kegiatan ini?');">
-                                                    <i class="bi bi-trash"></i>
-                                                </a>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
+    <div class="btn-action-group">
+        <a href="detail_kegiatan_tim.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-info" title="Lihat Detail">
+            <i class="bi bi-eye-fill"></i>
+        </a>
+
+        <?php if ($has_access_for_action): ?>
+            <a href="../proses/proses_copy_kegiatan.php?id=<?= $row['id'] ?>" 
+               class="btn btn-sm btn-outline-secondary" 
+               title="Duplikat Kegiatan"
+               onclick="return confirm('Apakah Anda yakin ingin menduplikat kegiatan ini? Kegiatan baru akan dibuat dengan status realisasi 0.');">
+                <i class="bi bi-files"></i>
+            </a>
+        <?php endif; ?>
+
+        <a href="edit_kegiatan_tim.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
+            <i class="bi bi-pencil-square"></i>
+        </a>
+
+        <?php if ($has_access_for_action): ?>
+            <a href="../proses/proses_hapus_kegiatan_tim.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" title="Hapus" onclick="return confirm('Anda yakin ingin menghapus kegiatan ini?');">
+                <i class="bi bi-trash"></i>
+            </a>
+        <?php endif; ?>
+    </div>
+</td>
                                 </tr>
                             <?php }
                         } else {

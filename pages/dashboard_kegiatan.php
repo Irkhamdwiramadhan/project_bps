@@ -57,6 +57,7 @@ $stmt1->close();
 // GRAFIK 3: INDIVIDU (GROUPED STACKED BAR)
 // ============================================================================
 
+// REVISI DASHBOARD: Query Universal (Bisa baca ID Anggota Tim, Pegawai, atau Mitra)
 $sql_anggota_raw = "
     SELECT 
         member_name,
@@ -64,46 +65,45 @@ $sql_anggota_raw = "
         COALESCE(SUM(target_individu), 0) as total_target,
         COALESCE(SUM(realisasi_individu), 0) as total_realisasi
     FROM (
-        -- Pegawai
         SELECT 
-            p.nama as member_name, 
+            -- Logika Nama: Cek dari relasi anggota_tim dulu, kalau null cek langsung ke pegawai/mitra
+            COALESCE(p_rel.nama, m_rel.nama_lengkap, p_direct.nama, m_direct.nama_lengkap) as member_name,
             t.nama_tim,
             ka.target_anggota as target_individu, 
             ka.realisasi_anggota as realisasi_individu
         FROM kegiatan_anggota ka
-        JOIN anggota_tim at ON ka.anggota_id = at.id
-        JOIN tim t ON at.tim_id = t.id
-        JOIN pegawai p ON at.member_id = p.id
         JOIN kegiatan k ON ka.kegiatan_id = k.id
-        WHERE t.is_active = 1  -- REVISI: Filter Tim Aktif
-          AND LOWER(at.member_type) = 'pegawai' 
-          AND MONTH(k.batas_waktu) = ? AND YEAR(k.batas_waktu) = ?
-
-        UNION ALL
-
-        -- Mitra
-        SELECT 
-            m.nama_lengkap as member_name, 
-            t.nama_tim,
-            ka.target_anggota as target_individu, 
-            ka.realisasi_anggota as realisasi_individu
-        FROM kegiatan_anggota ka
-        JOIN anggota_tim at ON ka.anggota_id = at.id
-        JOIN tim t ON at.tim_id = t.id
-        JOIN mitra m ON at.member_id = m.id
-        JOIN kegiatan k ON ka.kegiatan_id = k.id
-        WHERE t.is_active = 1  -- REVISI: Filter Tim Aktif
-          AND LOWER(at.member_type) = 'mitra' 
-          AND MONTH(k.batas_waktu) = ? AND YEAR(k.batas_waktu) = ?
+        JOIN tim t ON k.tim_id = t.id
+        
+        -- JALUR 1: Jika ID yang disimpan adalah ID ANGGOTA TIM (Logika Lama)
+        LEFT JOIN anggota_tim at ON ka.anggota_id = at.id
+        LEFT JOIN pegawai p_rel ON at.member_id = p_rel.id AND at.member_type = 'pegawai'
+        LEFT JOIN mitra m_rel ON at.member_id = m_rel.id AND at.member_type = 'mitra'
+        
+        -- JALUR 2: Jika ID yang disimpan adalah ID PEGAWAI LANGSUNG (Logika Baru)
+        LEFT JOIN pegawai p_direct ON ka.anggota_id = p_direct.id
+        
+        -- JALUR 3: Jika ID yang disimpan adalah ID MITRA LANGSUNG (Logika Baru)
+        LEFT JOIN mitra m_direct ON ka.anggota_id = m_direct.id
+        
+        WHERE t.is_active = 1 
+          AND MONTH(k.batas_waktu) = ? 
+          AND YEAR(k.batas_waktu) = ?
+          AND ka.target_anggota > 0 -- Filter: Hanya ambil yang targetnya > 0
     ) as combined_data
+    WHERE member_name IS NOT NULL -- Buang data yang tidak punya nama (data hantu)
     GROUP BY member_name, nama_tim
 ";
 
 $stmt3 = $koneksi->prepare($sql_anggota_raw);
-// Parameter tetap 4 (bulan, tahun, bulan, tahun)
-$stmt3->bind_param("iiii", $bulan, $tahun, $bulan, $tahun); 
+
+// PERHATIKAN PERUBAHAN INI:
+// Karena kita tidak lagi pakai UNION, parameternya sekarang hanya 2 (Bulan, Tahun)
+// Jadi ubah "iiii" menjadi "ii"
+$stmt3->bind_param("ii", $bulan, $tahun); 
+
 $stmt3->execute();
-$res3 = $stmt3->get_result();
+$res3 = $stmt3->get_result();   
 
 
 $raw_data = [];

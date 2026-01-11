@@ -58,11 +58,14 @@ if (isset($release_status[$status_key]) && $release_status[$status_key] === true
     $is_released = true;
 }
 
-// Logika untuk admin: menampilkan daftar penilai yang sudah dan belum
+// =================================================================================
+// LOGIKA ADMIN: DAFTAR PENILAI
+// =================================================================================
 $pegawai_sudah_menilai = [];
 $pegawai_belum_menilai = [];
 
 if ($is_admin) {
+    // 1. Ambil Semua Pegawai Aktif
     $sql_all_pegawai = "SELECT id, nama FROM pegawai WHERE is_active = 1 ORDER BY nama ASC";
     $result_all_pegawai = mysqli_query($koneksi, $sql_all_pegawai);
     $all_pegawai_map = [];
@@ -72,6 +75,7 @@ if ($is_admin) {
         }
     }
 
+    // 2. Ambil Pegawai yang SUDAH Menilai
     $sql_rated_pegawai = "
         SELECT DISTINCT p.id, p.nama
         FROM penilaian_triwulan pt
@@ -79,7 +83,6 @@ if ($is_admin) {
         JOIN pegawai p ON pt.id_penilai = p.id
         WHERE pt.jenis_penilaian = ? AND ct.tahun = ? AND p.is_active = 1";
 
-    
     $params = [$filter_jenis, $filter_tahun];
     $types = "si";
 
@@ -100,20 +103,47 @@ if ($is_admin) {
     }
     $stmt_rated->close();
 
+    // 3. [BARU] Ambil ID CALON (Mereka tidak wajib/bisa menilai)
+    $sql_candidates = "SELECT id_pegawai FROM calon_triwulan WHERE jenis_penilaian = ? AND tahun = ?";
+    $cand_params = [$filter_jenis, $filter_tahun];
+    $cand_types = "si";
+
+    if ($filter_jenis === 'pegawai_prestasi') {
+        $sql_candidates .= " AND triwulan = ?";
+        $cand_params[] = $filter_triwulan;
+        $cand_types .= "i";
+    }
+
+    $stmt_cand = $koneksi->prepare($sql_candidates);
+    $stmt_cand->bind_param($cand_types, ...$cand_params);
+    $stmt_cand->execute();
+    $result_cand = $stmt_cand->get_result();
+    $candidate_ids = [];
+    while ($row = mysqli_fetch_assoc($result_cand)) {
+        $candidate_ids[] = $row['id_pegawai'];
+    }
+    $stmt_cand->close();
+
+    // 4. Filter Pegawai Belum Menilai (Exclude yang sudah menilai DAN Exclude Calon)
     foreach ($all_pegawai_map as $id => $nama) {
-        if (!in_array($id, $rated_pegawai_ids)) {
+        // Jika belum menilai DAN bukan calon
+        if (!in_array($id, $rated_pegawai_ids) && !in_array($id, $candidate_ids)) {
             $pegawai_belum_menilai[] = $nama;
         }
     }
 }
+// =================================================================================
 
-// Cek apakah semua pegawai sudah menilai
+// Cek apakah semua pegawai (yang wajib menilai) sudah menilai
 $all_rated = false;
-if (!empty($all_pegawai_map) && count($pegawai_sudah_menilai) >= count($all_pegawai_map)) {
+// Hitung total wajib menilai: Total Pegawai - Total Calon
+$total_wajib_menilai = count($all_pegawai_map) - count($candidate_ids);
+// Hindari pembagian/logika error jika total wajib 0
+if ($total_wajib_menilai > 0 && count($pegawai_sudah_menilai) >= $total_wajib_menilai) {
     $all_rated = true;
 }
 
-// Query utama untuk mengambil data pegawai berprestasi
+// Query utama untuk mengambil data hasil penilaian (ranking)
 $sql = "
     SELECT
         p.id,
@@ -459,7 +489,7 @@ $result_filter = mysqli_query($koneksi, $sql_filter);
                                     <li><?= htmlspecialchars($nama) ?></li>
                                 <?php endforeach; ?>
                             <?php else: ?>
-                                <li>Semua pegawai sudah menilai.</li>
+                                <li>Semua pegawai (non-kandidat) sudah menilai.</li>
                             <?php endif; ?>
                         </ul>
                     </div>

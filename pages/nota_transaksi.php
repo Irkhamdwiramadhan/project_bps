@@ -3,39 +3,49 @@
 session_start();
 include '../includes/koneksi.php';
 
-// Memastikan hanya super_admin dan admin_koperasi yang bisa mengakses halaman ini
+// Validasi Akses
 if (!isset($_SESSION['user_role']) || (!in_array('super_admin', $_SESSION['user_role']) && !in_array('admin_koperasi', $_SESSION['user_role']))) {
     die("Akses Ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.");
 }
 
-// Logika pengambilan data
-$pegawai_id = isset($_GET['pegawai_id']) ? intval($_GET['pegawai_id']) : '';
+// =================================================================
+// 1. TANGKAP FILTER (Sesuai dengan Rekap Transaksi)
+// =================================================================
+$filter_berdasarkan = isset($_GET['filter_berdasarkan']) ? $_GET['filter_berdasarkan'] : 'pegawai_semua';
+$pegawai_id = '';
+
+// Deteksi ID Pegawai dari string filter
+if (strpos($filter_berdasarkan, 'pegawai_') === 0) {
+    $pegawai_val = str_replace('pegawai_', '', $filter_berdasarkan);
+    if ($pegawai_val !== 'semua') {
+        $pegawai_id = intval($pegawai_val);
+    }
+}
+
 $periode = isset($_GET['periode']) ? $_GET['periode'] : 'harian';
 $tanggal_filter = isset($_GET['tanggal_filter']) ? $_GET['tanggal_filter'] : date('Y-m-d');
-$tanggal_awal = isset($_GET['tanggal_awal']) ? $_GET['tanggal_awal'] : '';
-$tanggal_akhir = isset($_GET['tanggal_akhir']) ? $_GET['tanggal_akhir'] : '';
+$tanggal_awal = isset($_GET['tanggal_awal']) ? $_GET['tanggal_awal'] : date('Y-m-01');
+$tanggal_akhir = isset($_GET['tanggal_akhir']) ? $_GET['tanggal_akhir'] : date('Y-m-d');
 
-// Persiapan kueri SQL
-$sql_rekap = "SELECT s.id, s.date, s.total, p.nama AS nama_pegawai,
-                     si.qty, si.price, pr.name AS nama_produk
-              FROM sales s
-              JOIN pegawai p ON s.pegawai_id = p.id
-              JOIN sales_items si ON s.id = si.sale_id
-              LEFT JOIN products pr ON si.product_id = pr.id
-              WHERE 1=1";
+// =================================================================
+// 2. BANGUN QUERY
+// =================================================================
 $params = [];
 $types = '';
+$where_clause = " WHERE 1=1";
 
+// A. Filter Pegawai
 if (!empty($pegawai_id)) {
-    $sql_rekap .= " AND s.pegawai_id = ?";
+    $where_clause .= " AND s.pegawai_id = ?";
     $params[] = $pegawai_id;
     $types .= 'i';
 }
 
+// B. Filter Tanggal
 switch ($periode) {
     case 'harian':
         if (!empty($tanggal_filter)) {
-            $sql_rekap .= " AND DATE(s.date) = ?";
+            $where_clause .= " AND DATE(s.date) = ?";
             $params[] = $tanggal_filter;
             $types .= 's';
         }
@@ -43,16 +53,48 @@ switch ($periode) {
     case 'mingguan':
     case 'bulanan':
         if (!empty($tanggal_awal) && !empty($tanggal_akhir)) {
-            $sql_rekap .= " AND DATE(s.date) BETWEEN ? AND ?";
+            $where_clause .= " AND DATE(s.date) BETWEEN ? AND ?";
             $params[] = $tanggal_awal;
             $params[] = $tanggal_akhir;
             $types .= 'ss';
         }
         break;
 }
-$sql_rekap .= " ORDER BY s.date ASC";
 
+// C. Tentukan Mode Query (Produk vs Transaksi)
+if ($filter_berdasarkan === 'produk_semua') {
+    // === MODE REKAP PRODUK ===
+    $judul_nota = "Rekap Penjualan Produk";
+    $sql_rekap = "SELECT 
+                    pr.name AS nama_produk, 
+                    SUM(si.qty) AS qty, 
+                    SUM(si.qty * si.price) AS subtotal,
+                    MIN(s.date) as date -- Ambil tanggal awal saja untuk display
+                  FROM sales_items si
+                  JOIN products pr ON si.product_id = pr.id
+                  JOIN sales s ON si.sale_id = s.id
+                  $where_clause
+                  GROUP BY pr.id, pr.name 
+                  ORDER BY qty DESC";
+} else {
+    // === MODE REKAP TRANSAKSI ===
+    $judul_nota = "Rekap Transaksi";
+    $sql_rekap = "SELECT s.id, s.date, p.nama AS nama_pegawai,
+                         si.qty, si.price, pr.name AS nama_produk,
+                         (si.qty * si.price) as subtotal
+                  FROM sales s
+                  JOIN pegawai p ON s.pegawai_id = p.id
+                  JOIN sales_items si ON s.id = si.sale_id
+                  LEFT JOIN products pr ON si.product_id = pr.id
+                  $where_clause
+                  ORDER BY s.date ASC";
+}
+
+// Eksekusi
 $stmt = $koneksi->prepare($sql_rekap);
+$transaksi_data = [];
+$total_penjualan = 0;
+$total_qty = 0;
 
 if ($stmt) {
     if (!empty($params)) {
@@ -60,38 +102,23 @@ if ($stmt) {
     }
     $stmt->execute();
     $result_rekap = $stmt->get_result();
-    $transaksi_data = $result_rekap->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
-} else {
-    $transaksi_data = [];
-}
-
-$total_penjualan = 0;
-$total_qty = 0;
-if (!empty($transaksi_data)) {
-    $sales_ids = array_unique(array_column($transaksi_data, 'id'));
-    if (!empty($sales_ids)) {
-        $sql_total = "SELECT SUM(total) as total_sum FROM sales WHERE id IN (" . implode(',', array_map('intval', $sales_ids)) . ")";
-        $result_total = mysqli_query($koneksi, $sql_total);
-        if ($result_total) {
-            $total_row = mysqli_fetch_assoc($result_total);
-            $total_penjualan = $total_row['total_sum'];
-        }
+    
+    while ($row = $result_rekap->fetch_assoc()) {
+        $transaksi_data[] = $row;
+        $total_qty += $row['qty'];
+        $total_penjualan += $row['subtotal'];
     }
-}
-// Untuk menghitung total qty dari semua transaksi
-foreach ($transaksi_data as $item) {
-    $total_qty += $item['qty'];
+    $stmt->close();
 }
 
-// Ambil nama bendahara dari database
+// Ambil nama bendahara
 $stmt_bendahara = $koneksi->prepare("SELECT pengaturan_nilai FROM pengaturan WHERE pengaturan_nama = 'nama_bendahara'");
 $stmt_bendahara->execute();
-$result_bendahara = $stmt_bendahara->get_result();
-$data_bendahara = $result_bendahara->fetch_assoc();
-$nama_bendahara = $data_bendahara['pengaturan_nilai'] ?? 'Bendahara Belum Diatur'; // Fallback jika data tidak ada
+$data_bendahara = $stmt_bendahara->get_result()->fetch_assoc();
+$nama_bendahara = $data_bendahara['pengaturan_nilai'] ?? 'Bendahara Belum Diatur'; 
 $stmt_bendahara->close();
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -251,16 +278,27 @@ $stmt_bendahara->close();
         
         <div class="details-transaksi">
             <div>
-                <p><span class="label">Tanggal:</span> <span class="value"><?= date('d F Y', strtotime($tanggal_filter)) ?></span></p>
-                <p><span class="label">Nomor Nota:</span> <span class="value">#<?= htmlspecialchars($transaksi_data[0]['id'] ?? 'N/A') ?></span></p>
+                <?php 
+                // Menentukan tampilan tanggal periode
+                $tgl_display = '';
+                if ($periode === 'harian') {
+                    $tgl_display = date('d F Y', strtotime($tanggal_filter));
+                } else {
+                    $tgl_display = date('d/m/Y', strtotime($tanggal_awal)) . ' - ' . date('d/m/Y', strtotime($tanggal_akhir));
+                }
+                ?>
+                <p><span class="label">Periode:</span> <span class="value"><?= $tgl_display ?></span></p>
+                <p><span class="label">Jenis Laporan:</span> <span class="value"><?= $judul_nota ?></span></p>
             </div>
             <div>
-                <?php if (!empty($pegawai_id)): ?>
-                    <p><span class="label">Pembeli:</span> <span class="value"><?= htmlspecialchars($transaksi_data[0]['nama_pegawai'] ?? 'N/A') ?></span></p>
+                <?php if (!empty($pegawai_id) && !empty($transaksi_data)): ?>
+                    <p><span class="label">Pembeli:</span> <span class="value"><?= htmlspecialchars($transaksi_data[0]['nama_pegawai'] ?? '-') ?></span></p>
+                <?php elseif ($filter_berdasarkan === 'pegawai_semua'): ?>
+                    <p><span class="label">Filter:</span> <span class="value">Semua Pegawai</span></p>
                 <?php else: ?>
-                    <p><span class="label">Tipe Nota:</span> <span class="value">Rekap Seluruh Pegawai</span></p>
+                    <p><span class="label">Filter:</span> <span class="value">Semua Produk</span></p>
                 <?php endif; ?>
-                <p><span class="label">Jumlah Item:</span> <span class="value"><?= $total_qty ?></span></p>
+                <p><span class="label">Total Qty:</span> <span class="value"><?= number_format($total_qty, 0, ',', '.') ?></span></p>
             </div>
         </div>
 
@@ -268,54 +306,98 @@ $stmt_bendahara->close();
             <thead>
                 <tr>
                     <th style="width: 30%;">Item</th>
-                    <?php if (empty($pegawai_id)): ?>
-                        <th style="width: 15%;">Pembeli</th>
+                    
+                    <?php if ($filter_berdasarkan !== 'produk_semua'): ?>
+                        <?php if (empty($pegawai_id)): ?>
+                            <th style="width: 20%;">Pembeli</th>
+                        <?php endif; ?>
+                        <th style="width: 15%;" class="date">Waktu</th>
                     <?php endif; ?>
-                    <th style="width: 15%;" class="date">Tanggal</th>
+
                     <th style="width: 10%;" class="qty">Qty</th>
-                    <th style="width: 15%;" class="price">Harga</th>
+                    
+                    <?php if ($filter_berdasarkan !== 'produk_semua'): ?>
+                        <th style="width: 15%;" class="price">Harga</th>
+                    <?php endif; ?>
+                    
                     <th style="width: 15%;" class="subtotal">Subtotal</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($transaksi_data as $item): ?>
-                <tr>
-                    <td class="item-name"><?= htmlspecialchars($item['nama_produk']) ?></td>
-                    <?php if (empty($pegawai_id)): ?>
-                        <td><?= htmlspecialchars($item['nama_pegawai']) ?></td>
-                    <?php endif; ?>
-                    <td class="date"><?= date('d/m/Y H:i:s', strtotime($item['date'])) ?></td>
-                    <td class="qty"><?= $item['qty'] ?></td>
-                    <td class="price">Rp <?= number_format($item['price'], 0, ',', '.') ?></td>
-                    <td class="subtotal">Rp <?= number_format($item['qty'] * $item['price'], 0, ',', '.') ?></td>
-                </tr>
-                <?php endforeach; ?>
+                <?php if (empty($transaksi_data)): ?>
+                    <tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada data ditemukan.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($transaksi_data as $item): ?>
+                    <tr>
+                        <td class="item-name"><?= htmlspecialchars($item['nama_produk']) ?></td>
+                        
+                        <?php if ($filter_berdasarkan !== 'produk_semua'): ?>
+                            <?php if (empty($pegawai_id)): ?>
+                                <td><?= htmlspecialchars($item['nama_pegawai']) ?></td>
+                            <?php endif; ?>
+                            <td class="date"><?= date('d/m/y H:i', strtotime($item['date'])) ?></td>
+                        <?php endif; ?>
+
+                        <td class="qty"><?= $item['qty'] ?></td>
+                        
+                        <?php if ($filter_berdasarkan !== 'produk_semua'): ?>
+                            <td class="price">Rp <?= number_format($item['price'], 0, ',', '.') ?></td>
+                        <?php endif; ?>
+                        
+                        <td class="subtotal">Rp <?= number_format($item['subtotal'], 0, ',', '.') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
 
+       
         <div class="total-summary">
+
             <p>
+
                 <span class="total-label">Subtotal:</span>
+
                 <span class="total-value">Rp <?= number_format($total_penjualan, 0, ',', '.') ?></span>
+
             </p>
+
             <p>
+
                 <span class="total-label">Diskon:</span>
+
                 <span class="total-value">Rp 0</span>
+
             </p>
+
             <p>
+
                 <span class="total-label" style="font-size: 1.2rem; color: #000;">Total Tagihan:</span>
+
                 <span class="total-value grand-total">Rp <?= number_format($total_penjualan, 0, ',', '.') ?></span>
+
             </p>
+
         </div>
+
         
+
         <div class="footer-nota">
+
             <p>Terima kasih telah berbelanja di B-S Mart!</p>
+
             <div style="margin-top: 15px;">
+
                 <p style="font-size: 0.9rem; font-weight: 500; color: #555;">Hormat Kami,</p>
+
                 <p style="font-size: 1.1rem; margin-top: 5px; color: #333; font-weight: 700;"><?= htmlspecialchars($nama_bendahara) ?></p>
+
                 <p style="font-size: 0.8rem; color: #888;">(Bendahara Koperasi)</p>
+
             </div>
+
         </div>
+
         <button onclick="window.print()" class="print-button"><i class="fas fa-print"></i> Cetak Nota</button>
     </div>
 </body>

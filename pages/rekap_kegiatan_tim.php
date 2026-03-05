@@ -14,13 +14,13 @@ if ($result_tim && $result_tim->num_rows > 0) {
     }
 }
 
-// 2. Ambil filter dari GET (Pastikan default value aman)
+// 2. Ambil filter dari GET
 $filter_bulan = isset($_GET['bulan']) ? $_GET['bulan'] : '';
 $filter_tahun = isset($_GET['tahun']) ? $_GET['tahun'] : date('Y');
 $filter_tim   = isset($_GET['tim_id']) ? $_GET['tim_id'] : '';
 
 // ===========================================================
-// QUERY UTAMA
+// QUERY UTAMA (REVISI: MENAMBAHKAN BULAN PEMBAYARAN AGAR SPESIFIK)
 // ===========================================================
 $sql = "
 SELECT
@@ -28,7 +28,6 @@ SELECT
     t.nama_tim,
     p.nama AS ketua_tim,
     
-    -- Ambil Nama Kegiatan
     (
         SELECT mk.nama
         FROM master_kegiatan mk
@@ -38,7 +37,6 @@ SELECT
     ) AS nama_kegiatan,
     ms.kegiatan_id AS kode_kegiatan,
 
-    -- Ambil Nama Item
     (
         SELECT mi.nama_item
         FROM master_item mi
@@ -48,8 +46,9 @@ SELECT
         LIMIT 1
     ) AS nama_item,
     hm.item_kode_unik,
+    hm.bulan_pembayaran, -- PENTING: Ambil data bulan aktual dari database
+    hm.tahun_pembayaran, -- PENTING: Ambil data tahun aktual dari database
 
-    -- Total Honor
     SUM(hm.total_honor) AS total_honor
 
 FROM honor_mitra hm
@@ -63,18 +62,14 @@ WHERE 1=1
 $params = [];
 $types = '';
 
-// --- FILTER BULAN (DIPERBAIKI) ---
+// Filter Bulan
 if (!empty($filter_bulan)) {
-    // Kita cari 2 kemungkinan: Format '01' (String) ATAU Format 1 (Int)
-    // Ini mengatasi masalah jika DB menyimpan 1 tapi form kirim 01, atau sebaliknya.
     $sql .= " AND (hm.bulan_pembayaran = ? OR hm.bulan_pembayaran = ?)";
-    
-    $bulan_str = str_pad($filter_bulan, 2, '0', STR_PAD_LEFT); // "01"
-    $bulan_int = (int)$filter_bulan; // 1
-    
+    $bulan_str = str_pad($filter_bulan, 2, '0', STR_PAD_LEFT); 
+    $bulan_int = (int)$filter_bulan; 
     $params[] = $bulan_str;
     $params[] = $bulan_int;
-    $types .= 'si'; // String & Integer
+    $types .= 'si'; 
 }
 
 // Filter Tahun
@@ -91,14 +86,15 @@ if (!empty($filter_tim)) {
     $types .= 'i';
 }
 
-// GROUP BY
+// GROUP BY (REVISI: Grouping dipecah per bulan agar tombol Edit/Detail akurat)
 $sql .= "
 GROUP BY 
     t.id, t.nama_tim, p.nama, 
     ms.kegiatan_id, 
-    hm.item_kode_unik
-    
-ORDER BY t.nama_tim ASC, nama_kegiatan ASC
+    hm.item_kode_unik,
+    hm.bulan_pembayaran,
+    hm.tahun_pembayaran
+ORDER BY t.nama_tim ASC, nama_kegiatan ASC, hm.bulan_pembayaran ASC
 ";
 
 $stmt = $koneksi->prepare($sql);
@@ -119,10 +115,10 @@ $result = $stmt->get_result();
 .form-select, .form-input, .btn-primary, .btn-success { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; }
 .btn-primary { background-color: #007bff; color: #fff; border: none; cursor: pointer; }
 .btn-primary:hover { background-color: #0056b3; }
-.btn-success { background-color: #28a745; color: #fff; border: none; cursor: pointer; text-decoration: none; }
-.btn-success:hover { background-color: #218838; }
 .btn-detail { background-color: #17a2b8; color: #fff; padding: 5px 10px; border-radius: 4px; text-decoration: none; }
 .btn-detail:hover { background-color: #117a8b; }
+.btn-edit { background-color: #ffc107; color: #212529; padding: 5px 10px; border-radius: 4px; text-decoration: none; margin-left: 5px; }
+.btn-edit:hover { background-color: #e0a800; color: #212529; }
 .btn-secondary { background-color: #6c757d; color: #fff; text-decoration: none; padding: 6px 10px; border-radius: 4px;}
 .btn-secondary:hover { background-color: #545b62; }
 </style>
@@ -141,15 +137,9 @@ $result = $stmt->get_result();
                         <option value="">-- Semua Bulan --</option>
                         <?php
                         for ($m=1; $m<=12; $m++) {
-                            // Value pakai 2 digit "01", "02"
                             $val = str_pad($m, 2, '0', STR_PAD_LEFT);
                             $nama = date('F', mktime(0,0,0,$m,1));
-                            
-                            // Logika selected yang aman (bandingkan string vs string)
-                            // Kita bandingkan apa yang ada di URL ($filter_bulan) dengan opsi ($val)
-                            // Kita juga cek versi integernya (1 == 01) agar dropdown tetap terpilih
                             $isSelected = ($filter_bulan == $val || $filter_bulan == $m) ? 'selected' : '';
-                            
                             echo "<option value='$val' $isSelected>$nama</option>";
                         }
                         ?>
@@ -175,8 +165,6 @@ $result = $stmt->get_result();
                 
                 <div style="align-self:end;">
                     <button type="submit" class="btn-primary">Filter</button>
-                    
-                    
                 </div>
             </div>
         </form>
@@ -185,6 +173,7 @@ $result = $stmt->get_result();
             <table class="table">
                 <thead>
                     <tr>
+                        <th>Bulan</th>
                         <th>Nama Tim</th>
                         <th>Ketua Tim</th>
                         <th>Nama Kegiatan</th>
@@ -197,19 +186,24 @@ $result = $stmt->get_result();
                     <?php if ($result && $result->num_rows > 0): ?>
                         <?php while($row = $result->fetch_assoc()): ?>
                             <tr>
+                                <td><span style="background:#e9ecef; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.85rem;"><?= date('M', mktime(0,0,0,(int)$row['bulan_pembayaran'],1)) ?></span></td>
                                 <td><?= htmlspecialchars($row['nama_tim'] ?? '-') ?></td>
                                 <td><?= htmlspecialchars($row['ketua_tim'] ?? '-') ?></td>
                                 <td><?= htmlspecialchars($row['nama_kegiatan'] ?? '-') ?></td>
                                 <td><?= htmlspecialchars($row['nama_item'] ?? '-') ?></td>
                                 <td>Rp <?= number_format($row['total_honor'], 0, ',', '.') ?></td>
-                                <td>
-                                    <a href="detail_rekap_kegiatan_tim.php?tim_id=<?= urlencode($row['tim_id']) ?>&kode_kegiatan=<?= urlencode($row['kode_kegiatan']) ?>&item_kode=<?= urlencode($row['item_kode_unik']) ?>&bulan=<?= urlencode($filter_bulan) ?>&tahun=<?= urlencode($filter_tahun) ?>" class="btn-detail">Detail</a>
-                                </td>
+                                <td style="white-space: nowrap;">
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <a href="detail_rekap_kegiatan_tim.php?tim_id=<?= urlencode($row['tim_id']) ?>&kode_kegiatan=<?= urlencode($row['kode_kegiatan']) ?>&item_kode=<?= urlencode($row['item_kode_unik']) ?>&bulan=<?= urlencode($row['bulan_pembayaran']) ?>&tahun=<?= urlencode($row['tahun_pembayaran']) ?>" class="btn-detail">Detail</a>
+        
+        <a href="edit_kegiatan.php?tim_id=<?= urlencode($row['tim_id']) ?>&kode_kegiatan=<?= urlencode($row['kode_kegiatan']) ?>&item_kode=<?= urlencode($row['item_kode_unik']) ?>&bulan=<?= urlencode($row['bulan_pembayaran']) ?>&tahun=<?= urlencode($row['tahun_pembayaran']) ?>" class="btn-edit" style="margin-left: 0;">Edit</a>
+    </div>
+</td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" style="text-align:center;">
+                            <td colspan="7" style="text-align:center;">
                                 Tidak ada data ditemukan. <br>
                                 <small>Coba ubah filter bulan atau tahun.</small>
                             </td>

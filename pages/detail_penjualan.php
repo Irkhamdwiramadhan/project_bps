@@ -8,7 +8,7 @@ $sale_details = null;
 $sale_items = [];
 
 if ($sale_id) {
-    // Ambil detail penjualan, termasuk nama pegawai
+    // Ambil detail penjualan
     $sql_sale = "SELECT s.id, s.date, s.total, p.nama AS pegawai_nama 
                  FROM sales s
                  JOIN pegawai p ON s.pegawai_id = p.id
@@ -20,8 +20,7 @@ if ($sale_id) {
     $sale_details = $result_sale->fetch_assoc();
     $stmt_sale->close();
 
-    // Ambil semua item yang ada dalam penjualan ini
-    // Perubahan: Menambahkan p.id AS product_id untuk keperluan hapus
+    // Ambil item penjualan
     $sql_items = "SELECT si.qty, si.price, p.name AS product_name, p.id AS product_id
                   FROM sales_items si 
                   JOIN products p ON si.product_id = p.id 
@@ -57,18 +56,26 @@ if ($sale_id) {
                 <thead>
                     <tr>
                         <th>Nama Produk</th>
-                        <th>Jumlah Beli</th>
-                        <th>Subtotal</th>
-                        <th>Aksi</th>
+                        <th>Harga Satuan</th> <th>Jumlah Beli</th>
+                        <th>Subtotal</th>     <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (!empty($sale_items)) : ?>
                         <?php foreach ($sale_items as $item) : ?>
+                            <?php 
+                                // Hitung Subtotal di sini (Harga x Jumlah)
+                                $subtotal_item = $item['price'] * $item['qty'];
+                            ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($item['product_name']); ?></td>
-                                <td><?php echo htmlspecialchars($item['qty']); ?></td>
+                                
                                 <td>Rp <?php echo number_format($item['price'], 0, ',', '.'); ?></td>
+                                
+                                <td><?php echo htmlspecialchars($item['qty']); ?></td>
+                                
+                                <td>Rp <?php echo number_format($subtotal_item, 0, ',', '.'); ?></td>
+                                
                                 <td>
                                     <form action="../proses/proses_hapus_item_penjualan.php" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus item ini?');">
                                         <input type="hidden" name="sale_id" value="<?php echo htmlspecialchars($sale_id); ?>">
@@ -80,7 +87,7 @@ if ($sale_id) {
                         <?php endforeach; ?>
                     <?php else : ?>
                         <tr>
-                            <td colspan="4" style="text-align:center;">Tidak ada barang yang terjual.</td>
+                            <td colspan="5" style="text-align:center;">Tidak ada barang yang terjual.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

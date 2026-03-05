@@ -20,7 +20,7 @@ $filter_bulan = $_GET['bulan'] ?? '';
 $filter_tahun = $_GET['tahun'] ?? '';
 $filter_tim   = $_GET['tim'] ?? '';
 
-// 2. Susun Query
+// 2. Susun Query Filter
 $conditions = [];
 $label_file = "Semua_Data";
 
@@ -43,30 +43,40 @@ if (count($conditions) > 0) {
 }
 
 // ==========================================================================
-// REVISI QUERY: MENGGUNAKAN GROUP_CONCAT UNTUK MENGAMBIL ANGGOTA
+// REVISI QUERY: LOGIKA UNIVERSAL + FILTER TARGET > 0
 // ==========================================================================
 $query = "SELECT 
             k.*, 
             t.nama_tim AS asal_kegiatan,
             GROUP_CONCAT(
                 DISTINCT 
-                CASE 
-                    WHEN at.member_type = 'pegawai' THEN p.nama
-                    WHEN at.member_type = 'mitra' THEN m.nama_lengkap
-                END
+                -- Ambil Nama (Cek via Relasi dulu, kalau null cek via Direct ID)
+                COALESCE(p_rel.nama, m_rel.nama_lengkap, p_direct.nama, m_direct.nama_lengkap)
                 SEPARATOR ', '
             ) AS daftar_anggota
           FROM kegiatan k 
           LEFT JOIN tim t ON k.tim_id = t.id 
-          -- Join ke tabel relasi anggota
+          
+          -- Join ke tabel transaksi anggota
           LEFT JOIN kegiatan_anggota ka ON k.id = ka.kegiatan_id
+          
+          -- JALUR 1: Cek via tabel anggota_tim (Logika Lama)
           LEFT JOIN anggota_tim at ON ka.anggota_id = at.id
-          -- Join ke tabel Pegawai & Mitra
-          LEFT JOIN pegawai p ON at.member_id = p.id AND at.member_type = 'pegawai'
-          LEFT JOIN mitra m ON at.member_id = m.id AND at.member_type = 'mitra'
+          LEFT JOIN pegawai p_rel ON at.member_id = p_rel.id AND at.member_type = 'pegawai'
+          LEFT JOIN mitra m_rel ON at.member_id = m_rel.id AND at.member_type = 'mitra'
+          
+          -- JALUR 2: Cek via Pegawai Langsung (Logika Baru)
+          LEFT JOIN pegawai p_direct ON ka.anggota_id = p_direct.id
+          
+          -- JALUR 3: Cek via Mitra Langsung (Logika Baru)
+          LEFT JOIN mitra m_direct ON ka.anggota_id = m_direct.id
           
           $where_clause 
-          GROUP BY k.id  -- Penting: Group by ID Kegiatan agar tidak duplikat
+          
+          -- Tambahan: Pastikan hanya mengambil anggota yang targetnya > 0 (Terlibat)
+          AND ka.target_anggota > 0
+          
+          GROUP BY k.id 
           ORDER BY k.batas_waktu ASC";
 
 $result = mysqli_query($koneksi, $query);
@@ -85,10 +95,10 @@ $styleHeader = [
 ];
 $styleData = [
     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-    'alignment' => ['vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true] // Wrap Text agar nama anggota rapi
+    'alignment' => ['vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true] 
 ];
 
-// Header Kolom (Ditambah kolom ANGGOTA TIM)
+// Header Kolom
 $headers = ['NO', 'NAMA KEGIATAN', 'TIM', 'ANGGOTA TIM', 'TARGET', 'REALISASI', 'SATUAN', 'BATAS WAKTU', 'TGL REALISASI', 'KETERANGAN'];
 $colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
@@ -107,7 +117,7 @@ while ($row = mysqli_fetch_assoc($result)) {
     $sheet->setCellValue('B' . $rowNum, $row['nama_kegiatan']);
     $sheet->setCellValue('C' . $rowNum, $row['asal_kegiatan']);
     
-    // Masukkan Daftar Anggota (Jika kosong strip)
+    // Daftar Anggota
     $anggota = !empty($row['daftar_anggota']) ? $row['daftar_anggota'] : '-';
     $sheet->setCellValue('D' . $rowNum, $anggota);
     
@@ -116,19 +126,18 @@ while ($row = mysqli_fetch_assoc($result)) {
     $sheet->setCellValue('G' . $rowNum, $row['satuan']);
     $sheet->setCellValue('H' . $rowNum, date('d-m-Y', strtotime($row['batas_waktu'])));
     
-    $tgl_real = !empty($row['updated_at']) ? date('d-m-Y', strtotime($row['updated_at'])) : '-';
+    $tgl_real = (!empty($row['updated_at']) && $row['realisasi'] > 0) ? date('d-m-Y', strtotime($row['updated_at'])) : '-';
     $sheet->setCellValue('I' . $rowNum, $tgl_real);
     
     $sheet->setCellValue('J' . $rowNum, $row['keterangan']);
 
-    // Apply Border & Style
+    // Apply Style
     $sheet->getStyle("A$rowNum:J$rowNum")->applyFromArray($styleData);
     $rowNum++;
 }
 
 // Auto Size Columns
 foreach ($colLetters as $col) {
-    // Khusus kolom Anggota (D), jangan autosize terlalu lebar, set manual saja biar rapi (wrap text)
     if ($col == 'D') {
         $sheet->getColumnDimension($col)->setWidth(40);
     } elseif ($col == 'B') {

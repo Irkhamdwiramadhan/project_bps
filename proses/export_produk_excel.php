@@ -1,11 +1,8 @@
 <?php
-// Mencegah output sampah sebelum file didownload
+// Mencegah output sampah
 ob_start();
 session_start();
 
-// Sesuaikan path ini dengan struktur folder Anda
-// Jika file ini ada di folder 'pages', path ke vendor biasanya '../vendor/autoload.php'
-// Jika error "failed to open stream", coba sesuaikan path '../vendor' menjadi '../../vendor' dll.
 require '../vendor/autoload.php'; 
 include '../includes/koneksi.php';
 
@@ -71,8 +68,13 @@ switch ($periode) {
         $info_periode = "Semua Waktu";
 }
 
-// LOGIKA PEMILIHAN QUERY
+// =================================================================
+// 3. LOGIKA UTAMA (PEMBEDA PRODUK VS TRANSAKSI)
+// =================================================================
+
+// Cek apakah user meminta filter PRODUK
 if ($filter_berdasarkan === 'produk_semua') {
+    
     // --- MODE 1: REKAP PRODUK ---
     $judul_sheet = "Rekap Produk Terjual";
     $sql = "SELECT 
@@ -87,8 +89,11 @@ if ($filter_berdasarkan === 'produk_semua') {
             $where_clause
             GROUP BY pr.id, pr.name 
             ORDER BY total_jumlah DESC";
+
 } else {
-    // --- MODE 2: REKAP TRANSAKSI ---
+    
+    // --- MODE 2: REKAP TRANSAKSI (PEGAWAI) ---
+    // Logika: Jika bukan 'produk_semua', maka pasti Pegawai (Semua atau Spesifik)
     $judul_sheet = "Rekap Transaksi Penjualan";
     $sql = "SELECT s.id, s.date, p.nama AS nama_pegawai,
                    si.qty, si.price, pr.name AS nama_produk
@@ -100,7 +105,7 @@ if ($filter_berdasarkan === 'produk_semua') {
             ORDER BY s.date DESC";
 }
 
-// Eksekusi
+// Eksekusi Query
 $stmt = $koneksi->prepare($sql);
 $data = [];
 if ($stmt) {
@@ -114,17 +119,16 @@ if ($stmt) {
 }
 
 // =================================================================
-// 3. EXCEL GENERATION
+// 4. BUAT EXCEL
 // =================================================================
 $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();
 $sheet->setTitle('Laporan');
 
-// Style
 $styleHeader = [
     'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4A90E2']],
-    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
 ];
 $styleData = [
@@ -141,7 +145,7 @@ $sheet->getStyle('A1:A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_C
 $row = 4;
 
 if ($filter_berdasarkan === 'produk_semua') {
-    // Layout Produk
+    // --- LAYOUT PRODUK ---
     $sheet->mergeCells('A1:E1');
     $sheet->mergeCells('A2:E2');
     $headers = ['No', 'Nama Produk', 'Periode Terjual', 'Jumlah Terjual', 'Total Pendapatan (Rp)'];
@@ -173,12 +177,12 @@ if ($filter_berdasarkan === 'produk_semua') {
     
     $sheet->setCellValue('D' . $row, 'TOTAL');
     $sheet->setCellValue('E' . $row, $total_all);
-    $sheet->getStyle("A4:E$row")->applyFromArray($styleData);
+    $sheet->getStyle("A$row:E$row")->applyFromArray($styleData);
     $sheet->getStyle("D$row:E$row")->getFont()->setBold(true);
     $sheet->getStyle("E5:E$row")->getNumberFormat()->setFormatCode('#,##0');
 
 } else {
-    // Layout Transaksi
+    // --- LAYOUT TRANSAKSI ---
     $sheet->mergeCells('A1:H1');
     $sheet->mergeCells('A2:H2');
     $headers = ['No', 'ID Sales', 'Waktu', 'Pegawai', 'Produk', 'Qty', 'Harga (Rp)', 'Subtotal (Rp)'];
@@ -210,13 +214,14 @@ if ($filter_berdasarkan === 'produk_semua') {
 
     $sheet->setCellValue('G' . $row, 'TOTAL');
     $sheet->setCellValue('H' . $row, $total_all);
-    $sheet->getStyle("A4:H$row")->applyFromArray($styleData);
+    
+    $sheet->getStyle("A$row:H$row")->applyFromArray($styleData);
     $sheet->getStyle("G$row:H$row")->getFont()->setBold(true);
     $sheet->getStyle("G5:H$row")->getNumberFormat()->setFormatCode('#,##0');
 }
 
-// Output
-if (ob_get_length()) ob_end_clean(); // Bersihkan output buffer agar file tidak corrupt
+// --- OUTPUT ---
+if (ob_get_length()) ob_end_clean();
 $filename = 'Laporan_' . str_replace(' ', '_', $judul_sheet) . '_' . date('Ymd_His') . '.xlsx';
 
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

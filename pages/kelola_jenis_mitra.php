@@ -72,6 +72,8 @@ $tahun_sekarang = date('Y');
 
         <form action="../proses/proses_simpan_anggota_tim.php" method="POST" id="form-kelola-tim">
             
+            <input type="hidden" name="mitra_terpilih_json" id="mitra_terpilih_json">
+
             <div class="form-group">
                 <label for="tim_id">Pilih Tim</label>
                 <select id="tim_id" name="tim_id" class="form-select" required>
@@ -115,7 +117,9 @@ $tahun_sekarang = date('Y');
                     <div class="dual-listbox-box">
                         <label class="list-title" for="search-terpilih" style="margin-bottom: 10px;">Anggota Tim Terpilih</label>
                         <input type="text" id="search-terpilih" class="form-input search-input" placeholder="Cari anggota terpilih...">
-                        <select multiple id="list-terpilih" name="mitra_terpilih[]" class="dual-listbox-select"></select>
+                        
+                        <select multiple id="list-terpilih" class="dual-listbox-select"></select>
+                        
                         <div class="list-counter">Total: <span id="count-terpilih">0</span></div>
                     </div>
                 </div>
@@ -135,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variabel Global
     let mitraPool = []; // Data mitra tersedia (sesuai tahun filter)
     let teamMembers = []; // Data anggota tim saat ini (bisa dari berbagai tahun)
-    let anggotaIds = new Set(); // Set ID anggota terpilih
+    let anggotaIds = new Set(); // Set ID anggota terpilih (Single Source of Truth)
 
     const timSelect = document.getElementById('tim_id');
     const filterTahun = document.getElementById('filter_tahun');
@@ -155,6 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnRemove = document.getElementById('btn-remove');
     const btnRemoveAll = document.getElementById('btn-remove-all');
     const form = document.getElementById('form-kelola-tim');
+    const inputHiddenJson = document.getElementById('mitra_terpilih_json'); // Referensi ke input hidden
 
     // --- FUNGSI: Load Mitra Tersedia by Tahun ---
     function fetchMitraTersedia(tahun) {
@@ -182,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`get_mitra_by_tim.php?tim_id=${timId}`)
             .then(res => res.json())
             .then(data => {
-                // Simpan data lengkap anggota tim agar nama tidak hilang saat filter tahun kiri berubah
+                // Simpan data lengkap anggota tim
                 teamMembers = data.map(m => ({
                     ...m,
                     id: parseInt(m.id, 10)
@@ -191,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update Set ID
                 anggotaIds = new Set(teamMembers.map(m => m.id));
                 
-                // Setelah data tim siap, baru load data tersedia (sesuai tahun default/pilihan)
+                // Load mitra tersedia
                 fetchMitraTersedia(filterTahun.value);
             })
             .catch(err => {
@@ -208,19 +213,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const qTersedia = searchTersedia.value.toLowerCase();
         const qTerpilih = searchTerpilih.value.toLowerCase();
 
-        // 1. Render KANAN (Anggota Tim) - Sumber dari 'teamMembers' + 'anggotaIds'
-        // Kita harus memastikan list kanan berisi semua ID yang ada di anggotaIds
-        // Gabungkan 'teamMembers' dengan 'mitraPool' untuk mendapatkan nama jika ada penambahan baru
-        
-        // Buat Map ID -> Nama dari kedua sumber data untuk referensi
+        // Map ID -> Nama
         const nameMap = new Map();
         teamMembers.forEach(m => nameMap.set(m.id, m.nama_lengkap));
         mitraPool.forEach(m => nameMap.set(m.id, m.nama_lengkap));
 
+        // 1. Render KANAN (Anggota Tim)
         let countRight = 0;
         anggotaIds.forEach(id => {
             const nama = nameMap.get(id) || `Mitra ID: ${id} (Nama tidak termuat)`;
             
+            // Filter Search Kanan (Hanya visual, data asli tetap di Set anggotaIds)
             if (nama.toLowerCase().includes(qTerpilih)) {
                 const option = document.createElement('option');
                 option.value = id;
@@ -230,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // 2. Render KIRI (Tersedia) - Sumber dari 'mitraPool' (sesuai tahun)
+        // 2. Render KIRI (Tersedia)
         let countLeft = 0;
         mitraPool.forEach(mitra => {
             // Hanya tampilkan jika BELUM menjadi anggota
@@ -250,14 +253,14 @@ document.addEventListener('DOMContentLoaded', function() {
         listTersedia.appendChild(fragTersedia);
         listTerpilih.appendChild(fragTerpilih);
         
-        // Update Counter
         countTersedia.textContent = countLeft;
-        countTerpilih.textContent = countRight;
+        countTerpilih.textContent = countRight; // Menghitung total data asli di set, bukan cuma yg tampil? Sebaiknya yg tampil.
+        // Koreksi: Kode di atas menghitung yg TAMPIL. Jika ingin total asli, gunakan anggotaIds.size
+        // Tapi untuk search experience, menghitung yg tampil (filtered) lebih umum. Kita biarkan counter visual ini.
     }
 
     // --- EVENT LISTENERS ---
 
-    // 1. Ganti Tim
     timSelect.addEventListener('change', function() {
         const timId = this.value;
         if (!timId) {
@@ -268,16 +271,13 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchAnggotaTim(timId);
     });
 
-    // 2. Ganti Filter Tahun
     filterTahun.addEventListener('change', function() {
         fetchMitraTersedia(this.value);
     });
 
-    // 3. Pencarian
     searchTersedia.addEventListener('input', populateLists);
     searchTerpilih.addEventListener('input', populateLists);
 
-    // 4. Tombol Pindah
     function moveSelectedItems(sourceList, destList, isAdding) {
         const selectedOptions = Array.from(sourceList.selectedOptions);
         if (selectedOptions.length === 0) return; 
@@ -285,20 +285,16 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedOptions.forEach(option => {
             const id = parseInt(option.value); 
             
-            // Jika Menambah (Kiri -> Kanan)
             if (isAdding) {
                 anggotaIds.add(id);
-                // Pastikan data mitra ini masuk ke teamMembers sementara agar namanya tersimpan jika filter tahun berubah
+                // Cache data mitra agar nama tidak hilang
                 const mitraData = mitraPool.find(m => m.id === id);
                 if(mitraData) {
-                    // Cek apakah sudah ada di teamMembers, jika belum push
                     if (!teamMembers.some(m => m.id === id)) {
                         teamMembers.push(mitraData);
                     }
                 }
-            } 
-            // Jika Menghapus (Kanan -> Kiri)
-            else {
+            } else {
                 anggotaIds.delete(id);
             }
         });
@@ -309,10 +305,10 @@ document.addEventListener('DOMContentLoaded', function() {
     btnRemove.addEventListener('click', () => moveSelectedItems(listTerpilih, listTersedia, false));
 
     btnAddAll.addEventListener('click', () => {
+        // Ambil semua opsi yg terlihat (filtered)
         Array.from(listTersedia.options).forEach(opt => {
             const id = parseInt(opt.value);
             anggotaIds.add(id);
-            // Simpan ref nama
             const mitraData = mitraPool.find(m => m.id === id);
             if(mitraData && !teamMembers.some(m => m.id === id)) teamMembers.push(mitraData);
         });
@@ -320,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     btnRemoveAll.addEventListener('click', () => {
-        // Hapus hanya yang sedang tampil di list kanan (kena filter search)
+        // Hapus semua opsi yg terlihat (filtered)
         Array.from(listTerpilih.options).forEach(opt => anggotaIds.delete(parseInt(opt.value)));
         populateLists();
     });
@@ -328,12 +324,16 @@ document.addEventListener('DOMContentLoaded', function() {
     listTersedia.addEventListener('dblclick', () => moveSelectedItems(listTersedia, listTerpilih, true));
     listTerpilih.addEventListener('dblclick', () => moveSelectedItems(listTerpilih, listTersedia, false));
 
-    // 5. Submit
+    // --- 5. PERBAIKAN LOGIC SUBMIT (PENTING) ---
     form.addEventListener('submit', function() {
-        // Pilih semua opsi di list kanan agar terkirim
-        Array.from(listTerpilih.options).forEach(option => {
-            option.selected = true;
-        });
+        // Konversi Set ID ke Array
+        const allSelectedIds = Array.from(anggotaIds);
+        
+        // Masukkan ke input hidden dalam bentuk string JSON
+        inputHiddenJson.value = JSON.stringify(allSelectedIds);
+        
+        // Debugging di console (bisa dihapus nanti)
+        // console.log("Data yang dikirim:", inputHiddenJson.value);
     });
 
 });

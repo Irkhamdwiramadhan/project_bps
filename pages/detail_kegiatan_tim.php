@@ -37,34 +37,39 @@ $sql_terlibat = "
         ka.anggota_id,
         ka.target_anggota,
         ka.realisasi_anggota,
-        -- Ambil Nama (Cek via Relasi dulu, kalau null cek via Direct ID)
-        COALESCE(p_rel.nama, m_rel.nama_lengkap, p_direct.nama, m_direct.nama_lengkap, 'Tanpa Nama') as nama_lengkap,
-        -- Ambil ID Asli Orangnya (untuk filter 'Tidak Terlibat' nanti)
-        COALESCE(p_rel.id, p_direct.id) as pegawai_id,
-        COALESCE(m_rel.id, m_direct.id) as mitra_id,
+        -- Langsung ambil nama dari tabel orangnya
+        COALESCE(p.nama, m.nama_lengkap, 'Tanpa Nama') as nama_lengkap,
+        -- ID Asli
+        p.id as pegawai_id,
+        m.id as mitra_id,
         CASE 
-            WHEN p_rel.id IS NOT NULL OR p_direct.id IS NOT NULL THEN 'pegawai'
+            WHEN p.id IS NOT NULL THEN 'pegawai'
             ELSE 'mitra'
         END as tipe_anggota
     FROM kegiatan_anggota ka
     
-    -- JALUR 1: Cek via tabel anggota_tim (Old Logic)
-    LEFT JOIN anggota_tim at ON ka.anggota_id = at.id
-    LEFT JOIN pegawai p_rel ON at.member_id = p_rel.id AND at.member_type = 'pegawai'
-    LEFT JOIN mitra m_rel ON at.member_id = m_rel.id AND at.member_type = 'mitra'
+    -- [REVISI] HAPUS JOIN ke anggota_tim karena ID tidak cocok
+    -- JOIN anggota_tim at ON ka.anggota_id = at.id  <-- INI BIANG KEROKNYA
     
-    -- JALUR 2: Cek via Pegawai Langsung (New Logic)
-    LEFT JOIN pegawai p_direct ON ka.anggota_id = p_direct.id
+    -- [SOLUSI] Langsung Join ke Pegawai & Mitra
+    -- Kita perlu filter tambahan agar tidak 'clash' jika ada ID Pegawai = 5 DAN ID Mitra = 5
+    -- Caranya: Pastikan orang tersebut memang ada di TIM yang sedang dilihat (tim_id)
     
-    -- JALUR 3: Cek via Mitra Langsung (New Logic)
-    LEFT JOIN mitra m_direct ON ka.anggota_id = m_direct.id
+    LEFT JOIN pegawai p ON ka.anggota_id = p.id 
+        AND EXISTS (SELECT 1 FROM anggota_tim at_p WHERE at_p.member_id = p.id AND at_p.member_type = 'pegawai' AND at_p.tim_id = ?)
+        
+    LEFT JOIN mitra m ON ka.anggota_id = m.id 
+        AND EXISTS (SELECT 1 FROM anggota_tim at_m WHERE at_m.member_id = m.id AND at_m.member_type = 'mitra' AND at_m.tim_id = ?)
     
     WHERE ka.kegiatan_id = ?
+    -- Tambahan: Pastikan yang diambil yang datanya ketemu (salah satu join berhasil)
+    AND (p.id IS NOT NULL OR m.id IS NOT NULL)
     ORDER BY nama_lengkap ASC
 ";
 
 $stmt_terlibat = $koneksi->prepare($sql_terlibat);
-$stmt_terlibat->bind_param("i", $kegiatan_id);
+// Parameter bind nambah jadi 3 (tim_id untuk filter pegawai, tim_id untuk filter mitra, kegiatan_id)
+$stmt_terlibat->bind_param("iii", $tim_id, $tim_id, $kegiatan_id);
 $stmt_terlibat->execute();
 $res_terlibat = $stmt_terlibat->get_result();
 
